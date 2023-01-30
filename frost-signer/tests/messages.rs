@@ -2,10 +2,11 @@ use frost::common::PublicNonce;
 use frost_signer::signing_round::{DkgBegin, MessageTypes, SignatureShareRequest, SigningRound};
 
 fn setup_signer(total: usize, threshold: usize) -> SigningRound {
-    let my_id = 1;
-    let mut signer = SigningRound::new(my_id, threshold, total);
-    signer.reset();
-    signer
+    todo!()
+    // let my_id = 1;
+    // let mut signer = SigningRound::new(my_id, threshold, total);
+    // signer.reset();
+    // signer
 }
 
 #[test]
