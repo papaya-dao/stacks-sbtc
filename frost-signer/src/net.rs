@@ -1,9 +1,7 @@
 use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
-use slog::{slog_debug, slog_info, slog_warn};
-
-use stacks_common::{debug, info, warn};
+use tracing::{debug, info, warn};
 
 use crate::signing_round;
 

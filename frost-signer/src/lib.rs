@@ -1,4 +1,5 @@
 pub mod config;
+pub mod logging;
 pub mod net;
 pub mod signing_round;
 pub mod state_machine;

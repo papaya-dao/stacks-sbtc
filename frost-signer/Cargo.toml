@@ -1,5 +1,5 @@
 [package]
-name = "stacks-signer"
+name = "frost-signer"
 version = "0.0.1"
 license = "GPLv3"
 homepage = "https://github.com/blockstack/stacks-blockchain"
@@ -29,14 +29,8 @@ rand_core = { version  = "0.5"}
 p256k1 = { git = "https://github.com/Trust-Machines/p256k1", branch = "sbtc" }
 serde = { version = "1.0", features = ["serde_derive"] }
 sha3 = "0.10.6"
-slog-json = { version = "2.3.0", optional = true }
-slog-term = "2.6.0"
-slog = { version = "2.5.2", features = [ "max_level_trace" ] }
-stacks-common = { path = "../../stacks-common" }
 thiserror = "1.0"
 toml = "0.5.9"
+tracing = "0.1.37"
+tracing-subscriber = "0.3.16"
 ureq = { version = "2.6", features = [] }
-
-[build-dependencies]
-build-utils = { path = "../../build-utils" }
-

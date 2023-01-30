@@ -1,16 +1,18 @@
 use clap::Parser;
 use hashbrown::HashSet;
-use slog::slog_info;
+use tracing::info;
 
-use stacks_common::info;
-use stacks_signer::config::Config;
-use stacks_signer::net::{HttpNet, HttpNetError, HttpNetListen, Message, NetListen};
-use stacks_signer::signing_round::{DkgBegin, MessageTypes, NonceRequest};
+use frost_signer::config::Config;
+use frost_signer::logging;
+use frost_signer::net::{HttpNet, HttpNetError, HttpNetListen, Message, NetListen};
+use frost_signer::signing_round::{DkgBegin, MessageTypes, NonceRequest};
 
 const DEVNET_COORDINATOR_ID: usize = 0;
 const DEVNET_COORDINATOR_DKG_ID: u64 = 0; //TODO: Remove, this is a correlation id
 
 fn main() {
+    logging::initiate_tracing_subscriber(tracing::Level::INFO).unwrap();
+
     let cli = Cli::parse();
     let config = Config::from_file("conf/stacker.toml").unwrap();
 
@@ -123,7 +125,8 @@ where
                 }
                 (_, _) => {
                     info!("wait for dkg catchall");
-                    ()},
+                    ()
+                }
             }
             info!("wait for dkg bottom loop")
         }

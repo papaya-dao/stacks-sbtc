@@ -1,2 +1,2 @@
 [workspace]
-members = ["relay-server", "stacks-signer"]
+members = ["relay-server", "frost-signer"]

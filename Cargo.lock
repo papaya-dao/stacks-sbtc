@@ -338,6 +338,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "frost-signer"
+version = "0.0.1"
+dependencies = [
+ "backoff",
+ "bincode",
+ "clap 4.1.4",
+ "frost",
+ "hashbrown",
+ "itertools",
+ "p256k1",
+ "rand_core 0.5.1",
+ "serde",
+ "sha3",
+ "thiserror",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
+ "ureq",
+]
+
+[[package]]
 name = "generic-array"
 version = "0.14.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -948,27 +969,6 @@ name = "spin"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
-
-[[package]]
-name = "stacks-signer"
-version = "0.0.1"
-dependencies = [
- "backoff",
- "bincode",
- "clap 4.1.4",
- "frost",
- "hashbrown",
- "itertools",
- "p256k1",
- "rand_core 0.5.1",
- "serde",
- "sha3",
- "thiserror",
- "toml",
- "tracing",
- "tracing-subscriber",
- "ureq",
-]
 
 [[package]]
 name = "strsim"
