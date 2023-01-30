@@ -125,7 +125,6 @@ where
                 }
                 (_, _) => {
                     info!("wait for dkg catchall");
-                    ()
                 }
             }
             info!("wait for dkg bottom loop")
@@ -137,7 +136,7 @@ where
             self.network.poll(self.id);
             self.network
                 .next_message()
-                .ok_or("No message yet".to_owned())
+                .ok_or_else(|| "No message yet".to_owned())
                 .map_err(backoff::Error::transient)
         };
 

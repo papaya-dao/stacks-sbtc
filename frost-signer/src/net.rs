@@ -111,7 +111,7 @@ impl Net for HttpNet {
             }
             Err(e) => {
                 info!("post failed to {} {}", self.stacks_node_url, e);
-                return Err(e.into());
+                return Err(Box::new(e).into());
             }
         };
 
@@ -125,7 +125,7 @@ pub enum HttpNetError {
     SerializationError(#[from] bincode::Error),
 
     #[error("Network error: {0}")]
-    NetworkError(#[from] ureq::Error),
+    NetworkError(#[from] Box<ureq::Error>),
 }
 
 fn url_with_id(base: &str, id: u64) -> String {

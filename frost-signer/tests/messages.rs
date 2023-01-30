@@ -1,5 +1,5 @@
 use frost::common::PublicNonce;
-use stacks_signer::signing_round::{DkgBegin, MessageTypes, SignatureShareRequest, SigningRound};
+use frost_signer::signing_round::{DkgBegin, MessageTypes, SignatureShareRequest, SigningRound};
 
 fn setup_signer(total: usize, threshold: usize) -> SigningRound {
     let my_id = 1;

@@ -138,14 +138,14 @@ impl SigningRound {
         let frost_signer = frost::v1::Signer::new(&party_ids, total, threshold, &mut rng);
         let signer = Signer {
             frost_signer,
-            signer_id: signer_id,
+            signer_id,
         };
 
         SigningRound {
             dkg_id: None,
-            threshold: threshold,
-            total: total,
-            signer: signer,
+            threshold,
+            total,
+            signer,
             state: States::Init,
             commitments: HashMap::new(),
             shares: HashMap::new(),
