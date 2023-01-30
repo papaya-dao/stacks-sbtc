@@ -342,28 +342,18 @@ name = "frost-coordinator"
 version = "0.1.0"
 dependencies = [
  "backoff",
- "bincode",
  "clap 4.1.4",
- "frost",
  "frost-signer",
  "hashbrown",
- "itertools",
- "p256k1",
- "rand_core 0.5.1",
- "serde",
- "sha3",
  "thiserror",
- "toml",
  "tracing",
  "tracing-subscriber",
- "ureq",
 ]
 
 [[package]]
 name = "frost-signer"
 version = "0.0.1"
 dependencies = [
- "backoff",
  "bincode",
  "clap 4.1.4",
  "frost",
