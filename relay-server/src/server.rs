@@ -98,7 +98,7 @@ mod test {
                 Hello!";
             let response = server.raw_call(REQUEST.as_bytes()).unwrap();
             const RESPONSE: &str = "\
-                HTTP/1.0 200 OK\r\n\
+                HTTP/1.1 200 OK\r\n\
                 \r\n";
             assert_eq!(from_utf8(&response).unwrap(), RESPONSE);
         }
@@ -108,7 +108,7 @@ mod test {
                 \r\n";
             let response = server.raw_call(REQUEST.as_bytes()).unwrap();
             const RESPONSE: &str = "\
-                HTTP/1.0 200 OK\r\n\
+                HTTP/1.1 200 OK\r\n\
                 content-length:6\r\n\
                 \r\n\
                 Hello!";
@@ -116,11 +116,11 @@ mod test {
         }
         {
             const REQUEST: &str = "\
-                GET /?id=x HTTP/1.0\r\n\
+                GET /?id=x HTTP/1.1\r\n\
                 \r\n";
             let response = server.raw_call(REQUEST.as_bytes()).unwrap();
             const RESPONSE: &str = "\
-                HTTP/1.0 200 OK\r\n\
+                HTTP/1.1 200 OK\r\n\
                 \r\n";
             assert_eq!(from_utf8(&response).unwrap(), RESPONSE);
         }

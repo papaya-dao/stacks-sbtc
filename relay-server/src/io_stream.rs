@@ -1,9 +1,12 @@
 use std::{
-    io::{Read, Write, Error},
+    io::{Error, Read, Write},
     net::TcpStream,
 };
 
-use crate::{http::{Message, Request, Response}, Call};
+use crate::{
+    http::{Message, Request, Response},
+    Call,
+};
 
 /// A trait for bidirectional stream.
 ///
