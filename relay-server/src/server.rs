@@ -26,7 +26,7 @@ use crate::{
 ///         Default::default(),
 ///         "Hello!".as_bytes().to_vec(),
 ///     );
-///     let response = server.call(request);
+///     let response = server.call(request).unwrap();
 ///     let expected = Response::new(
 ///         200,
 ///         "OK".to_string(),
@@ -47,10 +47,10 @@ impl Server {
         let content = match request.method {
             Method::GET => {
                 let query = *request.url.url_query().get("id").to_io_result("no id")?;
-                self.0.get(query.to_string())
+                self.0.get(query.to_string())?
             }
             Method::POST => {
-                self.0.post(request.content);
+                self.0.post(request.content)?;
                 Vec::default()
             }
         };
@@ -71,13 +71,13 @@ impl Server {
 }
 
 impl Call for Server {
-    fn call(&mut self, request: Request) -> Response {
+    fn call(&mut self, request: Request) -> Result<Response, Error> {
         let response_buf = {
             let mut request_stream = Cursor::<Vec<u8>>::default();
-            request.write(&mut request_stream).unwrap();
-            self.raw_call(request_stream.get_ref()).unwrap()
+            request.write(&mut request_stream)?;
+            self.raw_call(request_stream.get_ref())?
         };
-        Response::read(&mut Cursor::new(response_buf)).unwrap()
+        Response::read(&mut Cursor::new(response_buf))
     }
 }
 

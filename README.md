@@ -6,4 +6,4 @@ Documentation: https://core-eng.pages.dev/
 
 ## Projects
 
-- [relay-server] is a simple HTTP relay server.
+- [relay-server](relay-server/) is a simple HTTP relay server and a library.

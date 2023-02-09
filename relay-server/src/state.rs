@@ -1,3 +1,5 @@
+use std::io::Error;
+
 /// An interface that defines the functions that need to be implemented in order to store and
 /// retrieve messages.
 ///
@@ -6,22 +8,6 @@
 /// or a remote database. By implementing the State trait, you can customize the storage
 /// mechanism to fit your specific use case.
 pub trait State {
-    /// Get all messages received by a client
-    ///
-    /// # Arguments
-    ///
-    /// * `node_id` - A string that represents the client's ID
-    ///
-    /// # Returns
-    ///
-    /// A vector of bytes that represents the messages received by the client
-    ///
-    fn get(&mut self, node_id: String) -> Vec<u8>;
-    /// Store a message on the server
-    ///
-    /// # Arguments
-    ///
-    /// * `msg` - A vector of bytes that represents the message to be stored
-    ///    
-    fn post(&mut self, msg: Vec<u8>);
+    fn get(&mut self, node_id: String) -> Result<Vec<u8>, Error>;
+    fn post(&mut self, msg: Vec<u8>) -> Result<(), Error>;
 }

@@ -48,7 +48,7 @@ let mut server = Server::default();
         Default::default(),
         "Hello!".as_bytes().to_vec(),
     );
-    let response = server.call(request);
+    let response = server.call(request).unwrap();
     let expected = Response::new(
         200,
         "OK".to_string(),
@@ -75,7 +75,7 @@ let mut mem_state = MemState::default();
 
 mem_state.post(b"Hello world!".to_vec());
 
-let message = mem_state.get("node".to_string());
+let message = mem_state.get("node".to_string()).unwrap();
 
 assert_eq!(message, b"Hello world!".to_vec());
 ```

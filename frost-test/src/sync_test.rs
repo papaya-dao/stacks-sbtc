@@ -1,7 +1,5 @@
 #[cfg(test)]
 mod tests {
-    use std::str::from_utf8;
-
     use frost_signer::signing_round::SigningRound;
     use relay_server::{Call, Method, Response, Server};
 
@@ -20,7 +18,7 @@ mod tests {
                 Default::default(),
                 "Hello!".as_bytes().to_vec(),
             );
-            let response = server.call(request);
+            let response = server.call(request).unwrap();
             let expected = Response::new(
                 200,
                 "OK".to_string(),
