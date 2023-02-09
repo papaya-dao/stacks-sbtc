@@ -1,11 +1,17 @@
 use std::{net::TcpStream, thread::yield_now};
 
-use relay_server::{IoStream, RemoteState, Request, Response, State};
+use relay_server::{Call, IoStream, ProxyState, Request, Response, State};
 
 const ADDR: &str = "127.0.0.1:9776";
 
-fn call(request: Request) -> Response {
-    TcpStream::connect(ADDR).unwrap().call(request)
+struct RemoteServer();
+
+impl Call for RemoteServer {
+    fn call(&mut self, request: Request) -> Response {
+        // note: `relay-server` doesn't support multiple requests in one connection
+        // so we create a new connection every time when we send a request.
+        TcpStream::connect(ADDR).unwrap().call(request)
+    }
 }
 
 fn main() {
@@ -14,11 +20,10 @@ fn main() {
         yield_now()
     }
     //
-    let mut state = RemoteState(call);
+    let mut state = ProxyState(RemoteServer());
     //
     assert!(state.get(1.to_string()).is_empty());
     assert!(state.get(3.to_string()).is_empty());
-    // assert_eq!(0, state.highwaters.len());
     state.post("Msg # 0".as_bytes().to_vec());
     assert_eq!("Msg # 0".as_bytes().to_vec(), state.get(1.to_string()));
     assert_eq!("Msg # 0".as_bytes().to_vec(), state.get(5.to_string()));

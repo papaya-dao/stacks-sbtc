@@ -2,6 +2,21 @@ use std::collections::HashMap;
 
 use crate::state::State;
 
+/// The MemState struct holds the state of the relay-server in memory.
+///
+/// ## Example
+///
+/// ```
+/// use relay_server::{MemState, State};
+///
+/// let mut mem_state = MemState::default();
+///
+/// mem_state.post(b"Hello world!".to_vec());
+///
+/// let message = mem_state.get("node".to_string());
+///
+/// assert_eq!(message, b"Hello world!".to_vec());
+/// ```
 #[derive(Default)]
 pub struct MemState {
     /// The value for this map is an index for the last read message for this node.

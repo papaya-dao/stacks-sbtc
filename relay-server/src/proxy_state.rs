@@ -1,50 +1,38 @@
 use crate::{
-    http::{Request, Response},
+    http::{
+        Call,
+        Method::{GET, POST},
+    },
     state::State,
 };
 
-pub struct RemoteState<T: FnMut(Request) -> Response>(pub T);
+pub struct ProxyState<T: Call>(pub T);
 
-impl<T: FnMut(Request) -> Response> State for RemoteState<T> {
+impl<T: Call> State for ProxyState<T> {
     fn get(&mut self, node_id: String) -> Vec<u8> {
-        let request = Request::new(
-            "GET".to_string(),
-            format!("/?id={node_id}"),
-            Default::default(),
-            Default::default(),
-        );
-        self.0(request).content
+        self.0
+            .call(GET.request(
+                format!("/?id={node_id}"),
+                Default::default(),
+                Default::default(),
+            ))
+            .content
     }
 
     fn post(&mut self, msg: Vec<u8>) {
-        let request = Request::new("POST".to_string(), "/".to_string(), Default::default(), msg);
-        self.0(request);
+        self.0
+            .call(POST.request("/".to_string(), Default::default(), msg));
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::super::http::*;
     use super::super::*;
     use super::*;
 
     #[test]
     fn test() {
-        use std::io::Cursor;
-
-        let mut server = Server::default();
-
-        let f = |r: Request| {
-            let response_buf = {
-                let mut request_stream = Cursor::<Vec<u8>>::default();
-                r.write(&mut request_stream).unwrap();
-                server.call(request_stream.get_ref()).unwrap()
-            };
-            let mut response_stream = Cursor::new(response_buf);
-            Response::read(&mut response_stream).unwrap()
-        };
-
-        let mut state = RemoteState(f);
+        let mut state = ProxyState(Server::default());
         assert!(state.get(1.to_string()).is_empty());
         assert!(state.get(3.to_string()).is_empty());
         // assert_eq!(0, state.highwaters.len());

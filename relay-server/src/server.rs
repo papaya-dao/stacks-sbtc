@@ -1,12 +1,13 @@
-use std::io::{Error, ErrorKind, Write};
+use std::io::{Cursor, Error, ErrorKind, Write};
 
 use crate::{
-    http::{Message, Request, Response, ToIoResult},
+    http::{Call, Message, Request, Response, ToIoResult},
     io_stream::IoStream,
     mem_io_stream::MemIoStreamEx,
     mem_state::MemState,
     state::State,
     url::QueryEx,
+    Method,
 };
 
 /// The server keeps a state (messages) and can accept and respond to messages using the
@@ -15,19 +16,24 @@ use crate::{
 /// ## Example
 ///
 /// ```
-/// let mut server = relay_server::Server::default();
-/// // send a message using a bidirectional stream.
+/// use relay_server::{Call, Method, Server, Response};
+///
+/// let mut server = Server::default();
+/// // send a message "Hello!"
 /// {
-///   const REQUEST: &str = "\
-///     POST / HTTP/1.0\r\n\
-///     Content-Length: 6\r\n\
-///     \r\n\
-///     Hello!";
-///   let response = server.call(REQUEST.as_bytes()).unwrap();
-///   const RESPONSE: &str = "\
-///     HTTP/1.0 200 OK\r\n\
-///     \r\n";
-///   assert_eq!(std::str::from_utf8(&response).unwrap(), RESPONSE);
+///     let request = Method::POST.request(
+///         "/".to_string(),
+///         Default::default(),
+///         "Hello!".as_bytes().to_vec(),
+///     );
+///     let response = server.call(request);
+///     let expected = Response::new(
+///         200,
+///         "OK".to_string(),
+///         Default::default(),
+///         Default::default(),
+///     );
+///     assert_eq!(response, expected);
 /// }
 /// ```
 #[derive(Default)]
@@ -38,24 +44,22 @@ impl Server {
         let request = Request::read(io.istream())?;
         let ostream = io.ostream();
 
-        let content = match request.method.as_str() {
-            "GET" => {
+        let content = match request.method {
+            Method::GET => {
                 let query = *request.url.url_query().get("id").to_io_result("no id")?;
                 self.0.get(query.to_string())
             }
-            "POST" => {
+            Method::POST => {
                 self.0.post(request.content);
                 Vec::default()
             }
-            _ => return Err(Error::new(ErrorKind::InvalidData, "unknown HTTP method")),
         };
         let response = Response::new(200, "OK".to_string(), Default::default(), content);
         response.write(ostream)?;
         ostream.flush()?;
         Ok(())
     }
-    // TODO: move this function to a `test` mod.
-    pub fn call(&mut self, msg: &[u8]) -> Result<Vec<u8>, Error> {
+    fn raw_call(&mut self, msg: &[u8]) -> Result<Vec<u8>, Error> {
         let mut result = Vec::default();
         let mut stream = msg.mem_io_stream(&mut result);
         self.update(&mut stream)?;
@@ -63,6 +67,17 @@ impl Server {
             return Err(Error::new(ErrorKind::InvalidData, "invalid request"));
         }
         Ok(result)
+    }
+}
+
+impl Call for Server {
+    fn call(&mut self, request: Request) -> Response {
+        let response_buf = {
+            let mut request_stream = Cursor::<Vec<u8>>::default();
+            request.write(&mut request_stream).unwrap();
+            self.raw_call(request_stream.get_ref()).unwrap()
+        };
+        Response::read(&mut Cursor::new(response_buf)).unwrap()
     }
 }
 
@@ -81,7 +96,7 @@ mod test {
                 Content-Length: 6\r\n\
                 \r\n\
                 Hello!";
-            let response = server.call(REQUEST.as_bytes()).unwrap();
+            let response = server.raw_call(REQUEST.as_bytes()).unwrap();
             const RESPONSE: &str = "\
                 HTTP/1.0 200 OK\r\n\
                 \r\n";
@@ -91,7 +106,7 @@ mod test {
             const REQUEST: &str = "\
                 GET /?id=x HTTP/1.0\r\n\
                 \r\n";
-            let response = server.call(REQUEST.as_bytes()).unwrap();
+            let response = server.raw_call(REQUEST.as_bytes()).unwrap();
             const RESPONSE: &str = "\
                 HTTP/1.0 200 OK\r\n\
                 content-length:6\r\n\
@@ -103,7 +118,7 @@ mod test {
             const REQUEST: &str = "\
                 GET /?id=x HTTP/1.0\r\n\
                 \r\n";
-            let response = server.call(REQUEST.as_bytes()).unwrap();
+            let response = server.raw_call(REQUEST.as_bytes()).unwrap();
             const RESPONSE: &str = "\
                 HTTP/1.0 200 OK\r\n\
                 \r\n";
@@ -116,7 +131,7 @@ mod test {
                 Content-Length: 6\r\n\
                 \r\n\
                 Hello!j";
-            let response = server.call(REQUEST.as_bytes());
+            let response = server.raw_call(REQUEST.as_bytes());
             assert!(response.is_err());
         }
     }
