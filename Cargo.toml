@@ -1,2 +1,9 @@
 [workspace]
-members = ["relay-server", "frost-test",  "frost-signer", "frost-coordinator"]
+members = [
+  "relay-server",
+  "frost-test",
+  "frost-signer",
+  "frost-coordinator",
+  "stacks-coordinator",
+  "stacks-signer",
+  ]
