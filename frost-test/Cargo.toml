@@ -12,4 +12,5 @@ frost-coordinator = { path = "../frost-coordinator" }
 frost-signer = { path = "../frost-signer" }
 rand_core = "0.5"
 hashbrown = "0.13"
-frost = { git = "https://github.com/trust-machines/frost", branch = "main" }
+frost = { git = "https://github.com/trust-machines/frost", rev = "8e188c271213e291e321b8aeda6273c054d25264" }
+p256k1 = { version = "1.0" }

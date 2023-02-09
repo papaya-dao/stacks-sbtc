@@ -176,7 +176,7 @@ dependencies = [
 [[package]]
 name = "blockstack-core"
 version = "0.0.1"
-source = "git+https://github.com/stacks-network/stacks-blockchain/?branch=3493-sbtc-peg-out-wire-format#4dd923d69456cfab1ce577dcfd6d071d92ee62a4"
+source = "git+https://github.com/stacks-network/stacks-blockchain/?branch=3493-sbtc-peg-out-wire-format#041d10ac83e01b0aab43be1d720acb445f3ee861"
 dependencies = [
  "chrono",
  "clarity",
@@ -335,7 +335,7 @@ dependencies = [
 [[package]]
 name = "clarity"
 version = "0.0.1"
-source = "git+https://github.com/stacks-network/stacks-blockchain/?branch=3493-sbtc-peg-out-wire-format#4dd923d69456cfab1ce577dcfd6d071d92ee62a4"
+source = "git+https://github.com/stacks-network/stacks-blockchain/?branch=3493-sbtc-peg-out-wire-format#041d10ac83e01b0aab43be1d720acb445f3ee861"
 dependencies = [
  "integer-sqrt",
  "lazy_static",
@@ -650,22 +650,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "frost"
-version = "1.0.0"
-source = "git+https://github.com/trust-machines/frost?branch=main#1965f1258e3946063ef6d5c2e5c71042948541a8"
-dependencies = [
- "hashbrown 0.13.2",
- "hex",
- "num-traits",
- "p256k1 1.0.0",
- "polynomial",
- "rand_core 0.5.1",
- "serde",
- "sha3",
- "thiserror",
-]
-
-[[package]]
 name = "frost-coordinator"
 version = "0.0.1"
 dependencies = [
@@ -703,10 +687,11 @@ dependencies = [
 name = "frost-test"
 version = "0.1.0"
 dependencies = [
- "frost 1.0.0",
+ "frost 0.1.0 (git+https://github.com/trust-machines/frost?rev=8e188c271213e291e321b8aeda6273c054d25264)",
  "frost-coordinator",
  "frost-signer",
  "hashbrown 0.13.2",
+ "p256k1 1.0.0",
  "rand_core 0.5.1",
  "relay-server",
 ]
@@ -1891,7 +1876,7 @@ dependencies = [
 [[package]]
 name = "stacks-common"
 version = "0.0.1"
-source = "git+https://github.com/stacks-network/stacks-blockchain/?branch=3493-sbtc-peg-out-wire-format#4dd923d69456cfab1ce577dcfd6d071d92ee62a4"
+source = "git+https://github.com/stacks-network/stacks-blockchain/?branch=3493-sbtc-peg-out-wire-format#041d10ac83e01b0aab43be1d720acb445f3ee861"
 dependencies = [
  "chrono",
  "curve25519-dalek",

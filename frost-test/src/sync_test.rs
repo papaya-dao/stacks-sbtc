@@ -2,17 +2,19 @@
 mod tests {
     use frost::v1::Signer;
     use hashbrown::HashMap;
+    use p256k1::point::Point;
     use rand_core::OsRng;
     use relay_server::{Call, Method, Response, Server};
 
     #[test]
-    fn template_test() {
-        let threshold = 3;
-        let total = 4;
+    fn pure_frost_test() {
+        let T = 3;
+        let N = 4;
         let mut rng = OsRng::default();
         let mut signers = [
-            Signer::new(&[0, 1], threshold, total, &mut rng),
-            Signer::new(&[2], threshold, total, &mut rng),
+            Signer::new(&[0, 1], N, T, &mut rng),
+            Signer::new(&[2], N, T, &mut rng),
+            Signer::new(&[3], N, T, &mut rng),
         ];
 
         // DKG (Distributed Key Generation)
@@ -41,19 +43,41 @@ mod tests {
                         .map(|(id, share)| (*id, share[&party.id]))
                         .collect::<HashMap<_, _>>();
 
+                    // should a signer go at error state if error?
                     if let Err(secret_error) = party.compute_secret(h, &A) {
                         Some((party.id, secret_error))
                     } else {
                         None
                     }
-                }).collect::<HashMap<_, _>>();                
+                })
+                .collect::<HashMap<_, _>>();
 
             if secret_errors.is_empty() {
                 Ok(A)
             } else {
                 Err(secret_errors)
             }
-        };
+        }
+        .unwrap();
+
+        // signing. Signers: 0 (parties: 0, 1) and 1 (parties: 2)
+        {
+            let signers = [&signers[0], &signers[1]];
+
+            //
+            let bad_poly_commitments = A.iter()
+                .filter_map(|A_i| if A_i.verify() { None } else { Some(A_i.id.id) })
+                .collect::<Vec<_>>();
+            
+            if !bad_poly_commitments.is_empty() {
+                panic!("{bad_poly_commitments:?}");
+            }
+
+            // let mut key = Point::zero(); // TODO: Compute pub key from A
+            // for A_i in &A {
+            //    key += &A_i.A[0];
+            //}
+        }
     }
 
     fn server_test() {
