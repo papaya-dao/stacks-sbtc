@@ -4,7 +4,7 @@ sign sBTC peg out fulfillments from a shared wallet.
 
 Multiple signer instances communicate with each other and a coordinator using an HTTP relay.
 
-The signer interacts with th sBTC contract to read public keys for other signers
+The signer interacts with the sBTC contract to read public keys for other signers
 and the stacks-coordniator.
 
 ```mermaid
@@ -18,9 +18,9 @@ The signer system should contain an event loop which communicates with an HTTP r
 communicates with a signer entity.
 
 ```rust
-pub trait NetworkedSigner {
+pub trait SignerService {
     type RelayServer;
-    type StacksNode; // Shared implementation with frost-coordinator
+    type StacksNode; // Shared implementation with stacks-coordinator
     type Signer: Signer;
 
     fn relay(&self) -> &Self::RelayServer;
@@ -32,9 +32,9 @@ pub trait NetworkedSigner {
 }
 
 pub trait Signer {
-  fn generate_key_shares(&mut self) -> (PublicShares, PrivateShares);
-  fn public_nonce(&self) -> PublicNonce;
-  fn signature_share(&self, msg: &[u8]) -> SignatureShare;
+  fn generate_key_shares(&mut self, round_id: u64) -> (PublicShares, PrivateShares);
+  fn public_nonce(&self, round_id: u64) -> PublicNonce;
+  fn signature_share(&self, round_id: u64, msg: &[u8]) -> SignatureShare;
 }  
 ```
 
@@ -45,7 +45,7 @@ A rough outline of the signer event loop
 graph TD
     A[Read configuration from file and sBTC contract] --> B{Next incoming message}
     B -->|DKG_BEGIN| C[Generate shares]
-    C --> D[Send shares]
+    C --> D[Send public and private shares]
     D --> B
     B -->|DKG_PUBLIC_SHARE| E[Store public share]
     E --> B
