@@ -691,6 +691,7 @@ dependencies = [
  "frost-coordinator",
  "frost-signer",
  "hashbrown 0.13.2",
+ "num-traits",
  "p256k1 1.0.0",
  "rand_core 0.5.1",
  "relay-server",
