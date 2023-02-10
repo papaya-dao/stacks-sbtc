@@ -4,7 +4,7 @@ use wtfrost::{
     Scalar,
 };
 
-/// 
+///
 pub trait Protocol {
     type DkgId;
     type ParticipantId;
@@ -28,7 +28,7 @@ pub struct DkgShare<P: Protocol> {
     pub dkg_id: P::DkgId,
     pub party_id: u32,
     pub public: PolyCommitment,
-    /// The size of the vector should be `N-1`. 
+    /// The size of the vector should be `N-1`.
     /// They are messages for all other parties.
     pub private: Vec<Scalar>,
 }

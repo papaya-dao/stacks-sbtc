@@ -1,4 +1,4 @@
-use crate::event::{Protocol, Event};
+use crate::event::{Event, Protocol};
 
 trait Participant: Protocol {
     type P: Protocol;
