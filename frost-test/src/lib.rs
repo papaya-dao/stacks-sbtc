@@ -12,7 +12,7 @@ pub struct NewDkg {
 }
 
 /// Should be send by each signer after `NewDKG`
-/// A signer should send multiple events if multiple parties where assigned.
+/// A signer should send multiple events if multiple parties were assigned.
 pub struct DkgPolyCommitment {
     dkg_id: Id,
     party_id: u32,
@@ -28,7 +28,7 @@ pub struct Sign {
 }
 
 /// Should be send by a signer.
-/// A signer should send multiple events if multiple parties where assigned.
+/// A signer should send multiple events if multiple parties were assigned.
 pub struct Nonce {
     message_id: Id,
     party_id: u32,
@@ -36,7 +36,7 @@ pub struct Nonce {
 }
 
 /// Should be send by a signer.
-/// A signer should send multiple events if multiple parties where assigned.
+/// A signer should send multiple events if multiple parties were assigned.
 pub struct Share {
     message_id: Id,
     party_id: u32,
