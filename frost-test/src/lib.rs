@@ -3,15 +3,17 @@ use wtfrost::{
     v1::SignatureShare,
 };
 
+// Each signer, DKG and message have a unique id.
 pub type Id = [u32; 8];
 
 /// Should be sent by DKG coordinator.
-/// In theory, a signer can hold multiple dkgs and multiple parties.
+/// In theory, a signer can participate in multiple DKGs and be
+/// responsible for multiple parties (DKG and signature shares).
 pub struct NewDkg {
     pub dkg_id: Id,
     pub N: u32,
     pub T: u32,
-    /// Should have a size of N
+    /// Must have a size of N
     pub party_to_signer_map: Vec<Id>,
 }
 
@@ -27,7 +29,7 @@ pub struct DkgPolyCommitment {
 /// In theory, a signer can be involved in signing multiple messages at the same time.
 pub struct Sign {
     pub dkg_id: Id,
-    pub message_id: Id,
+    pub signature_id: Id,
     // It's a set of T parties so it can be a vector of bits.
     pub parties: Vec<u32>,
     pub message: Vec<u8>,
@@ -36,7 +38,7 @@ pub struct Sign {
 /// Should be send by a signer.
 /// A signer should send multiple events if multiple parties were assigned.
 pub struct Nonce {
-    pub message_id: Id,
+    pub signature_id: Id,
     pub party_id: u32,
     pub nonce: PublicNonce,
 }
@@ -55,4 +57,9 @@ pub enum Event {
     Sign(Sign),
     Nonce(Nonce),
     Share(Share),
+}
+
+trait Participant {
+    fn write(&mut self, event: &Event);
+    fn read(&mut self) -> Option<Event>;
 }
