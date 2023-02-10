@@ -3,6 +3,7 @@ use wtfrost::{common::{PublicNonce, PolyCommitment}, v1::SignatureShare};
 pub type Id = [u32; 8];
 
 /// Should be sent by DKG coordinator.
+/// In theory, a signer can hold multiple dkgs and multiple parties.
 pub struct NewDkg {
     dkg_id: Id,
     N: u32,
@@ -20,10 +21,12 @@ pub struct DkgPolyCommitment {
 }
 
 /// Should be sent by a signature aggregator.
+/// In theory, a signer can be involved in signing multiple messages at the same time.
 pub struct Sign {
     dkg_id: Id,
     message_id: Id,
-    parties: Vec<u32>,    
+    // It's a set of T parties so it can be a vector of bits.
+    parties: Vec<u32>, 
     message: Vec<u8>,   
 }
 
