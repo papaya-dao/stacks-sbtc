@@ -1,4 +1,4 @@
-use frost::{
+use wtfrost::{
     common::PublicNonce,
     traits::Signer,
     v1::{self, SignatureAggregator},
