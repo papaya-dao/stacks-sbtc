@@ -70,11 +70,12 @@ fn pure_frost_test() {
         // get nonces and shares
         let (nonces, shares) = {
             let ids: Vec<usize> = signers.iter().flat_map(|s| s.get_ids()).collect();
-            let ids: Vec<usize> = signers.iter().flat_map(|s| s.get_ids()).collect();
+            // get nonces
             let nonces: Vec<PublicNonce> = signers
                 .iter_mut()
                 .flat_map(|s| s.gen_nonces(&mut rng))
                 .collect();
+            // get shares
             let shares = signers
                 .iter()
                 .flat_map(|s| s.sign(MSG, &ids, &nonces))
@@ -83,8 +84,8 @@ fn pure_frost_test() {
             (nonces, shares)
         };
 
-        let mut agg = SignatureAggregator::new(N, T, A.clone()).unwrap();
-        agg.sign(&MSG, &nonces, &shares)
-    }
-    .unwrap();
+        SignatureAggregator::new(N, T, A.clone()).unwrap().sign(&MSG, &nonces, &shares)
+    };
+
+    assert!(result.is_ok());
 }
