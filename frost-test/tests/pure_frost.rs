@@ -1,10 +1,10 @@
+use hashbrown::HashMap;
+use rand_core::OsRng;
 use wtfrost::{
     common::PublicNonce,
     traits::Signer,
     v1::{self, SignatureAggregator},
 };
-use hashbrown::HashMap;
-use rand_core::OsRng;
 
 #[test]
 fn pure_frost_test() {
@@ -84,7 +84,9 @@ fn pure_frost_test() {
             (nonces, shares)
         };
 
-        SignatureAggregator::new(N, T, A.clone()).unwrap().sign(&MSG, &nonces, &shares)
+        SignatureAggregator::new(N, T, A.clone())
+            .unwrap()
+            .sign(&MSG, &nonces, &shares)
     };
 
     assert!(result.is_ok());

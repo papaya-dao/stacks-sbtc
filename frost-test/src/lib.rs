@@ -1,4 +1,7 @@
-use wtfrost::{common::{PublicNonce, PolyCommitment}, v1::SignatureShare};
+use wtfrost::{
+    common::{PolyCommitment, PublicNonce},
+    v1::SignatureShare,
+};
 
 pub type Id = [u32; 8];
 
@@ -9,7 +12,7 @@ pub struct NewDkg {
     pub N: u32,
     pub T: u32,
     /// Should have a size of N
-    pub party_to_signer_map: Vec<Id>,  
+    pub party_to_signer_map: Vec<Id>,
 }
 
 /// Should be send by each signer after `NewDKG`
@@ -26,8 +29,8 @@ pub struct Sign {
     pub dkg_id: Id,
     pub message_id: Id,
     // It's a set of T parties so it can be a vector of bits.
-    pub parties: Vec<u32>, 
-    pub message: Vec<u8>,   
+    pub parties: Vec<u32>,
+    pub message: Vec<u8>,
 }
 
 /// Should be send by a signer.
