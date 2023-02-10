@@ -42,3 +42,11 @@ pub struct Share {
     party_id: u32,
     share: SignatureShare,
 }
+
+pub enum Event {
+    NewDkg(NewDkg),
+    DkgPolyCommitment(DkgPolyCommitment),
+    Sign(Sign),
+    Nonce(Nonce),
+    Share(Share),
+}
