@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use rand_core::{CryptoRng, RngCore};
 use wtfrost::v1;
 
-use crate::event::{DkgPolyCommitment, Event, Id, DkgBegin};
+use crate::event::{DkgBegin, DkgPolyCommitment, Event, Id};
 
 trait Participant {
     fn call(&mut self, event: &Event) -> Vec<Event>;

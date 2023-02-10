@@ -1,6 +1,7 @@
 use wtfrost::{
     common::{PolyCommitment, PublicNonce},
-    v1::SignatureShare, Scalar,
+    v1::SignatureShare,
+    Scalar,
 };
 
 // Each signer, DKG and message have a unique id.
