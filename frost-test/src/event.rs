@@ -18,7 +18,7 @@ pub struct DkgBegin {
     pub party_to_signer_map: Vec<Id>,
 }
 
-/// Should be send by each signer after `NewDKG`
+/// Should be send by each signer after `DkgBegin`
 /// A signer should send multiple events if multiple parties were assigned.
 pub struct DkgPolyCommitment {
     pub dkg_id: Id,
@@ -26,7 +26,7 @@ pub struct DkgPolyCommitment {
     pub value: PolyCommitment,
 }
 
-/// Should be send by each signer after `NewDKG`
+/// Should be send by each signer after all `DkgPolyCommitment` are collected.
 /// A signer should send multiple events if multiple parties were assigned.
 pub struct DkgShare {
     pub dkg_id: Id,
