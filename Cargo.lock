@@ -654,8 +654,6 @@ dependencies = [
 name = "frost-test"
 version = "0.1.0"
 dependencies = [
- "frost-coordinator",
- "frost-signer",
  "hashbrown 0.13.2",
  "rand_core 0.5.1",
  "relay-server",
