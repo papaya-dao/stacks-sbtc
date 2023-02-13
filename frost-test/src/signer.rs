@@ -1,6 +1,5 @@
 use crate::{
     event::{dkg, Event, Protocol},
-    new_vec::NewVec,
     participant::Participant,
 };
 use hashbrown::HashMap;
@@ -24,7 +23,7 @@ impl DkgSigner {
         DkgSigner {
             signer,
             countdown: n,
-            public: n.new_vec(),
+            public: vec![None; n],
             private,
         }
     }

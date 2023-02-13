@@ -1,7 +1,5 @@
 use wtfrost::{common::PolyCommitment, Scalar};
 
-use crate::new_vec::NewVec;
-
 use super::super::Protocol;
 
 /// Should be send by each signer after `DkgBegin`
@@ -38,7 +36,7 @@ impl<P: Protocol> Share<P> {
             dkg_id: dkg_id.clone(),
             party_id,
             public,
-            private: (n as usize).new_vec(),
+            private: vec![Scalar::default(); n as usize],
         };
         for (private_party_id, private) in map {
             let index = result.private_index(private_party_id);
