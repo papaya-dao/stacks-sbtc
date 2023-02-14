@@ -1,4 +1,4 @@
-use super::super::Protocol;
+use crate::event::Protocol;
 
 /// Should be sent by DKG coordinator.
 /// In theory, a signer can participate in multiple DKGs and be

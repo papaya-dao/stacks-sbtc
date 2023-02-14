@@ -1,4 +1,4 @@
-use super::super::Protocol;
+use crate::event::Protocol;
 
 pub struct End<P: Protocol> {
     pub dkg_id: P::DkgId,

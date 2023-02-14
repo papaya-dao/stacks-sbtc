@@ -1,4 +1,4 @@
-use super::super::Protocol;
+use crate::event::Protocol;
 
 /// Should be sent by a signature aggregator.
 /// In theory, a signer can be involved in signing multiple messages at the same time.

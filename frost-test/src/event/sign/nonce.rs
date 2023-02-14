@@ -1,6 +1,6 @@
 use wtfrost::common::PublicNonce;
 
-use super::super::Protocol;
+use crate::event::Protocol;
 
 /// Should be send by a signer.
 /// A signer should send multiple events if multiple parties were assigned.
