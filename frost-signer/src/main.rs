@@ -66,7 +66,7 @@ fn main_loop(config: &Config, net: &HttpNet, rx: Receiver<Message>) {
 
     loop {
         let inbound = rx.recv().unwrap(); // blocking
-        let outbounds = round.process(inbound.msg).unwrap();
+        let outbounds = round.process(&inbound.msg).unwrap();
         for out in outbounds {
             let msg = Message {
                 msg: out,

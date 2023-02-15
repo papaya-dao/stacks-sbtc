@@ -163,7 +163,7 @@ impl SigningRound {
         self.shares.clear();
     }
 
-    pub fn process(&mut self, message: MessageTypes) -> Result<Vec<MessageTypes>, String> {
+    pub fn process(&mut self, message: &MessageTypes) -> Result<Vec<MessageTypes>, String> {
         let out_msgs = match message {
             MessageTypes::DkgBegin(dkg_begin) => self.dkg_begin(dkg_begin),
             MessageTypes::DkgPublicShare(dkg_public_shares) => {
@@ -255,7 +255,7 @@ impl SigningRound {
 
     pub fn nonce_request(
         &mut self,
-        nonce_request: NonceRequest,
+        nonce_request: &NonceRequest,
     ) -> Result<Vec<MessageTypes>, String> {
         let mut rng = OsRng::default();
         let mut msgs = vec![];
@@ -276,7 +276,7 @@ impl SigningRound {
 
     pub fn sign_share_request(
         &mut self,
-        sign_request: SignatureShareRequest,
+        sign_request: &SignatureShareRequest,
     ) -> Result<Vec<MessageTypes>, String> {
         let mut msgs = vec![];
         if let Some(party) = self
@@ -309,7 +309,7 @@ impl SigningRound {
         return Ok(msgs);
     }
 
-    pub fn dkg_begin(&mut self, dkg_begin: DkgBegin) -> Result<Vec<MessageTypes>, String> {
+    pub fn dkg_begin(&mut self, dkg_begin: &DkgBegin) -> Result<Vec<MessageTypes>, String> {
         self.reset(dkg_begin.dkg_id);
         self.move_to(States::DkgDistribute).unwrap();
         let _party_state = self.signer.frost_signer.save();
@@ -339,10 +339,10 @@ impl SigningRound {
 
     pub fn dkg_public_share(
         &mut self,
-        dkg_public_share: DkgPublicShare,
+        dkg_public_share: &DkgPublicShare,
     ) -> Result<Vec<MessageTypes>, String> {
         self.commitments
-            .insert(dkg_public_share.party_id, dkg_public_share.public_share);
+            .insert(dkg_public_share.party_id, dkg_public_share.public_share.clone());
         info!(
             "received party #{} PUBLIC commitments {}/{}",
             dkg_public_share.party_id,
@@ -354,12 +354,12 @@ impl SigningRound {
 
     pub fn dkg_private_shares(
         &mut self,
-        dkg_private_shares: DkgPrivateShares,
+        dkg_private_shares: &DkgPrivateShares,
     ) -> Result<Vec<MessageTypes>, String> {
         let shares_clone = dkg_private_shares.private_shares.clone();
         self.shares.insert(
             dkg_private_shares.party_id,
-            dkg_private_shares.private_shares,
+            dkg_private_shares.private_shares.clone(),
         );
         info!(
             "received party #{} PRIVATE shares {}/{} {:?}",
@@ -399,7 +399,7 @@ mod test {
                 A: vec![],
             },
         };
-        signing_round.dkg_public_share(public_share).unwrap();
+        signing_round.dkg_public_share(&public_share).unwrap();
         assert_eq!(1, signing_round.commitments.len())
     }
 
