@@ -5,6 +5,8 @@ use wtfrost::{
     traits::Signer,
     v1::{self, SignatureAggregator},
 };
+use wtfrost::common::{PolyCommitment, Signature};
+use wtfrost::errors::AggregatorError;
 
 #[test]
 fn pure_frost_test() {
@@ -18,7 +20,44 @@ fn pure_frost_test() {
     ];
 
     // DKG (Distributed Key Generation)
-    let A = {
+    let A = dkg_round(&mut rng, &mut signers);
+
+    // signing. Signers: 0 (parties: 0, 1) and 1 (parties: 2)
+    let result = signing_round(T, N, &mut rng, &mut signers, A);
+
+    assert!(result.is_ok());
+}
+
+fn signing_round(T: usize, N: usize, mut rng: &mut OsRng, signers: &mut [v1::Signer; 3], A: Vec<PolyCommitment>) -> Result<Signature, AggregatorError> {
+    // decide which signers will be used
+    let mut signers = [signers[0].clone(), signers[1].clone()];
+
+    const MSG: &[u8] = "It was many and many a year ago".as_bytes();
+
+    // get nonces and shares
+    let (nonces, shares) = {
+        let ids: Vec<usize> = signers.iter().flat_map(|s| s.get_ids()).collect();
+        // get nonces
+        let nonces: Vec<PublicNonce> = signers
+            .iter_mut()
+            .flat_map(|s| s.gen_nonces(&mut rng))
+            .collect();
+        // get shares
+        let shares = signers
+            .iter()
+            .flat_map(|s| s.sign(MSG, &ids, &nonces))
+            .collect::<Vec<_>>();
+
+        (nonces, shares)
+    };
+
+    SignatureAggregator::new(N, T, A.clone())
+        .unwrap()
+        .sign(&MSG, &nonces, &shares)
+}
+
+fn dkg_round(mut rng: &mut OsRng, signers: &mut [v1::Signer; 3]) -> Vec<PolyCommitment> {
+    {
         let A = signers
             .iter()
             .flat_map(|s| s.get_poly_commitments(&mut rng))
@@ -58,36 +97,5 @@ fn pure_frost_test() {
             Err(secret_errors)
         }
     }
-    .unwrap();
-
-    // signing. Signers: 0 (parties: 0, 1) and 1 (parties: 2)
-    let result = {
-        // decide which signers will be used
-        let mut signers = [signers[0].clone(), signers[1].clone()];
-
-        const MSG: &[u8] = "It was many and many a year ago".as_bytes();
-
-        // get nonces and shares
-        let (nonces, shares) = {
-            let ids: Vec<usize> = signers.iter().flat_map(|s| s.get_ids()).collect();
-            // get nonces
-            let nonces: Vec<PublicNonce> = signers
-                .iter_mut()
-                .flat_map(|s| s.gen_nonces(&mut rng))
-                .collect();
-            // get shares
-            let shares = signers
-                .iter()
-                .flat_map(|s| s.sign(MSG, &ids, &nonces))
-                .collect::<Vec<_>>();
-
-            (nonces, shares)
-        };
-
-        SignatureAggregator::new(N, T, A.clone())
-            .unwrap()
-            .sign(&MSG, &nonces, &shares)
-    };
-
-    assert!(result.is_ok());
+        .unwrap()
 }
