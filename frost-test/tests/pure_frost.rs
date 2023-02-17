@@ -1,7 +1,7 @@
-use bitcoin::{PackedLockTime, Script, Transaction, XOnlyPublicKey};
 use bitcoin::consensus::Encodable;
-use bitcoin::secp256k1::PublicKey;
 use bitcoin::secp256k1::rand::thread_rng;
+use bitcoin::secp256k1::PublicKey;
+use bitcoin::{PackedLockTime, Script, Transaction, XOnlyPublicKey};
 use hashbrown::HashMap;
 use rand_core::OsRng;
 use wtfrost::common::{PolyCommitment, Signature};
@@ -33,7 +33,8 @@ fn pure_frost_test() {
 
     group_key.compress();
     // Peg Wallet Address from group key
-    let peg_wallet_address = bitcoin::secp256k1::PublicKey::from_slice(&group_key.compress().as_bytes()).unwrap();
+    let peg_wallet_address =
+        bitcoin::secp256k1::PublicKey::from_slice(&group_key.compress().as_bytes()).unwrap();
 
     // Send to stx address
     let stx_address = [0; 32];
@@ -50,14 +51,18 @@ fn pure_frost_test() {
     println!("peg-out tx");
     println!("{:?}", hex::encode(&peg_out_bytes));
 
-    let result = signing_round(&peg_out_bytes, T, N, &mut rng, &mut signers, public_key_shares);
+    let result = signing_round(
+        &peg_out_bytes,
+        T,
+        N,
+        &mut rng,
+        &mut signers,
+        public_key_shares,
+    );
     assert!(result.is_ok());
 }
 
-fn build_peg_out(
-    satoshis: u64,
-    user_address: PublicKey,
-) -> Transaction {
+fn build_peg_out(satoshis: u64, user_address: PublicKey) -> Transaction {
     bitcoin::blockdata::transaction::Transaction {
         version: 0,
         lock_time: PackedLockTime(0),
@@ -126,7 +131,10 @@ fn signing_round(
         .sign(&message, &nonces, &shares)
 }
 
-fn dkg_round(mut rng: &mut OsRng, signers: &mut [v1::Signer; 3]) -> (Vec<PolyCommitment>, wtfrost::Point) {
+fn dkg_round(
+    mut rng: &mut OsRng,
+    signers: &mut [v1::Signer; 3],
+) -> (Vec<PolyCommitment>, wtfrost::Point) {
     {
         let public_key_shares = signers
             .iter()
