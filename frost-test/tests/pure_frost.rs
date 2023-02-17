@@ -40,14 +40,17 @@ fn pure_frost_test() {
     let peg_in = build_peg_in(1000, peg_wallet_address, stx_address);
     let mut peg_in_bytes: Vec<u8> = vec![];
     peg_in.consensus_encode(&mut peg_in_bytes).unwrap();
-    println!("peg-in tx: {:?}", peg_in_bytes);
+    println!("peg-in tx");
+    println!("{:?}", hex::encode(&peg_in_bytes));
 
     let peg_out = build_peg_out(1000, user_keys.public_key());
     // signing. Signers: 0 (parties: 0, 1) and 1 (parties: 2)
     let mut peg_out_bytes: Vec<u8> = vec![];
     let peg_out_bytes_len = peg_out.consensus_encode(&mut peg_out_bytes).unwrap();
-    let result = signing_round(&peg_out_bytes, T, N, &mut rng, &mut signers, public_key_shares);
+    println!("peg-out tx");
+    println!("{:?}", hex::encode(&peg_out_bytes));
 
+    let result = signing_round(&peg_out_bytes, T, N, &mut rng, &mut signers, public_key_shares);
     assert!(result.is_ok());
 }
 
