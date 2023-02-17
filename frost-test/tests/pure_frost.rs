@@ -1,15 +1,17 @@
+use bitcoin::{PackedLockTime, Transaction};
 use hashbrown::HashMap;
 use rand_core::OsRng;
+use wtfrost::common::{PolyCommitment, Signature};
+use wtfrost::errors::AggregatorError;
 use wtfrost::{
     common::PublicNonce,
     traits::Signer,
     v1::{self, SignatureAggregator},
 };
-use wtfrost::common::{PolyCommitment, Signature};
-use wtfrost::errors::AggregatorError;
 
 #[test]
 fn pure_frost_test() {
+    // Singer setup
     let T = 3;
     let N = 4;
     let mut rng = OsRng::default();
@@ -20,15 +22,41 @@ fn pure_frost_test() {
     ];
 
     // DKG (Distributed Key Generation)
-    let A = dkg_round(&mut rng, &mut signers);
+    let public_key_shares = dkg_round(&mut rng, &mut signers);
 
     // signing. Signers: 0 (parties: 0, 1) and 1 (parties: 2)
-    let result = signing_round(T, N, &mut rng, &mut signers, A);
+    let result = signing_round(T, N, &mut rng, &mut signers, public_key_shares);
 
     assert!(result.is_ok());
 }
 
-fn signing_round(T: usize, N: usize, mut rng: &mut OsRng, signers: &mut [v1::Signer; 3], A: Vec<PolyCommitment>) -> Result<Signature, AggregatorError> {
+fn build_peg_in(satoshis: u64, stx_address: [u8; 32]) -> Transaction {
+    // Peg-In TX
+    let peg_in_input = bitcoin::TxIn {
+        previous_output: Default::default(),
+        script_sig: Default::default(),
+        sequence: Default::default(),
+        witness: Default::default(),
+    };
+    let peg_in_output = bitcoin::TxOut {
+        value: satoshis,
+        script_pubkey: Default::default(),
+    };
+    bitcoin::blockdata::transaction::Transaction {
+        version: 0,
+        lock_time: PackedLockTime(0),
+        input: vec![peg_in_input],
+        output: vec![peg_in_output],
+    }
+}
+
+fn signing_round(
+    T: usize,
+    N: usize,
+    mut rng: &mut OsRng,
+    signers: &mut [v1::Signer; 3],
+    A: Vec<PolyCommitment>,
+) -> Result<Signature, AggregatorError> {
     // decide which signers will be used
     let mut signers = [signers[0].clone(), signers[1].clone()];
 
@@ -58,7 +86,7 @@ fn signing_round(T: usize, N: usize, mut rng: &mut OsRng, signers: &mut [v1::Sig
 
 fn dkg_round(mut rng: &mut OsRng, signers: &mut [v1::Signer; 3]) -> Vec<PolyCommitment> {
     {
-        let A = signers
+        let public_key_shares = signers
             .iter()
             .flat_map(|s| s.get_poly_commitments(&mut rng))
             .collect::<Vec<_>>();
@@ -83,7 +111,7 @@ fn dkg_round(mut rng: &mut OsRng, signers: &mut [v1::Signer; 3]) -> Vec<PolyComm
                     .collect::<HashMap<_, _>>();
 
                 // should a signer go at error state if error?
-                if let Err(secret_error) = party.compute_secret(h, &A) {
+                if let Err(secret_error) = party.compute_secret(h, &public_key_shares) {
                     Some((party.id, secret_error))
                 } else {
                     None
@@ -92,10 +120,10 @@ fn dkg_round(mut rng: &mut OsRng, signers: &mut [v1::Signer; 3]) -> Vec<PolyComm
             .collect::<HashMap<_, _>>();
 
         if secret_errors.is_empty() {
-            Ok(A)
+            Ok(public_key_shares)
         } else {
             Err(secret_errors)
         }
     }
-        .unwrap()
+    .unwrap()
 }
