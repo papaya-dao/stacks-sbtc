@@ -1,6 +1,7 @@
 use bitcoin::{PackedLockTime, Script, Transaction, XOnlyPublicKey};
 use bitcoin::consensus::Encodable;
 use bitcoin::secp256k1::PublicKey;
+use bitcoin::secp256k1::rand::thread_rng;
 use hashbrown::HashMap;
 use rand_core::OsRng;
 use wtfrost::common::{PolyCommitment, Signature};
@@ -25,8 +26,7 @@ fn pure_frost_test() {
     ];
 
     let secp = bitcoin::secp256k1::Secp256k1::new();
-    //let user_keys = secp.generate_keypair(&mut thread_rng());
-    let user_keys = bitcoin::util::key::KeyPair::new(&secp, &mut OsRng::default());
+    let user_keys = bitcoin::util::key::KeyPair::new(&secp, &mut thread_rng());
 
     // DKG (Distributed Key Generation)
     let (public_key_shares, group_key) = dkg_round(&mut rng, &mut signers);
@@ -42,7 +42,7 @@ fn pure_frost_test() {
     peg_in.consensus_encode(&mut peg_in_bytes).unwrap();
     println!("peg-in tx: {:?}", peg_in_bytes);
 
-    let peg_out = build_peg_out(1000, user_keys.1);
+    let peg_out = build_peg_out(1000, user_keys.public_key());
     // signing. Signers: 0 (parties: 0, 1) and 1 (parties: 2)
     let mut peg_out_bytes: Vec<u8> = vec![];
     let peg_out_bytes_len = peg_out.consensus_encode(&mut peg_out_bytes).unwrap();
