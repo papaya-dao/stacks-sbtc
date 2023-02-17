@@ -1,4 +1,5 @@
-use bitcoin::{PackedLockTime, Transaction};
+use bitcoin::schnorr::UntweakedPublicKey;
+use bitcoin::{PackedLockTime, Script, Transaction};
 use hashbrown::HashMap;
 use rand_core::OsRng;
 use wtfrost::common::{PolyCommitment, Signature};
@@ -7,6 +8,7 @@ use wtfrost::{
     common::PublicNonce,
     traits::Signer,
     v1::{self, SignatureAggregator},
+    Point,
 };
 
 #[test]
@@ -22,7 +24,17 @@ fn pure_frost_test() {
     ];
 
     // DKG (Distributed Key Generation)
-    let public_key_shares = dkg_round(&mut rng, &mut signers);
+    let (public_key_shares, group_key) = dkg_round(&mut rng, &mut signers);
+
+
+    // Peg Wallet Address from group key
+    let mut public_key_bytes_x = group_key.gej.x.n.map(|x64| x64.to_be_bytes()).into_iter().flatten().collect::<Vec<u8>>();
+    println!("group key X: {:?}", public_key_bytes_x);
+    let peg_wallet_address = bitcoin::util::key::XOnlyPublicKey::from_slice(&public_key_bytes_x).unwrap();
+
+    // Send to stx address
+    let stx_address = [0; 32];
+    let peg_in = build_peg_in(1000, peg_wallet_address, stx_address);
 
     // signing. Signers: 0 (parties: 0, 1) and 1 (parties: 2)
     let result = signing_round(T, N, &mut rng, &mut signers, public_key_shares);
@@ -30,7 +42,12 @@ fn pure_frost_test() {
     assert!(result.is_ok());
 }
 
-fn build_peg_in(satoshis: u64, stx_address: [u8; 32]) -> Transaction {
+fn build_peg_in(
+    satoshis: u64,
+    peg_wallet_address: UntweakedPublicKey,
+    stx_address: [u8; 32],
+) -> Transaction {
+    let secp = bitcoin::util::key::Secp256k1::new();
     // Peg-In TX
     let peg_in_input = bitcoin::TxIn {
         previous_output: Default::default(),
@@ -38,9 +55,10 @@ fn build_peg_in(satoshis: u64, stx_address: [u8; 32]) -> Transaction {
         sequence: Default::default(),
         witness: Default::default(),
     };
+    let taproot = Script::new_v1_p2tr(&secp, peg_wallet_address, None);
     let peg_in_output = bitcoin::TxOut {
         value: satoshis,
-        script_pubkey: Default::default(),
+        script_pubkey: taproot,
     };
     bitcoin::blockdata::transaction::Transaction {
         version: 0,
@@ -84,7 +102,7 @@ fn signing_round(
         .sign(&MSG, &nonces, &shares)
 }
 
-fn dkg_round(mut rng: &mut OsRng, signers: &mut [v1::Signer; 3]) -> Vec<PolyCommitment> {
+fn dkg_round(mut rng: &mut OsRng, signers: &mut [v1::Signer; 3]) -> (Vec<PolyCommitment>, wtfrost::Point) {
     {
         let public_key_shares = signers
             .iter()
@@ -120,7 +138,10 @@ fn dkg_round(mut rng: &mut OsRng, signers: &mut [v1::Signer; 3]) -> Vec<PolyComm
             .collect::<HashMap<_, _>>();
 
         if secret_errors.is_empty() {
-            Ok(public_key_shares)
+            let group_key = public_key_shares
+                .iter()
+                .fold(Point::default(), |s, public_share| s + public_share.A[0]);
+            Ok((public_key_shares, group_key))
         } else {
             Err(secret_errors)
         }
