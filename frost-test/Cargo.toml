@@ -14,3 +14,4 @@ rand_core = { workspace = true }
 hashbrown = { workspace = true }
 wtfrost = { workspace = true }
 bitcoin = "0.29.2"
+secp256k1 = "0.26.0"
