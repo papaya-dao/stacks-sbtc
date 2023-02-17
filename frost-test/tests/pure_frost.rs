@@ -28,8 +28,8 @@ fn pure_frost_test() {
 
 
     // Peg Wallet Address from group key
-    let mut public_key_bytes_x = group_key.gej.x.n.map(|x64| x64.to_be_bytes()).into_iter().flatten().collect::<Vec<u8>>();
-    println!("group key X: {:?}", public_key_bytes_x);
+    let mut public_key_bytes_x = group_key.gej.x.n.map(|x64| x64.to_le_bytes()).into_iter().flatten().collect::<Vec<u8>>();
+    println!("group key X: (len {}) {:?}", public_key_bytes_x.len(), public_key_bytes_x);
     let peg_wallet_address = bitcoin::util::key::XOnlyPublicKey::from_slice(&public_key_bytes_x).unwrap();
 
     // Send to stx address
