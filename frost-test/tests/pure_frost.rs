@@ -44,12 +44,12 @@ fn pure_frost_test() {
     println!("{:?}", hex::encode(&peg_in_bytes));
 
     let peg_out = build_peg_out(1000, user_keys.public_key(), peg_in);
-    // signing. Signers: 0 (parties: 0, 1) and 1 (parties: 2)
     let mut peg_out_bytes: Vec<u8> = vec![];
     let _peg_out_bytes_len = peg_out.consensus_encode(&mut peg_out_bytes).unwrap();
     println!("peg-out tx");
     println!("{:?}", hex::encode(&peg_out_bytes));
 
+    // signing. Signers: 0 (parties: 0, 1) and 1 (parties: 2)
     let result = signing_round(
         &peg_out_bytes,
         threshold,
@@ -109,11 +109,11 @@ fn build_peg_in(
 
 fn signing_round(
     message: &[u8],
-    T: usize,
-    N: usize,
+    threshold: usize,
+    total: usize,
     mut rng: &mut OsRng,
     signers: &mut [v1::Signer; 3],
-    A: Vec<PolyCommitment>,
+    public_commitments: Vec<PolyCommitment>,
 ) -> Result<Signature, AggregatorError> {
     // decide which signers will be used
     let mut signers = [signers[0].clone(), signers[1].clone()];
@@ -135,7 +135,7 @@ fn signing_round(
         (nonces, shares)
     };
 
-    SignatureAggregator::new(N, T, A.clone())
+    SignatureAggregator::new(total, threshold, public_commitments.clone())
         .unwrap()
         .sign(&message, &nonces, &shares)
 }

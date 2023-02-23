@@ -8,7 +8,7 @@ mod tests {
     use hashbrown::HashMap;
     use rand_core::{CryptoRng, OsRng, RngCore};
     use wtfrost::{
-        common::{PolyCommitment},
+        common::PolyCommitment,
         errors::DkgError,
         v1::{Party, SignatureAggregator},
     };
