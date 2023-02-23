@@ -1,7 +1,7 @@
 use bitcoin::consensus::Encodable;
 use bitcoin::secp256k1::rand::thread_rng;
 use bitcoin::secp256k1::PublicKey;
-use bitcoin::{PackedLockTime, Script, Transaction, XOnlyPublicKey};
+use bitcoin::{OutPoint, PackedLockTime, Script, Transaction, XOnlyPublicKey};
 use hashbrown::HashMap;
 use rand_core::OsRng;
 use wtfrost::common::{PolyCommitment, Signature};
@@ -16,13 +16,13 @@ use wtfrost::{
 #[test]
 fn pure_frost_test() {
     // Singer setup
-    let T = 3;
-    let N = 4;
+    let threshold = 3;
+    let total = 4;
     let mut rng = OsRng::default();
     let mut signers = [
-        v1::Signer::new(&[0, 1], N, T, &mut rng),
-        v1::Signer::new(&[2], N, T, &mut rng),
-        v1::Signer::new(&[3], N, T, &mut rng),
+        v1::Signer::new(&[0, 1], total, threshold, &mut rng),
+        v1::Signer::new(&[2], total, threshold, &mut rng),
+        v1::Signer::new(&[3], total, threshold, &mut rng),
     ];
 
     let secp = bitcoin::secp256k1::Secp256k1::new();
@@ -31,7 +31,6 @@ fn pure_frost_test() {
     // DKG (Distributed Key Generation)
     let (public_key_shares, group_key) = dkg_round(&mut rng, &mut signers);
 
-    group_key.compress();
     // Peg Wallet Address from group key
     let peg_wallet_address =
         bitcoin::secp256k1::PublicKey::from_slice(&group_key.compress().as_bytes()).unwrap();
@@ -44,17 +43,17 @@ fn pure_frost_test() {
     println!("peg-in tx");
     println!("{:?}", hex::encode(&peg_in_bytes));
 
-    let peg_out = build_peg_out(1000, user_keys.public_key());
+    let peg_out = build_peg_out(1000, user_keys.public_key(), peg_in);
     // signing. Signers: 0 (parties: 0, 1) and 1 (parties: 2)
     let mut peg_out_bytes: Vec<u8> = vec![];
-    let peg_out_bytes_len = peg_out.consensus_encode(&mut peg_out_bytes).unwrap();
+    let _peg_out_bytes_len = peg_out.consensus_encode(&mut peg_out_bytes).unwrap();
     println!("peg-out tx");
     println!("{:?}", hex::encode(&peg_out_bytes));
 
     let result = signing_round(
         &peg_out_bytes,
-        T,
-        N,
+        threshold,
+        total,
         &mut rng,
         &mut signers,
         public_key_shares,
@@ -62,11 +61,21 @@ fn pure_frost_test() {
     assert!(result.is_ok());
 }
 
-fn build_peg_out(satoshis: u64, user_address: PublicKey) -> Transaction {
+fn build_peg_out(satoshis: u64, user_address: PublicKey, utxo: Transaction) -> Transaction {
+    let peg_in_outpoint = OutPoint {
+        txid: utxo.txid(),
+        vout: 0,
+    };
+    let peg_out_input = bitcoin::TxIn {
+        previous_output: peg_in_outpoint,
+        script_sig: Default::default(),
+        sequence: Default::default(),
+        witness: Default::default(),
+    };
     bitcoin::blockdata::transaction::Transaction {
         version: 0,
         lock_time: PackedLockTime(0),
-        input: vec![],
+        input: vec![peg_out_input],
         output: vec![],
     }
 }

@@ -8,9 +8,9 @@ mod tests {
     use hashbrown::HashMap;
     use rand_core::{CryptoRng, OsRng, RngCore};
     use wtfrost::{
-        common::{PolyCommitment, PublicNonce},
+        common::{PolyCommitment},
         errors::DkgError,
-        v1::{Party, SignatureAggregator, SignatureShare},
+        v1::{Party, SignatureAggregator},
     };
 
     fn distribute(
