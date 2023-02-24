@@ -1,7 +1,8 @@
 use bitcoin::consensus::Encodable;
 use bitcoin::secp256k1::rand::thread_rng;
-use bitcoin::secp256k1::PublicKey;
-use bitcoin::{OutPoint, PackedLockTime, Script, Transaction, XOnlyPublicKey};
+use bitcoin::{
+    KeyPair, OutPoint, PackedLockTime, PublicKey, Script, Transaction, WPubkeyHash, XOnlyPublicKey,
+};
 use hashbrown::HashMap;
 use rand_core::OsRng;
 use wtfrost::common::{PolyCommitment, Signature};
@@ -26,14 +27,14 @@ fn pure_frost_test() {
     ];
 
     let secp = bitcoin::secp256k1::Secp256k1::new();
-    let user_keys = bitcoin::util::key::KeyPair::new(&secp, &mut thread_rng());
+    let user_keys: bitcoin::KeyPair = KeyPair::new(&secp, &mut thread_rng());
 
     // DKG (Distributed Key Generation)
-    let (public_key_shares, group_key) = dkg_round(&mut rng, &mut signers);
+    let (public_key_shares, group_public_key) = dkg_round(&mut rng, &mut signers);
 
     // Peg Wallet Address from group key
     let peg_wallet_address =
-        bitcoin::secp256k1::PublicKey::from_slice(&group_key.compress().as_bytes()).unwrap();
+        bitcoin::secp256k1::PublicKey::from_slice(&group_public_key.compress().as_bytes()).unwrap();
 
     // Send to stx address
     let stx_address = [0; 32];
@@ -43,7 +44,9 @@ fn pure_frost_test() {
     println!("peg-in tx");
     println!("{:?}", hex::encode(&peg_in_bytes));
 
-    let peg_out = build_peg_out(1000, user_keys.public_key(), peg_in);
+    let public_key_type_transmogrify =
+        bitcoin::PublicKey::from_slice(&user_keys.public_key().serialize()).unwrap();
+    let peg_out = build_peg_out(1000, public_key_type_transmogrify, peg_in);
     let mut peg_out_bytes: Vec<u8> = vec![];
     let _peg_out_bytes_len = peg_out.consensus_encode(&mut peg_out_bytes).unwrap();
     println!("peg-out tx");
@@ -61,7 +64,11 @@ fn pure_frost_test() {
     assert!(result.is_ok());
 }
 
-fn build_peg_out(satoshis: u64, user_address: PublicKey, utxo: Transaction) -> Transaction {
+fn build_peg_out(
+    satoshis: u64,
+    user_address: bitcoin::PublicKey,
+    utxo: Transaction,
+) -> Transaction {
     let peg_in_outpoint = OutPoint {
         txid: utxo.txid(),
         vout: 0,
@@ -71,6 +78,11 @@ fn build_peg_out(satoshis: u64, user_address: PublicKey, utxo: Transaction) -> T
         script_sig: Default::default(),
         sequence: Default::default(),
         witness: Default::default(),
+    };
+    let p2wpk = Script::new_v0_p2wpkh(&user_address.wpubkey_hash().unwrap());
+    let peg_out_output = bitcoin::TxOut {
+        value: satoshis,
+        script_pubkey: p2wpk,
     };
     bitcoin::blockdata::transaction::Transaction {
         version: 0,
@@ -82,7 +94,7 @@ fn build_peg_out(satoshis: u64, user_address: PublicKey, utxo: Transaction) -> T
 
 fn build_peg_in(
     satoshis: u64,
-    peg_wallet_address: PublicKey,
+    peg_wallet_address: bitcoin::secp256k1::PublicKey,
     stx_address: [u8; 32],
 ) -> Transaction {
     let secp = bitcoin::util::key::Secp256k1::new();
