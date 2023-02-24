@@ -1,7 +1,9 @@
 use bitcoin::consensus::Encodable;
 use bitcoin::secp256k1::rand::thread_rng;
+use bitcoin::util::sighash::SighashCache;
 use bitcoin::{
-    KeyPair, OutPoint, PackedLockTime, PublicKey, Script, Transaction, WPubkeyHash, XOnlyPublicKey,
+    EcdsaSighashType, KeyPair, OutPoint, PackedLockTime, PublicKey, Script, Transaction,
+    WPubkeyHash, XOnlyPublicKey,
 };
 use hashbrown::HashMap;
 use rand_core::OsRng;
@@ -53,9 +55,20 @@ fn frost_btc() {
     println!("peg-out tx");
     println!("{:?}", hex::encode(&peg_out_bytes));
 
+    let mut cache = SighashCache::new(&peg_out);
+    let segwit_sighash = cache
+        .segwit_signature_hash(
+            0,
+            &peg_out.input[0].script_sig,
+            peg_out.output[0].value,
+            EcdsaSighashType::All,
+        )
+        .unwrap();
+    let signing_payload = segwit_sighash.as_hash().to_vec();
+
     // signing. Signers: 0 (parties: 0, 1) and 1 (parties: 2)
     let result = signing_round(
-        &peg_out_bytes,
+        &signing_payload,
         threshold,
         total,
         &mut rng,
@@ -89,7 +102,7 @@ fn build_peg_out(
         version: 0,
         lock_time: PackedLockTime(0),
         input: vec![peg_out_input],
-        output: vec![],
+        output: vec![peg_out_output],
     }
 }
 
