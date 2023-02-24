@@ -36,7 +36,7 @@ fn frost_btc() {
     let peg_wallet_address =
         bitcoin::secp256k1::PublicKey::from_slice(&group_public_key.compress().as_bytes()).unwrap();
 
-    // Send to stx address
+    // Peg in to stx address
     let stx_address = [0; 32];
     let peg_in = build_peg_in(1000, peg_wallet_address, stx_address);
     let mut peg_in_bytes: Vec<u8> = vec![];
@@ -44,6 +44,7 @@ fn frost_btc() {
     println!("peg-in tx");
     println!("{:?}", hex::encode(&peg_in_bytes));
 
+    // Peg out to btc address
     let public_key_type_transmogrify =
         bitcoin::PublicKey::from_slice(&user_keys.public_key().serialize()).unwrap();
     let peg_out = build_peg_out(1000, public_key_type_transmogrify, peg_in);
