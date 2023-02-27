@@ -13,3 +13,4 @@ frost-signer = { path = "../frost-signer" }
 rand_core = { workspace = true }
 hashbrown = { workspace = true }
 wtfrost = { workspace = true }
+bitcoin = "0.29.2"
