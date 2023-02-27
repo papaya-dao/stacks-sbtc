@@ -1,9 +1,7 @@
 use bitcoin::consensus::Encodable;
 use bitcoin::secp256k1::rand::thread_rng;
-use bitcoin::util::sighash::SighashCache;
 use bitcoin::{
-    EcdsaSighashType, KeyPair, OutPoint, PackedLockTime, PublicKey, Script, Transaction,
-    WPubkeyHash, XOnlyPublicKey,
+    KeyPair, OutPoint, PackedLockTime, SchnorrSighashType, Script, Transaction, XOnlyPublicKey,
 };
 use hashbrown::HashMap;
 use rand_core::OsRng;
@@ -49,22 +47,18 @@ fn frost_btc() {
     // Peg out to btc address
     let public_key_type_transmogrify =
         bitcoin::PublicKey::from_slice(&user_keys.public_key().serialize()).unwrap();
-    let peg_out = build_peg_out(1000, public_key_type_transmogrify, peg_in);
+    let peg_out = build_peg_out(1000, public_key_type_transmogrify, &peg_in);
     let mut peg_out_bytes: Vec<u8> = vec![];
     let _peg_out_bytes_len = peg_out.consensus_encode(&mut peg_out_bytes).unwrap();
     println!("peg-out tx");
     println!("{:?}", hex::encode(&peg_out_bytes));
 
-    let mut cache = SighashCache::new(&peg_out);
-    let segwit_sighash = cache
-        .segwit_signature_hash(
-            0,
-            &peg_out.input[0].script_sig,
-            peg_out.output[0].value,
-            EcdsaSighashType::All,
-        )
-        .unwrap();
-    let signing_payload = segwit_sighash.as_hash().to_vec();
+    let sighash = peg_out.signature_hash(
+        0,
+        &peg_in.output[0].script_pubkey,
+        SchnorrSighashType::All as u32,
+    );
+    let signing_payload = sighash.as_hash().to_vec();
 
     // signing. Signers: 0 (parties: 0, 1) and 1 (parties: 2)
     let result = signing_round(
@@ -81,7 +75,7 @@ fn frost_btc() {
 fn build_peg_out(
     satoshis: u64,
     user_address: bitcoin::PublicKey,
-    utxo: Transaction,
+    utxo: &Transaction,
 ) -> Transaction {
     let peg_in_outpoint = OutPoint {
         txid: utxo.txid(),
