@@ -51,7 +51,7 @@ fn frost_btc() {
     // Peg out to btc address
     let public_key_type_transmogrify =
         bitcoin::PublicKey::from_slice(&user_keys.public_key().serialize()).unwrap();
-    let peg_out = build_peg_out(1000, public_key_type_transmogrify, &peg_in_step_b);
+    let mut peg_out = build_peg_out(1000, public_key_type_transmogrify, &peg_in_step_b);
     let mut peg_out_bytes: Vec<u8> = vec![];
     let _peg_out_bytes_len = peg_out.consensus_encode(&mut peg_out_bytes).unwrap();
 
@@ -74,7 +74,11 @@ fn frost_btc() {
     assert!(result_ok.is_ok());
     let result = result_ok.unwrap();
 
-    //peg_out.input[0].witness.push(result.R + result.s);
+    let mut sig_bytes = vec![];
+    let pubkey_xonly = result.R.compress().as_bytes()[1..32].to_vec();
+    sig_bytes.extend(pubkey_xonly);
+    sig_bytes.extend(result.z.to_bytes());
+    peg_out.input[0].witness.push(&sig_bytes);
     println!("peg-out tx");
     println!("{:?}", hex::encode(&peg_out_bytes));
 }
