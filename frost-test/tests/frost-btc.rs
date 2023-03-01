@@ -47,6 +47,12 @@ fn frost_btc() {
     println!("{:?}", hex::encode(&peg_in_step_a_bytes));
 
     let peg_in_step_b = build_peg_in_step_b(&peg_in_step_a, peg_wallet_address);
+    let mut peg_in_step_b_bytes: Vec<u8> = vec![];
+    peg_in_step_b
+        .consensus_encode(&mut peg_in_step_b_bytes)
+        .unwrap();
+    println!("peg-in step B tx");
+    println!("{:?}", hex::encode(&peg_in_step_b_bytes));
 
     // Peg out to btc address
     let public_key_type_transmogrify =
@@ -97,10 +103,7 @@ fn build_peg_in_step_a(
         sequence: Default::default(),
         witness: Default::default(),
     };
-    // crate type weirdness
-    let peg_wallet_address_secp =
-        bitcoin::secp256k1::PublicKey::from_slice(&peg_wallet_address.to_bytes()).unwrap();
-    let taproot = Script::new_v1_p2tr(&secp, XOnlyPublicKey::from(peg_wallet_address_secp), None);
+    let p2wpk = Script::new_v0_p2wpkh(&peg_wallet_address.wpubkey_hash().unwrap());
     let peg_in_output = bitcoin::TxOut {
         value: satoshis,
         script_pubkey: taproot,
@@ -127,7 +130,10 @@ fn build_peg_in_step_b(
         sequence: Default::default(),
         witness: Default::default(),
     };
-    let p2wpk = Script::new_v0_p2wpkh(&peg_wallet_address.wpubkey_hash().unwrap());
+    // crate type weirdness
+    let peg_wallet_address_secp =
+        bitcoin::secp256k1::PublicKey::from_slice(&peg_wallet_address.to_bytes()).unwrap();
+    let taproot = Script::new_v1_p2tr(&secp, XOnlyPublicKey::from(peg_wallet_address_secp), None);
     let peg_out_output = bitcoin::TxOut {
         value: step_a.output[0].value,
         script_pubkey: p2wpk,
