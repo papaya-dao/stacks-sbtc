@@ -1,7 +1,9 @@
 use bitcoin::consensus::Encodable;
+use bitcoin::hashes::Hash;
 use bitcoin::secp256k1::rand::thread_rng;
 use bitcoin::{
-    KeyPair, OutPoint, PackedLockTime, SchnorrSighashType, Script, Transaction, XOnlyPublicKey,
+    KeyPair, OutPoint, PackedLockTime, SchnorrSighashType, Script, Transaction, Txid,
+    XOnlyPublicKey,
 };
 use hashbrown::HashMap;
 use rand_core::OsRng;
@@ -38,7 +40,11 @@ fn frost_btc() {
 
     // Peg in to stx address
     let stx_address = [0; 32];
-    let peg_in_step_a = build_peg_in_step_a(1000, peg_wallet_address, stx_address);
+    let user_utxo = OutPoint {
+        txid: Txid::all_zeros(),
+        vout: 0,
+    };
+    let peg_in_step_a = build_peg_in_step_a(1000, peg_wallet_address, stx_address, user_utxo);
     let mut peg_in_step_a_bytes: Vec<u8> = vec![];
     peg_in_step_a
         .consensus_encode(&mut peg_in_step_a_bytes)
@@ -57,7 +63,11 @@ fn frost_btc() {
     // Peg out to btc address
     let public_key_type_transmogrify =
         bitcoin::PublicKey::from_slice(&user_keys.public_key().serialize()).unwrap();
-    let mut peg_out = build_peg_out(1000, public_key_type_transmogrify, &peg_in_step_b);
+    let peg_in_utxo = OutPoint {
+        txid: peg_in_step_b.txid(),
+        vout: 0,
+    };
+    let mut peg_out = build_peg_out(1000, public_key_type_transmogrify, peg_in_utxo);
     let mut peg_out_bytes: Vec<u8> = vec![];
     let _peg_out_bytes_len = peg_out.consensus_encode(&mut peg_out_bytes).unwrap();
 
@@ -96,10 +106,11 @@ fn build_peg_in_step_a(
     satoshis: u64,
     peg_wallet_address: bitcoin::PublicKey,
     stx_address: [u8; 32],
+    utxo: OutPoint,
 ) -> Transaction {
     // Peg-In TX
     let peg_in_input = bitcoin::TxIn {
-        previous_output: Default::default(),
+        previous_output: utxo,
         script_sig: Default::default(),
         sequence: Default::default(),
         witness: Default::default(),
@@ -148,17 +159,9 @@ fn build_peg_in_step_b(
     }
 }
 
-fn build_peg_out(
-    satoshis: u64,
-    user_address: bitcoin::PublicKey,
-    utxo: &Transaction,
-) -> Transaction {
-    let peg_in_outpoint = OutPoint {
-        txid: utxo.txid(),
-        vout: 0,
-    };
+fn build_peg_out(satoshis: u64, user_address: bitcoin::PublicKey, utxo: OutPoint) -> Transaction {
     let peg_out_input = bitcoin::TxIn {
-        previous_output: peg_in_outpoint,
+        previous_output: utxo,
         script_sig: Default::default(),
         sequence: Default::default(),
         witness: Default::default(),
