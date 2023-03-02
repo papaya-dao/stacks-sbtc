@@ -3,7 +3,10 @@ use std::{
     io::{Error, Read, Write},
 };
 
-use super::{to_io_result::io_error, ToIoResult};
+use yarpc::{
+    read_ex::ReadEx,
+    to_io_result::{err, ToIoResult},
+};
 
 pub const PROTOCOL: &str = "HTTP/1.1";
 
@@ -18,23 +21,10 @@ pub trait Message: Sized {
     fn content(&self) -> &Vec<u8>;
 
     fn read(i: &mut impl Read) -> Result<Self, Error> {
-        let mut read_byte = || -> Result<u8, Error> {
-            let mut buf = [0; 1];
-            i.read_exact(&mut buf)?;
-            Ok(buf[0])
-        };
-
         let mut read_line = || -> Result<String, Error> {
-            let mut result = String::default();
-            loop {
-                let b = read_byte()?;
-                if b == 13 {
-                    break;
-                };
-                result.push(b as char);
-            }
-            if read_byte()? != 10 {
-                return Err(io_error("invalid HTTP line"));
+            let result = i.read_string_until('\r')?;
+            if i.read_byte()? != 10 {
+                return err("invalid HTTP line");
             }
             Ok(result)
         };
@@ -51,7 +41,7 @@ pub trait Message: Sized {
                 break;
             }
             let (name, value) = {
-                let (name, value) = line.split_once(':').to_io_result("")?;
+                let (name, value) = line.split_once(':').to_io_result("invalid header format")?;
                 (name.to_lowercase(), value.trim())
             };
             if name == "content-length" {
@@ -61,8 +51,7 @@ pub trait Message: Sized {
             }
         }
 
-        let mut content = vec![0; content_length];
-        i.read_exact(content.as_mut_slice())?;
+        let content = i.read_exact_vec(content_length)?;
 
         // return the message
         Self::new(first_line, headers, content)

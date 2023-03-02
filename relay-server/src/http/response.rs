@@ -1,9 +1,8 @@
 use std::{collections::HashMap, io::Read};
 
-use super::{
-    message::{Message, PROTOCOL},
-    ToIoResult,
-};
+use yarpc::to_io_result::ToIoResult;
+
+use super::message::{Message, PROTOCOL};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Response {

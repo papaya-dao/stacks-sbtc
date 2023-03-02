@@ -1,6 +1,8 @@
 use std::{collections::HashMap, io::Error};
 
-use super::{method::Method, Message, ToIoResult};
+use yarpc::to_io_result::ToIoResult;
+
+use super::{method::Method, Message};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Request {
@@ -18,7 +20,7 @@ impl Message for Request {
         content: Vec<u8>,
     ) -> Result<Self, Error> {
         let mut i = first_line.into_iter();
-        let method = Method::try_parse(&i.next().to_io_result("no method")?)
+        let method = Method::try_parse(&i.next().to_io_result("unexpected end of message")?)
             .to_io_result("unknown method")?;
         let url = i.next().to_io_result("no URL")?;
         let protocol = i.next().to_io_result("no protocol")?;

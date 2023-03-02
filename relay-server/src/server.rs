@@ -1,7 +1,9 @@
 use std::io::{Cursor, Error, ErrorKind, Write};
 
+use yarpc::to_io_result::ToIoResult;
+
 use crate::{
-    http::{Call, Message, Request, Response, ToIoResult},
+    http::{Call, Message, Request, Response},
     io_stream::IoStream,
     mem_io_stream::MemIoStreamEx,
     mem_state::MemState,
