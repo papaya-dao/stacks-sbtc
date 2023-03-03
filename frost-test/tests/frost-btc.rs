@@ -13,9 +13,10 @@ use nix::sys::signal;
 use nix::unistd::Pid;
 use rand_core::OsRng;
 use std::iter::Map;
-use std::process::{Child, Command};
+use std::process::{Child, Command, Stdio};
 use std::thread;
 use std::time::Duration;
+use ureq::serde_json;
 use wtfrost::common::{PolyCommitment, Signature};
 use wtfrost::errors::AggregatorError;
 use wtfrost::{
@@ -116,10 +117,11 @@ fn frost_btc() {
 fn bitcoind_rpc(method: &str, params: impl ureq::serde::Serialize) {
     let rpc =
         ureq::json!({"jsonrpc": "1.0", "id": "sbtc-test", "method": method, "params": params});
-    println!("btc-rpc {}", rpc);
-    match ureq::post(BITCOIND_URL).send_json(rpc) {
-        Ok(resp) => {
-            println!("bitcoind-rpc result {:?}", resp)
+    match ureq::post(BITCOIND_URL).send_json(&rpc) {
+        Ok(response) => {
+            let status = response.status();
+            let json = response.into_json::<serde_json::Value>().unwrap();
+            println!("bitcoind-rpc {:?} -> {:?} {:?}", rpc, status, json);
         }
         Err(err) => {
             println!(
@@ -135,6 +137,7 @@ fn bitcoind_setup() -> pid_t {
         .arg("-regtest")
         .arg("-rpcuser=abcd")
         .arg("-rpcpassword=abcd")
+        .stdout(Stdio::null())
         .spawn()
         .expect("bitcoind failed to start");
     let bitcoind_pid = bitcoind_child.id() as pid_t;
