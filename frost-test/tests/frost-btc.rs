@@ -5,9 +5,15 @@ use bitcoin::{
     KeyPair, Network, OutPoint, PackedLockTime, PrivateKey, PublicKey, SchnorrSighashType, Script,
     Transaction, XOnlyPublicKey,
 };
+use ctrlc::Signal;
 use hashbrown::HashMap;
+use nix::libc::pid_t;
+use nix::sys::signal;
+use nix::unistd::Pid;
 use rand_core::OsRng;
 use std::process::{Child, Command};
+use std::thread;
+use std::time::Duration;
 use wtfrost::common::{PolyCommitment, Signature};
 use wtfrost::errors::AggregatorError;
 use wtfrost::{
@@ -39,7 +45,7 @@ fn frost_btc() {
         bitcoin::PublicKey::from_slice(&group_public_key.compress().as_bytes()).unwrap();
 
     // bitcoind regtest
-    bitcoind_setup();
+    let bitcoind_pid = bitcoind_setup();
 
     let secp = bitcoin::secp256k1::Secp256k1::new();
     let user_keys: bitcoin::KeyPair = KeyPair::new(&secp, &mut thread_rng());
@@ -91,15 +97,26 @@ fn frost_btc() {
         .push(&group_public_key.compress().as_bytes());
     println!("peg-out tx");
     println!("{:?}", hex::encode(&peg_out_bytes));
+
+    stop_pid(bitcoind_pid);
 }
 
-fn bitcoind_setup() -> Child {
-    let bitcoind_pid = Command::new("bitcoind")
+fn bitcoind_setup() -> pid_t {
+    let bitcoind_child = Command::new("bitcoind")
         .arg("-regtest")
         .spawn()
         .expect("bitcoind failed to start");
-
+    let bitcoind_pid = bitcoind_child.id() as pid_t;
+    ctrlc::set_handler(move || {
+        println!("kill bitcoind pid {:?}", bitcoind_pid);
+        stop_pid(bitcoind_pid)
+    })
+    .expect("Error setting Ctrl-C handler");
     bitcoind_pid
+}
+
+fn stop_pid(pid: pid_t) {
+    signal::kill(Pid::from_raw(pid), Signal::SIGTERM).unwrap();
 }
 
 // todo: remove. user's utxo will come from bitcoind
