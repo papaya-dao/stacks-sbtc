@@ -18,7 +18,7 @@ impl Method {
             Method::POST => POST,
         }
     }
-    pub fn try_parse<'a>(value: &'a str) -> Option<Self> {
+    pub fn try_parse(value: &str) -> Option<Self> {
         match value {
             GET => Some(Self::GET),
             POST => Some(Self::POST),
