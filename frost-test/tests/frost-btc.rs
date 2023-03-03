@@ -1,6 +1,7 @@
 use bitcoin::consensus::Encodable;
-use bitcoin::hashes::Hash;
 use bitcoin::secp256k1::rand::thread_rng;
+use bitcoin::secp256k1::Secp256k1;
+use bitcoin::util::key;
 use bitcoin::{
     KeyPair, Network, OutPoint, PackedLockTime, PrivateKey, PublicKey, SchnorrSighashType, Script,
     Transaction, XOnlyPublicKey,
@@ -11,6 +12,7 @@ use nix::libc::pid_t;
 use nix::sys::signal;
 use nix::unistd::Pid;
 use rand_core::OsRng;
+use std::iter::Map;
 use std::process::{Child, Command};
 use std::thread;
 use std::time::Duration;
@@ -51,6 +53,7 @@ fn frost_btc() {
 
     let secp = bitcoin::secp256k1::Secp256k1::new();
     let user_keys: bitcoin::KeyPair = KeyPair::new(&secp, &mut thread_rng());
+    bitcoind_mine(&user_keys.public_key().serialize());
 
     // Peg in to stx address
     let stx_address = [0; 32];
@@ -58,6 +61,13 @@ fn frost_btc() {
 
     let peg_in = build_peg_in_op_return(10, peg_wallet_address, stx_address, user_utxo, 0);
     //let (peg_in_step_a, peg_in_step_b) = two_phase_peg_in(peg_wallet_address, stx_address, user_utxo);
+
+    let mut peg_in_bytes: Vec<u8> = vec![];
+    peg_in.consensus_encode(&mut peg_in_bytes).unwrap();
+    println!("peg-in OP_RETURN tx");
+    let peg_in_bytes_hex = hex::encode(&peg_in_bytes);
+    println!("{:?}", peg_in_bytes_hex);
+    bitcoind_rpc("testmempoolaccept", [peg_in_bytes_hex]);
 
     // Peg out to btc address
     let public_key_type_transmogrify =
@@ -103,14 +113,19 @@ fn frost_btc() {
     stop_pid(bitcoind_pid);
 }
 
-fn bitcoind_rpc(method: &str) {
-    let rpc = ureq::json!({"jsonrpc": "1.0", "id": "sbtc-test", "method": method, "params": []});
+fn bitcoind_rpc(method: &str, params: impl ureq::serde::Serialize) {
+    let rpc =
+        ureq::json!({"jsonrpc": "1.0", "id": "sbtc-test", "method": method, "params": params});
+    println!("btc-rpc {}", rpc);
     match ureq::post(BITCOIND_URL).send_json(rpc) {
         Ok(resp) => {
             println!("bitcoind-rpc result {:?}", resp)
         }
         Err(err) => {
-            println!("bitcoind-rpc {:?}", err)
+            println!(
+                "bitcoind-rpc {:?}",
+                err.into_response().unwrap().into_string()
+            )
         }
     }
 }
@@ -129,9 +144,14 @@ fn bitcoind_setup() -> pid_t {
     })
     .expect("Error setting Ctrl-C handler");
     println!("bitconind started. waiting 1 second to warm up.");
-    thread::sleep(Duration::from_secs(1));
-    bitcoind_rpc("listwallets");
+    thread::sleep(Duration::from_millis(500));
     bitcoind_pid
+}
+
+fn bitcoind_mine(public_key_bytes: &[u8; 33]) {
+    let public_key = bitcoin::PublicKey::from_slice(public_key_bytes).unwrap();
+    let address = bitcoin::Address::p2wpkh(&public_key, bitcoin::Network::Regtest).unwrap();
+    bitcoind_rpc("generatetoaddress", (1, address.to_string()));
 }
 
 fn stop_pid(pid: pid_t) {
@@ -193,17 +213,12 @@ fn build_peg_in_op_return(
         value: satoshis,
         script_pubkey: taproot,
     };
-    let peg_in = bitcoin::blockdata::transaction::Transaction {
+    bitcoin::blockdata::transaction::Transaction {
         version: 0,
         lock_time: PackedLockTime(0),
         input: vec![],
         output: vec![peg_in_output_0, peg_in_output_1],
-    };
-    let mut peg_in_bytes: Vec<u8> = vec![];
-    peg_in.consensus_encode(&mut peg_in_bytes).unwrap();
-    println!("peg-in OP_RETURN tx");
-    println!("{:?}", hex::encode(&peg_in_bytes));
-    peg_in
+    }
 }
 
 fn two_phase_peg_in(
