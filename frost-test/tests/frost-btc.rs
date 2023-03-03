@@ -23,6 +23,8 @@ use wtfrost::{
     Point,
 };
 
+const BITCOIND_URL: &str = "http://abcd:abcd@localhost:18443";
+
 #[test]
 fn frost_btc() {
     // Singer setup
@@ -101,12 +103,9 @@ fn frost_btc() {
     stop_pid(bitcoind_pid);
 }
 
-fn bitcoind_rpc(url: &str, method: &str) {
+fn bitcoind_rpc(method: &str) {
     let rpc = ureq::json!({"jsonrpc": "1.0", "id": "sbtc-test", "method": method, "params": []});
-    match ureq::post(url)
-        .set("Authorization", "Basic YWJjZDphYmNk")
-        .send_json(rpc)
-    {
+    match ureq::post(BITCOIND_URL).send_json(rpc) {
         Ok(resp) => {
             println!("bitcoind-rpc result {:?}", resp)
         }
@@ -119,6 +118,8 @@ fn bitcoind_rpc(url: &str, method: &str) {
 fn bitcoind_setup() -> pid_t {
     let bitcoind_child = Command::new("bitcoind")
         .arg("-regtest")
+        .arg("-rpcuser=abcd")
+        .arg("-rpcpassword=abcd")
         .spawn()
         .expect("bitcoind failed to start");
     let bitcoind_pid = bitcoind_child.id() as pid_t;
@@ -127,9 +128,9 @@ fn bitcoind_setup() -> pid_t {
         stop_pid(bitcoind_pid)
     })
     .expect("Error setting Ctrl-C handler");
-    println!("bitconind started. waiting 2 seconds to warm up.");
-    thread::sleep(Duration::from_secs(2));
-    bitcoind_rpc("http://localhost:18443", "testmempoolaccept");
+    println!("bitconind started. waiting 1 second to warm up.");
+    thread::sleep(Duration::from_secs(1));
+    bitcoind_rpc("listwallets");
     bitcoind_pid
 }
 
