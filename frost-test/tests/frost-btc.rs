@@ -101,6 +101,21 @@ fn frost_btc() {
     stop_pid(bitcoind_pid);
 }
 
+fn bitcoind_rpc(url: &str, method: &str) {
+    let rpc = ureq::json!({"jsonrpc": "1.0", "id": "sbtc-test", "method": method, "params": []});
+    match ureq::post(url)
+        .set("Authorization", "Basic YWJjZDphYmNk")
+        .send_json(rpc)
+    {
+        Ok(resp) => {
+            println!("bitcoind-rpc result {:?}", resp)
+        }
+        Err(err) => {
+            println!("bitcoind-rpc {:?}", err)
+        }
+    }
+}
+
 fn bitcoind_setup() -> pid_t {
     let bitcoind_child = Command::new("bitcoind")
         .arg("-regtest")
@@ -112,6 +127,9 @@ fn bitcoind_setup() -> pid_t {
         stop_pid(bitcoind_pid)
     })
     .expect("Error setting Ctrl-C handler");
+    println!("bitconind started. waiting 2 seconds to warm up.");
+    thread::sleep(Duration::from_secs(2));
+    bitcoind_rpc("http://localhost:18443", "testmempoolaccept");
     bitcoind_pid
 }
 
