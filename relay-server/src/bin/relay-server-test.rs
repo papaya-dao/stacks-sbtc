@@ -1,6 +1,7 @@
 use std::{io::Error, net::TcpStream, thread::yield_now};
 
-use relay_server::{Call, ProxyState, Request, Response, State};
+use relay_server::{ProxyState, State};
+use yarpc::http::{Call, Request, Response};
 
 const ADDR: &str = "127.0.0.1:9776";
 

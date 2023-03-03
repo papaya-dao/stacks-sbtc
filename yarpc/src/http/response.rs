@@ -1,6 +1,6 @@
 use std::{collections::HashMap, io::Read};
 
-use yarpc::to_io_result::ToIoResult;
+use crate::to_io_result::ToIoResult;
 
 use super::message::{Message, PROTOCOL};
 

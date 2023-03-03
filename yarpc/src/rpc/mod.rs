@@ -1,6 +1,9 @@
 use std::io;
 
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
+
+pub mod dispatch_command;
+pub mod js;
 
 /// RPC (Remote Procedure Call)
 pub trait Rpc {

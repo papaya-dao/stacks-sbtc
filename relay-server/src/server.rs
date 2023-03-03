@@ -1,16 +1,11 @@
-use std::io::{Cursor, Error, ErrorKind, Write};
+use std::io::{Cursor, Error, Write};
 
-use yarpc::to_io_result::ToIoResult;
-
-use crate::{
-    http::{Call, Message, Request, Response},
-    io_stream::IoStream,
-    mem_io_stream::MemIoStreamEx,
-    mem_state::MemState,
-    state::State,
-    url::QueryEx,
-    Method,
+use yarpc::{
+    http::{Call, IoStream, MemIoStreamEx, Message, Method, Request, Response, QueryEx},
+    to_io_result::{err, ToIoResult},
 };
+
+use crate::{mem_state::MemState, state::State};
 
 /// The server keeps a state (messages) and can accept and respond to messages using the
 /// `update` function.
@@ -18,7 +13,8 @@ use crate::{
 /// ## Example
 ///
 /// ```
-/// use relay_server::{Call, Method, Server, Response};
+/// use relay_server::Server;
+/// use yarpc::http::{Call, Method, Response};
 ///
 /// let mut server = Server::default();
 /// // send a message "Hello!"
@@ -66,7 +62,7 @@ impl Server {
         let mut stream = msg.mem_io_stream(&mut result);
         self.update(&mut stream)?;
         if stream.i.position() != msg.len() as u64 {
-            return Err(Error::new(ErrorKind::InvalidData, "invalid request"));
+            return err("invalid request");
         }
         Ok(result)
     }

@@ -1,4 +1,5 @@
-use relay_server::{Call, Method, Response, Server};
+use relay_server::Server;
+use yarpc::http::{Call, Method, Response};
 
 #[test]
 fn server_test() {

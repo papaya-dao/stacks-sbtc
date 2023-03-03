@@ -3,12 +3,14 @@ use std::{
     io::{Error, Read, Write},
 };
 
-use yarpc::{
+use crate::{
     read_ex::ReadEx,
     to_io_result::{err, ToIoResult},
 };
 
 pub const PROTOCOL: &str = "HTTP/1.1";
+
+const CONTENT_LENGTH: &str = "content-length";
 
 pub trait Message: Sized {
     fn new(
@@ -44,7 +46,7 @@ pub trait Message: Sized {
                 let (name, value) = line.split_once(':').to_io_result("invalid header format")?;
                 (name.to_lowercase(), value.trim())
             };
-            if name == "content-length" {
+            if name == CONTENT_LENGTH {
                 content_length = value.parse().to_io_result("invalid content-length")?;
             } else {
                 headers.insert(name, value.to_string());
@@ -58,7 +60,7 @@ pub trait Message: Sized {
     }
     fn write(&self, o: &mut impl Write) -> Result<(), Error> {
         const EOL: &[u8] = "\r\n".as_bytes();
-        const CONTENT_LENGTH: &[u8] = "content-length".as_bytes();
+        const CONTENT_LENGTH_BYTES: &[u8] = CONTENT_LENGTH.as_bytes();
         const COLON: &[u8] = ":".as_bytes();
 
         o.write_all(self.first_line().join(" ").as_bytes())?;
@@ -76,7 +78,7 @@ pub trait Message: Sized {
         let content = self.content();
         let len = content.len();
         if len > 0 {
-            write_header(CONTENT_LENGTH, len.to_string().as_bytes())?;
+            write_header(CONTENT_LENGTH_BYTES, len.to_string().as_bytes())?;
         }
         //These could cause partial writes. Should we check the returned number of written bytes?
         o.write_all(EOL)?;

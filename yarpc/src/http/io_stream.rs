@@ -3,10 +3,7 @@ use std::{
     net::TcpStream,
 };
 
-use crate::{
-    http::{Message, Request, Response},
-    Call,
-};
+use crate::http::{Call, Message, Request, Response};
 
 /// A trait for bidirectional stream.
 ///
