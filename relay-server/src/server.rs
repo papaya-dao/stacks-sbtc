@@ -1,7 +1,7 @@
 use std::io::{Cursor, Error, Write};
 
 use yarpc::{
-    http::{Call, IoStream, MemIoStreamEx, Message, Method, Request, Response, QueryEx},
+    http::{Call, IoStream, MemIoStreamEx, Message, Method, QueryEx, Request, Response},
     to_io_result::{err, ToIoResult},
 };
 

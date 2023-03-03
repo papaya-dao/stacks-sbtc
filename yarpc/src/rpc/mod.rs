@@ -1,6 +1,6 @@
 use std::io;
 
-use serde::{Serialize, de::DeserializeOwned};
+use serde::{de::DeserializeOwned, Serialize};
 
 pub mod dispatch_command;
 pub mod js;

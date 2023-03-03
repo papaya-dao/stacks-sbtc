@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use serde::Serialize;
-use yarpc::rpc::{js::Js, Rpc, dispatch_command::DispatchCommand};
+use yarpc::rpc::{dispatch_command::DispatchCommand, js::Js, Rpc};
 
 use crate::stacks_transaction::StacksTransaction;
 

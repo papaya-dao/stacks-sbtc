@@ -71,7 +71,7 @@ pub struct Signer<P: SignerPolicy> {
     signers: HashMap<P::DkgId, v1::Signer>,
 }
 
-fn get_indices<T: Eq>(map: &Vec<T>, id: &T) -> Vec<usize> {
+fn get_indices<T: Eq>(map: &[T], id: &T) -> Vec<usize> {
     map.iter()
         .enumerate()
         .filter_map(|(i, map_id)| if *id == *map_id { Some(i) } else { None })
