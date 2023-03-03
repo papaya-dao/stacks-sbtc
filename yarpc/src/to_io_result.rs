@@ -1,7 +1,4 @@
-use std::{
-    any,
-    io::{Error, ErrorKind},
-};
+use std::io::{Error, ErrorKind};
 
 pub trait ToIoResult {
     type V;
