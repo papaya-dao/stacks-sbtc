@@ -55,7 +55,21 @@ fn frost_btc() {
 
     let secp = bitcoin::secp256k1::Secp256k1::new();
     let user_keys: bitcoin::KeyPair = KeyPair::new(&secp, &mut thread_rng());
-    let txid = bitcoind_mine(&user_keys.public_key().serialize());
+    let result = bitcoind_mine(&user_keys.public_key().serialize());
+    let block_id = result
+        .as_array()
+        .unwrap()
+        .first()
+        .unwrap()
+        .as_str()
+        .unwrap();
+    println!("mined block_id {:?}", block_id);
+    let result = bitcoind_rpc("getblock", [block_id]);
+    let block = result.as_object().unwrap();
+    println!("mined block {:?}", block);
+    let txid = block.get("tx").unwrap().get(0).unwrap().as_str().unwrap();
+    println!("mined txid {:?}", txid);
+    let result = bitcoind_rpc("gettransaction", txid);
 
     // Peg in to stx address
     let stx_address = [0; 32];
@@ -126,7 +140,7 @@ fn bitcoind_rpc(method: &str, params: impl ureq::serde::Serialize) -> serde_json
             json.as_object().unwrap().get("result").unwrap().clone()
         }
         Err(err) => {
-            println!("bitcoind-rpc {:?}", err);
+            println!("bitcoind-rpc {:?} -> {:?}", rpc, err);
             let json = err.into_response().unwrap().into_json().unwrap();
             json
         }
