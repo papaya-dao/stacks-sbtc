@@ -17,6 +17,7 @@ use std::process::{Child, Command, Stdio};
 use std::thread;
 use std::time::Duration;
 use ureq::serde_json;
+use ureq::serde_json::Value;
 use wtfrost::common::{PolyCommitment, Signature};
 use wtfrost::errors::AggregatorError;
 use wtfrost::{
@@ -54,7 +55,7 @@ fn frost_btc() {
 
     let secp = bitcoin::secp256k1::Secp256k1::new();
     let user_keys: bitcoin::KeyPair = KeyPair::new(&secp, &mut thread_rng());
-    bitcoind_mine(&user_keys.public_key().serialize());
+    let txid = bitcoind_mine(&user_keys.public_key().serialize());
 
     // Peg in to stx address
     let stx_address = [0; 32];
@@ -114,7 +115,7 @@ fn frost_btc() {
     stop_pid(bitcoind_pid);
 }
 
-fn bitcoind_rpc(method: &str, params: impl ureq::serde::Serialize) {
+fn bitcoind_rpc(method: &str, params: impl ureq::serde::Serialize) -> serde_json::Value {
     let rpc =
         ureq::json!({"jsonrpc": "1.0", "id": "sbtc-test", "method": method, "params": params});
     match ureq::post(BITCOIND_URL).send_json(&rpc) {
@@ -122,12 +123,12 @@ fn bitcoind_rpc(method: &str, params: impl ureq::serde::Serialize) {
             let status = response.status();
             let json = response.into_json::<serde_json::Value>().unwrap();
             println!("bitcoind-rpc {:?} -> {:?} {:?}", rpc, status, json);
+            json.as_object().unwrap().get("result").unwrap().clone()
         }
         Err(err) => {
-            println!(
-                "bitcoind-rpc {:?}",
-                err.into_response().unwrap().into_string()
-            )
+            println!("bitcoind-rpc {:?}", err);
+            let json = err.into_response().unwrap().into_json().unwrap();
+            json
         }
     }
 }
@@ -151,10 +152,10 @@ fn bitcoind_setup() -> pid_t {
     bitcoind_pid
 }
 
-fn bitcoind_mine(public_key_bytes: &[u8; 33]) {
+fn bitcoind_mine(public_key_bytes: &[u8; 33]) -> Value {
     let public_key = bitcoin::PublicKey::from_slice(public_key_bytes).unwrap();
     let address = bitcoin::Address::p2wpkh(&public_key, bitcoin::Network::Regtest).unwrap();
-    bitcoind_rpc("generatetoaddress", (1, address.to_string()));
+    bitcoind_rpc("generatetoaddress", (1, address.to_string()))
 }
 
 fn stop_pid(pid: pid_t) {
