@@ -2,7 +2,7 @@
 #[command(author, version, about, long_about = None)]
 pub struct Args {
     #[command(subcommand)]
-    command: Command,
+    pub command: Command,
 }
 
 impl Args {
@@ -12,7 +12,7 @@ impl Args {
 }
 
 #[derive(clap::Subcommand, Debug)]
-enum Command {
+pub enum Command {
     Run,
     Dkg,
 }

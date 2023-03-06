@@ -1,7 +1,7 @@
 use std::io;
 use std::sync::mpsc;
 
-use crate::peg_queue;
+use crate::peg_queue::{self, PegQueue};
 use crate::peg_wallet::StacksWallet;
 use crate::peg_wallet::{BitcoinWallet, PegWallet};
 use crate::stacks_node;
@@ -67,6 +67,20 @@ impl<T: Coordinator> CoordinatorHelpers for T {}
 
 pub enum Command {
     Stop,
+}
+
+pub struct CoordinatorFoo<
+    PQ: PegQueue,
+    SW: StacksWallet,
+    FC: FrostCoordinator,
+    SN: StacksNode,
+    BN: BitcoinNode,
+> {
+    peg_queue: PQ,
+    fee_wallet: SW,
+    frost_coordinator: FC,
+    stacks_node: SN,
+    bitcoin_node: BN,
 }
 
 #[cfg(test)]
