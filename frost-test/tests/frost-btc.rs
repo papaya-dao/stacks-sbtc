@@ -1,4 +1,4 @@
-use bitcoin::consensus::Encodable;
+use bitcoin::consensus::{Decodable, Encodable};
 use bitcoin::secp256k1::rand::thread_rng;
 use bitcoin::secp256k1::Secp256k1;
 use bitcoin::util::key;
@@ -53,9 +53,16 @@ fn frost_btc() {
     // bitcoind regtest
     let bitcoind_pid = bitcoind_setup();
 
+    // create user keys
     let secp = bitcoin::secp256k1::Secp256k1::new();
     let user_keys: bitcoin::KeyPair = KeyPair::new(&secp, &mut thread_rng());
-    let result = bitcoind_mine(&user_keys.public_key().serialize());
+    let user_public_key_bytes = user_keys.public_key().serialize();
+    let public_key = bitcoin::PublicKey::from_slice(&user_public_key_bytes).unwrap();
+    let address = bitcoin::Address::p2wpkh(&public_key, bitcoin::Network::Regtest).unwrap();
+    println!("user public key {}", address);
+
+    // mine block
+    let result = bitcoind_mine(&user_public_key_bytes);
     let block_id = result
         .as_array()
         .unwrap()
@@ -66,14 +73,15 @@ fn frost_btc() {
     println!("mined block_id {:?}", block_id);
     let result = bitcoind_rpc("getblock", [block_id]);
     let block = result.as_object().unwrap();
-    println!("mined block {:?}", block);
     let txid = block.get("tx").unwrap().get(0).unwrap().as_str().unwrap();
     println!("mined txid {:?}", txid);
     let result = bitcoind_rpc("getrawtransaction", (txid, false, block_id));
 
     // Peg in to stx address
     let stx_address = [0; 32];
-    let user_utxo = sample_utxo(user_keys);
+    println!("consensus decode mined tx {}", result.to_string());
+    let user_utxo =
+        bitcoin::Transaction::consensus_decode(&mut result.to_string().as_bytes()).unwrap();
 
     let peg_in = build_peg_in_op_return(10, peg_wallet_address, stx_address, user_utxo, 0);
     //let (peg_in_step_a, peg_in_step_b) = two_phase_peg_in(peg_wallet_address, stx_address, user_utxo);
@@ -130,8 +138,7 @@ fn frost_btc() {
 }
 
 fn bitcoind_rpc(method: &str, params: impl ureq::serde::Serialize) -> serde_json::Value {
-    let rpc =
-        ureq::json!({"jsonrpc": "1.0", "id": "sbtc-test", "method": method, "params": params});
+    let rpc = ureq::json!({"jsonrpc": "1.0", "id": "tst", "method": method, "params": params});
     match ureq::post(BITCOIND_URL).send_json(&rpc) {
         Ok(response) => {
             let status = response.status();
