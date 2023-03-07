@@ -69,7 +69,7 @@ fn frost_btc() {
     println!("mined block {:?}", block);
     let txid = block.get("tx").unwrap().get(0).unwrap().as_str().unwrap();
     println!("mined txid {:?}", txid);
-    let result = bitcoind_rpc("gettransaction", txid);
+    let result = bitcoind_rpc("getrawtransaction", (txid, false, block_id));
 
     // Peg in to stx address
     let stx_address = [0; 32];
