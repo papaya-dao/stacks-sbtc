@@ -136,13 +136,9 @@ fn bitcoind_rpc(method: &str, params: impl ureq::serde::Serialize) -> serde_json
         Ok(response) => {
             let status = response.status();
             let json = response.into_json::<serde_json::Value>().unwrap();
-            println!(
-                "bitcoind-rpc {} -> {:?} {}",
-                rpc.to_string(),
-                status,
-                json.to_string()
-            );
-            json.as_object().unwrap().get("result").unwrap().clone()
+            let result = json.as_object().unwrap().get("result").unwrap().clone();
+            println!("{} -> {}", rpc.to_string(), result.to_string());
+            result
         }
         Err(err) => {
             let json = err
@@ -151,7 +147,7 @@ fn bitcoind_rpc(method: &str, params: impl ureq::serde::Serialize) -> serde_json
                 .into_json::<serde_json::Value>()
                 .unwrap();
             let err = json.as_object().unwrap().get("error").unwrap();
-            println!("bitcoind-rpc {} -> {}", rpc.to_string(), err.to_string());
+            println!("{} -> {}", rpc.to_string(), err.to_string());
             json
         }
     }
