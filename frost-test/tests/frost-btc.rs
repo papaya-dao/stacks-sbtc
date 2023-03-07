@@ -1,10 +1,12 @@
 use bitcoin::consensus::{Decodable, Encodable};
+use bitcoin::hashes::sha256;
+use bitcoin::psbt::serialize::Serialize;
 use bitcoin::secp256k1::rand::thread_rng;
-use bitcoin::secp256k1::Secp256k1;
+use bitcoin::secp256k1::{Message, Secp256k1};
 use bitcoin::util::key;
 use bitcoin::{
-    KeyPair, Network, OutPoint, PackedLockTime, PrivateKey, PublicKey, SchnorrSighashType, Script,
-    Transaction, XOnlyPublicKey,
+    EcdsaSighashType, KeyPair, Network, OutPoint, PackedLockTime, PrivateKey, PublicKey,
+    SchnorrSighashType, Script, Transaction, XOnlyPublicKey,
 };
 use ctrlc::Signal;
 use hashbrown::HashMap;
@@ -90,8 +92,14 @@ fn frost_btc() {
         output.value,
         output.script_pubkey.asm()
     );
-    let peg_in = build_peg_in_op_return(2200, peg_wallet_address, stx_address, user_utxo, 0);
+    let user_utxo_msg = Message::from_hashed_data::<sha256::Hash>(&user_utxo.output[0].serialize());
+    let user_utxo_sig = secp.sign_ecdsa(&user_utxo_msg, &user_keys.secret_key());
+
+    let mut peg_in = build_peg_in_op_return(2200, peg_wallet_address, stx_address, user_utxo, 0);
     //let (peg_in_step_a, peg_in_step_b) = two_phase_peg_in(peg_wallet_address, stx_address, user_utxo);
+    peg_in.input[0]
+        .witness
+        .push_bitcoin_signature(&user_utxo_sig.serialize_der(), EcdsaSighashType::All);
 
     let mut peg_in_bytes: Vec<u8> = vec![];
     peg_in.consensus_encode(&mut peg_in_bytes).unwrap();
@@ -193,7 +201,7 @@ fn bitcoind_setup() -> pid_t {
 fn bitcoind_mine(public_key_bytes: &[u8; 33]) -> Value {
     let public_key = bitcoin::PublicKey::from_slice(public_key_bytes).unwrap();
     let address = bitcoin::Address::p2wpkh(&public_key, bitcoin::Network::Regtest).unwrap();
-    bitcoind_rpc("generatetoaddress", (1, address.to_string()))
+    bitcoind_rpc("generatetoaddress", (128, address.to_string()))
 }
 
 fn stop_pid(pid: pid_t) {
@@ -211,11 +219,12 @@ fn build_peg_in_op_return(
         txid: utxo.txid(),
         vout: utxo_vout,
     };
+    let witness = bitcoin::blockdata::witness::Witness::new();
     let peg_in_input = bitcoin::TxIn {
         previous_output: utxo_point,
-        script_sig: utxo.output[utxo_vout as usize].script_pubkey.to_v0_p2wsh(),
+        script_sig: Default::default(),
         sequence: Default::default(),
-        witness: Default::default(),
+        witness: witness,
     };
     let mut sip_21_peg_in_data = vec![0, 0, '<' as u8];
     sip_21_peg_in_data.extend_from_slice(&stx_address);
