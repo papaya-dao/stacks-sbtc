@@ -77,12 +77,15 @@ fn frost_btc() {
     println!("mined txid {:?}", txid);
     let result = bitcoind_rpc("getrawtransaction", (txid, false, block_id));
 
+    //let result = bitcoind_rpc("decoderawtransaction", [result]);
     // Peg in to stx address
     let stx_address = [0; 32];
-    println!("consensus decode mined tx {}", result.to_string());
-    let user_utxo =
-        bitcoin::Transaction::consensus_decode(&mut result.to_string().as_bytes()).unwrap();
+    let user_utxo = bitcoin::Transaction::consensus_decode(
+        &mut hex::decode(result.as_str().unwrap()).unwrap().as_slice(),
+    )
+    .unwrap();
 
+    println!("user UTXO with {:?} sats", user_utxo.output[0].value);
     let peg_in = build_peg_in_op_return(10, peg_wallet_address, stx_address, user_utxo, 0);
     //let (peg_in_step_a, peg_in_step_b) = two_phase_peg_in(peg_wallet_address, stx_address, user_utxo);
 
@@ -144,7 +147,7 @@ fn bitcoind_rpc(method: &str, params: impl ureq::serde::Serialize) -> serde_json
             let status = response.status();
             let json = response.into_json::<serde_json::Value>().unwrap();
             let result = json.as_object().unwrap().get("result").unwrap().clone();
-            println!("{} -> {}", rpc.to_string(), result.to_string());
+            //println!("{} -> {}", rpc.to_string(), result.to_string());
             result
         }
         Err(err) => {
