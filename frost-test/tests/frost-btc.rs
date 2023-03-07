@@ -113,7 +113,7 @@ fn frost_btc() {
     let peg_in_bytes_hex = hex::encode(&peg_in_bytes);
     let _ = bitcoind_rpc("decoderawtransaction", [&peg_in_bytes_hex]);
     println!("{}", peg_in_bytes_hex);
-    bitcoind_rpc("testmempoolaccept", [[peg_in_bytes_hex]]);
+    bitcoind_rpc("sendrawtransaction", [&peg_in_bytes_hex]);
 
     // Peg out to btc address
     let public_key_type_transmogrify =
