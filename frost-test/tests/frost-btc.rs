@@ -91,7 +91,7 @@ fn frost_btc() {
 
     let mut peg_in_bytes: Vec<u8> = vec![];
     peg_in.consensus_encode(&mut peg_in_bytes).unwrap();
-    println!("peg-in OP_RETURN tx");
+    println!("peg-in OP_RETURN tx {}", peg_in.txid());
     let peg_in_bytes_hex = hex::encode(&peg_in_bytes);
     println!("{:?}", peg_in_bytes_hex);
     bitcoind_rpc("testmempoolaccept", [[peg_in_bytes_hex]]);
@@ -147,7 +147,7 @@ fn bitcoind_rpc(method: &str, params: impl ureq::serde::Serialize) -> serde_json
             let status = response.status();
             let json = response.into_json::<serde_json::Value>().unwrap();
             let result = json.as_object().unwrap().get("result").unwrap().clone();
-            //println!("{} -> {}", rpc.to_string(), result.to_string());
+            println!("{} -> {}", rpc.to_string(), result.to_string());
             result
         }
         Err(err) => {
@@ -195,25 +195,6 @@ fn stop_pid(pid: pid_t) {
     signal::kill(Pid::from_raw(pid), Signal::SIGTERM).unwrap();
 }
 
-// todo: remove. user's utxo will come from bitcoind
-fn sample_utxo(user_keys: bitcoin::KeyPair) -> Transaction {
-    let secp = bitcoin::util::key::Secp256k1::new();
-    let private_key =
-        PrivateKey::from_slice(&user_keys.secret_key().secret_bytes(), Network::Bitcoin).unwrap();
-    let user_public_key = bitcoin::PublicKey::from_private_key(&secp, &private_key);
-    let sample_output = bitcoin::TxOut {
-        value: 1000,
-        script_pubkey: Script::new_v0_p2wpkh(&user_public_key.wpubkey_hash().unwrap()),
-    };
-    let sample = bitcoin::blockdata::transaction::Transaction {
-        version: 0,
-        lock_time: PackedLockTime(0),
-        input: vec![],
-        output: vec![sample_output],
-    };
-    sample
-}
-
 fn build_peg_in_op_return(
     satoshis: u64,
     peg_wallet_address: bitcoin::PublicKey,
@@ -251,9 +232,9 @@ fn build_peg_in_op_return(
         script_pubkey: taproot,
     };
     bitcoin::blockdata::transaction::Transaction {
-        version: 0,
+        version: 2,
         lock_time: PackedLockTime(0),
-        input: vec![],
+        input: vec![peg_in_input],
         output: vec![peg_in_output_0, peg_in_output_1],
     }
 }
