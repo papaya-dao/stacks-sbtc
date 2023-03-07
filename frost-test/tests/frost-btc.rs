@@ -83,7 +83,7 @@ fn frost_btc() {
     println!("peg-in OP_RETURN tx");
     let peg_in_bytes_hex = hex::encode(&peg_in_bytes);
     println!("{:?}", peg_in_bytes_hex);
-    bitcoind_rpc("testmempoolaccept", [peg_in_bytes_hex]);
+    bitcoind_rpc("testmempoolaccept", [[peg_in_bytes_hex]]);
 
     // Peg out to btc address
     let public_key_type_transmogrify =
@@ -136,12 +136,22 @@ fn bitcoind_rpc(method: &str, params: impl ureq::serde::Serialize) -> serde_json
         Ok(response) => {
             let status = response.status();
             let json = response.into_json::<serde_json::Value>().unwrap();
-            println!("bitcoind-rpc {:?} -> {:?} {:?}", rpc, status, json);
+            println!(
+                "bitcoind-rpc {} -> {:?} {}",
+                rpc.to_string(),
+                status,
+                json.to_string()
+            );
             json.as_object().unwrap().get("result").unwrap().clone()
         }
         Err(err) => {
-            println!("bitcoind-rpc {:?} -> {:?}", rpc, err);
-            let json = err.into_response().unwrap().into_json().unwrap();
+            let json = err
+                .into_response()
+                .unwrap()
+                .into_json::<serde_json::Value>()
+                .unwrap();
+            let err = json.as_object().unwrap().get("error").unwrap();
+            println!("bitcoind-rpc {} -> {}", rpc.to_string(), err.to_string());
             json
         }
     }
@@ -161,7 +171,10 @@ fn bitcoind_setup() -> pid_t {
         stop_pid(bitcoind_pid)
     })
     .expect("Error setting Ctrl-C handler");
-    println!("bitconind started. waiting 1 second to warm up.");
+    println!(
+        "bitconind started. waiting 1 second to warm up. {}",
+        BITCOIND_URL
+    );
     thread::sleep(Duration::from_millis(500));
     bitcoind_pid
 }
