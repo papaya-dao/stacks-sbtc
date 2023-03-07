@@ -77,7 +77,6 @@ fn frost_btc() {
     println!("mined txid {:?}", txid);
     let result = bitcoind_rpc("getrawtransaction", (txid, false, block_id));
 
-    //let result = bitcoind_rpc("decoderawtransaction", [result]);
     // Peg in to stx address
     let stx_address = [0; 32];
     let user_utxo = bitcoin::Transaction::consensus_decode(
@@ -85,15 +84,21 @@ fn frost_btc() {
     )
     .unwrap();
 
-    println!("user UTXO with {:?} sats", user_utxo.output[0].value);
-    let peg_in = build_peg_in_op_return(10, peg_wallet_address, stx_address, user_utxo, 0);
+    let output = &user_utxo.output[0];
+    println!(
+        "user UTXO with {:?} sats script_pub_key: {}",
+        output.value,
+        output.script_pubkey.asm()
+    );
+    let peg_in = build_peg_in_op_return(2200, peg_wallet_address, stx_address, user_utxo, 0);
     //let (peg_in_step_a, peg_in_step_b) = two_phase_peg_in(peg_wallet_address, stx_address, user_utxo);
 
     let mut peg_in_bytes: Vec<u8> = vec![];
     peg_in.consensus_encode(&mut peg_in_bytes).unwrap();
     println!("peg-in OP_RETURN tx {}", peg_in.txid());
     let peg_in_bytes_hex = hex::encode(&peg_in_bytes);
-    println!("{:?}", peg_in_bytes_hex);
+    let _ = bitcoind_rpc("decoderawtransaction", [&peg_in_bytes_hex]);
+    println!("{}", peg_in_bytes_hex);
     bitcoind_rpc("testmempoolaccept", [[peg_in_bytes_hex]]);
 
     // Peg out to btc address
@@ -208,10 +213,7 @@ fn build_peg_in_op_return(
     };
     let peg_in_input = bitcoin::TxIn {
         previous_output: utxo_point,
-        script_sig: utxo.output[utxo_vout as usize]
-            .script_pubkey
-            .p2wpkh_script_code()
-            .unwrap(),
+        script_sig: utxo.output[utxo_vout as usize].script_pubkey.to_v0_p2wsh(),
         sequence: Default::default(),
         witness: Default::default(),
     };
