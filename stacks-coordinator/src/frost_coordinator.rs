@@ -1,5 +1,6 @@
-use frost_coordinator::coordinator::Coordinator;
+use frost_coordinator::coordinator::{Coordinator, Error};
 use frost_signer::net::NetListen;
+use wtfrost::Point;
 
 pub trait FrostCoordinator {
     fn run_dkg_round(&mut self) -> PublicKey;
@@ -8,14 +9,14 @@ pub trait FrostCoordinator {
 
 // TODO: Define these types
 pub type Signature = String;
-pub type PublicKey = String;
+pub type PublicKey = Point;
 
-impl<Network> FrostCoordinator for Coordinator<Network>
+impl<Network: NetListen> FrostCoordinator for Coordinator<Network>
 where
-    Network: NetListen,
+    Error: From<Network::Error>,
 {
     fn run_dkg_round(&mut self) -> PublicKey {
-        self.run_distributed_key_generation();
+        self.run_distributed_key_generation().unwrap()
     }
 
     fn sign_message(&mut self, message: &str) -> Signature {
