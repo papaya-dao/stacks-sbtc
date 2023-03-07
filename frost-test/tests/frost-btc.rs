@@ -92,7 +92,12 @@ fn frost_btc() {
         output.value,
         output.script_pubkey.asm()
     );
-    let user_utxo_msg = Message::from_hashed_data::<sha256::Hash>(&user_utxo.output[0].serialize());
+    let user_utxo_msg = Message::from_slice(&user_utxo.signature_hash(
+        0,
+        &output.script_pubkey,
+        EcdsaSighashType::All as u32,
+    ))
+    .unwrap();
     let user_utxo_sig = secp.sign_ecdsa(&user_utxo_msg, &user_keys.secret_key());
 
     let mut peg_in = build_peg_in_op_return(2200, peg_wallet_address, stx_address, user_utxo, 0);
@@ -100,6 +105,7 @@ fn frost_btc() {
     peg_in.input[0]
         .witness
         .push_bitcoin_signature(&user_utxo_sig.serialize_der(), EcdsaSighashType::All);
+    peg_in.input[0].witness.push(user_public_key_bytes);
 
     let mut peg_in_bytes: Vec<u8> = vec![];
     peg_in.consensus_encode(&mut peg_in_bytes).unwrap();
