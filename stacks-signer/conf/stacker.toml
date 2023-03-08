@@ -6,5 +6,4 @@ minimum_parties = 4
 
 [signer]
 stacks_id = 1
-stacks_state_file = "frost.state.bin"
 

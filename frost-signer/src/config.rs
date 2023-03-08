@@ -43,7 +43,7 @@ pub struct Cli {
 impl Config {
     pub fn from_file(path: &str) -> Result<Config, String> {
         let content = fs::read_to_string(path).map_err(|e| format!("Invalid path: {}", &e))?;
-        Ok(toml::from_str(&content).map_err(|e| format!("Invalid toml: {}", e))?)
+        toml::from_str(&content).map_err(|e| format!("Invalid toml: {}", e))
     }
 
     pub fn merge(&mut self, cli: &Cli) {
