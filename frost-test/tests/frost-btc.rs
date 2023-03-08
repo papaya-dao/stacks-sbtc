@@ -2,7 +2,7 @@ use bitcoin::consensus::{Decodable, Encodable};
 use bitcoin::hashes::sha256;
 use bitcoin::psbt::serialize::Serialize;
 use bitcoin::secp256k1::rand::thread_rng;
-use bitcoin::secp256k1::{Message, Secp256k1};
+use bitcoin::secp256k1::{rand, Message, Secp256k1};
 use bitcoin::util::key;
 use bitcoin::{
     EcdsaSighashType, KeyPair, Network, OutPoint, PackedLockTime, PrivateKey, PublicKey,
@@ -57,14 +57,19 @@ fn frost_btc() {
 
     // create user keys
     let secp = bitcoin::secp256k1::Secp256k1::new();
-    let user_keys: bitcoin::KeyPair = KeyPair::new(&secp, &mut thread_rng());
-    let user_public_key_bytes = user_keys.public_key().serialize();
-    let public_key = bitcoin::PublicKey::from_slice(&user_public_key_bytes).unwrap();
-    let address = bitcoin::Address::p2wpkh(&public_key, bitcoin::Network::Regtest).unwrap();
-    println!("user public key {}", address);
+    let user_secret_key = bitcoin::secp256k1::SecretKey::new(&mut rand::thread_rng());
+    let user_private_key = bitcoin::PrivateKey::new(user_secret_key, bitcoin::Network::Regtest);
+    let user_public_key = bitcoin::PublicKey::from_private_key(&secp, &user_private_key);
+    let user_address =
+        bitcoin::Address::p2wpkh(&user_public_key, bitcoin::Network::Regtest).unwrap();
+    println!(
+        "user public key {} public key hash {:?}",
+        user_address,
+        user_public_key.wpubkey_hash().unwrap()
+    );
 
     // mine block
-    let result = bitcoind_mine(&user_public_key_bytes);
+    let result = bitcoind_mine(&user_public_key.serialize().try_into().unwrap());
     let block_id = result
         .as_array()
         .unwrap()
@@ -98,7 +103,7 @@ fn frost_btc() {
         EcdsaSighashType::All as u32,
     ))
     .unwrap();
-    let user_utxo_sig = secp.sign_ecdsa_low_r(&user_utxo_msg, &user_keys.secret_key());
+    let user_utxo_sig = secp.sign_ecdsa_low_r(&user_utxo_msg, &user_secret_key);
 
     let mut peg_in = build_peg_in_op_return(
         2200,
@@ -111,7 +116,9 @@ fn frost_btc() {
     peg_in.input[0]
         .witness
         .push_bitcoin_signature(&user_utxo_sig.serialize_der(), EcdsaSighashType::All);
-    peg_in.input[0].witness.push(user_public_key_bytes);
+    peg_in.input[0]
+        .witness
+        .push(user_public_key.wpubkey_hash().unwrap());
 
     let mut peg_in_bytes: Vec<u8> = vec![];
     peg_in.consensus_encode(&mut peg_in_bytes).unwrap();
@@ -122,13 +129,11 @@ fn frost_btc() {
     bitcoind_rpc("sendrawtransaction", [&peg_in_bytes_hex]);
 
     // Peg out to btc address
-    let public_key_type_transmogrify =
-        bitcoin::PublicKey::from_slice(&user_keys.public_key().serialize()).unwrap();
     let peg_in_utxo = OutPoint {
         txid: peg_in.txid(),
         vout: 0,
     };
-    let mut peg_out = build_peg_out(1000, public_key_type_transmogrify, peg_in_utxo);
+    let mut peg_out = build_peg_out(1000, user_public_key, peg_in_utxo);
     let mut peg_out_bytes: Vec<u8> = vec![];
     let _peg_out_bytes_len = peg_out.consensus_encode(&mut peg_out_bytes).unwrap();
 
