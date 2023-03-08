@@ -81,26 +81,32 @@ fn frost_btc() {
 
     // Peg in to stx address
     let stx_address = [0; 32];
-    let user_utxo = bitcoin::Transaction::consensus_decode(
+    let user_funding_transaction = bitcoin::Transaction::consensus_decode(
         &mut hex::decode(result.as_str().unwrap()).unwrap().as_slice(),
     )
     .unwrap();
 
-    let output = &user_utxo.output[0];
+    let user_utxo = &user_funding_transaction.output[0];
     println!(
         "user UTXO with {:?} sats script_pub_key: {}",
-        output.value,
-        output.script_pubkey.asm()
+        user_utxo.value,
+        user_utxo.script_pubkey.asm()
     );
-    let user_utxo_msg = Message::from_slice(&user_utxo.signature_hash(
+    let user_utxo_msg = Message::from_slice(&user_funding_transaction.signature_hash(
         0,
-        &output.script_pubkey,
+        &user_utxo.script_pubkey,
         EcdsaSighashType::All as u32,
     ))
     .unwrap();
-    let user_utxo_sig = secp.sign_ecdsa(&user_utxo_msg, &user_keys.secret_key());
+    let user_utxo_sig = secp.sign_ecdsa_low_r(&user_utxo_msg, &user_keys.secret_key());
 
-    let mut peg_in = build_peg_in_op_return(2200, peg_wallet_address, stx_address, user_utxo, 0);
+    let mut peg_in = build_peg_in_op_return(
+        2200,
+        peg_wallet_address,
+        stx_address,
+        user_funding_transaction,
+        0,
+    );
     //let (peg_in_step_a, peg_in_step_b) = two_phase_peg_in(peg_wallet_address, stx_address, user_utxo);
     peg_in.input[0]
         .witness
@@ -229,7 +235,7 @@ fn build_peg_in_op_return(
     let peg_in_input = bitcoin::TxIn {
         previous_output: utxo_point,
         script_sig: Default::default(),
-        sequence: Default::default(),
+        sequence: bitcoin::Sequence(0xFFFFFFFF),
         witness: witness,
     };
     let mut sip_21_peg_in_data = vec![0, 0, '<' as u8];
