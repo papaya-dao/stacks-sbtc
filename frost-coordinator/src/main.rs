@@ -27,9 +27,7 @@ fn main() {
     let mut coordinator = Coordinator::new(
         DEVNET_COORDINATOR_ID,
         DEVNET_COORDINATOR_DKG_ID,
-        config.common.total_signers,
-        config.common.total_parties,
-        config.common.minimum_parties,
+        &config,
         net_listen,
     );
 

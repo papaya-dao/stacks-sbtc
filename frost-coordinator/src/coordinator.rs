@@ -2,6 +2,7 @@ use std::any::Any;
 use std::collections::BTreeMap;
 use std::time::Duration;
 
+use frost_signer::config::Config;
 use frost_signer::net::{HttpNetError, Message, NetListen};
 use frost_signer::signing_round::{
     DkgBegin, DkgPublicShare, MessageTypes, NonceRequest, NonceResponse, SignatureShareRequest,
@@ -36,20 +37,13 @@ pub struct Coordinator<Network: NetListen> {
 }
 
 impl<Network: NetListen> Coordinator<Network> {
-    pub fn new(
-        id: usize,
-        dkg_id: u64,
-        total_signers: usize,
-        total_parties: usize,
-        threshold: usize,
-        network: Network,
-    ) -> Self {
+    pub fn new(id: usize, dkg_id: u64, config: &Config, network: Network) -> Self {
         Self {
             id: id as u32,
             current_dkg_id: dkg_id,
-            total_signers,
-            total_parties,
-            threshold,
+            total_signers: config.common.total_signers,
+            total_parties: config.common.total_parties,
+            threshold: config.common.minimum_parties,
             network,
             dkg_public_shares: Default::default(),
             public_nonces: Default::default(),

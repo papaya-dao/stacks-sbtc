@@ -11,7 +11,7 @@ pub struct Cli {
 
     /// Associated signer id
     #[arg(short, long)]
-    pub id: Option<u32>,
+    pub id: u32,
 
     /// Subcommand action to take
     #[clap(subcommand)]

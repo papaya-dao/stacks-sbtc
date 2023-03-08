@@ -1,43 +1,32 @@
 use serde::Deserialize;
-use std::fs;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread::spawn;
 use std::{thread, time};
-use toml;
 
 use tracing::{debug, info};
 
 use frost_signer::net::{HttpNet, HttpNetError, HttpNetListen, Message, Net, NetListen};
 use frost_signer::signing_round::SigningRound;
 
+use crate::config::Config;
+
 // maximum party_id
 const PARTY_MAX: u32 = 3;
 
 #[derive(Clone, Deserialize, Debug)]
 pub struct Signer {
-    pub common: Common,
+    pub config: Config,
     pub id: u32,
 }
 
-#[derive(Clone, Deserialize, Default, Debug)]
-pub struct Common {
-    pub stacks_node_url: String,
-    pub total_signers: usize,
-    pub total_parties: usize,
-    pub minimum_parties: usize,
-}
-
 impl Signer {
-    //Create a signer from a given toml filepath.
-    //TODO: get config info from sBTC contracts
-    pub fn from_file(path: &str) -> Result<Signer, String> {
-        let content = fs::read_to_string(path).map_err(|e| format!("Invalid path: {}", &e))?;
-        toml::from_str(&content).map_err(|e| format!("Invalid toml: {}", e))
+    pub fn new(config: Config, id: u32) -> Self {
+        Self { config, id }
     }
 
     pub fn create_p2p_sync(&mut self) -> Result<(), Error> {
-        let net: HttpNet = HttpNet::new(self.common.stacks_node_url.clone());
+        let net: HttpNet = HttpNet::new(self.config.stacks_node_url.clone());
         // start p2p sync
         let id = self.id;
         let net_queue = HttpNetListen::new(net.clone(), vec![]);
@@ -58,8 +47,8 @@ impl Signer {
 
         //Create a signing round
         let mut round = SigningRound::new(
-            self.common.minimum_parties,
-            self.common.total_parties,
+            self.config.minimum_parties,
+            self.config.total_parties,
             self.id,
             party_ids,
         );
