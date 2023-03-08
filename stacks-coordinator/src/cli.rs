@@ -1,18 +1,22 @@
-#[derive(clap::Parser, Debug)]
-#[command(author, version, about, long_about = None)]
-pub struct Args {
-    #[command(subcommand)]
-    command: Command,
-}
+use clap::Parser;
 
-impl Args {
-    pub fn parse() -> Self {
-        <Self as clap::Parser>::parse()
-    }
+///Command line interface for stacks coordinator
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+pub struct Cli {
+    /// Turn debugging information on
+    #[arg(short, long, action = clap::ArgAction::SetTrue)]
+    pub debug: bool,
+
+    /// Subcommand to perform
+    #[clap(subcommand)]
+    pub command: Command,
 }
 
 #[derive(clap::Subcommand, Debug)]
-enum Command {
+pub enum Command {
+    // Listen for incoming peg in and peg out requests.
     Run,
+    // Run distributed key generation round
     Dkg,
 }

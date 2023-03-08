@@ -1,4 +1,4 @@
-use clap::Parser;
+use crate::cli::Cli;
 use serde::Deserialize;
 use std::fs;
 use toml;
@@ -17,27 +17,11 @@ pub struct Common {
     pub minimum_parties: usize,
 }
 
-// on-disk format for frost save data
+// on-disk format for stacks save data
 #[derive(Clone, Deserialize, Default, Debug)]
 pub struct Signer {
-    pub frost_id: u32,
-    pub frost_state_file: String,
-}
-
-#[derive(Parser)]
-#[command(author, version, about, long_about = None)]
-pub struct Cli {
-    /// Turn debugging information on
-    #[arg(short, long, action = clap::ArgAction::Count)]
-    debug: u8,
-
-    /// Start a signing round
-    #[arg(short, long)]
-    pub start: bool,
-
-    /// ID associated with signer
-    #[arg(short, long)]
-    id: Option<u32>,
+    pub id: u32,
+    pub state_file: String,
 }
 
 impl Config {
@@ -47,8 +31,8 @@ impl Config {
     }
 
     pub fn merge(&mut self, cli: &Cli) {
-        if let Some(frost_id) = cli.id {
-            self.signer.frost_id = frost_id;
+        if let Some(signer_id) = cli.id {
+            self.signer.id = signer_id;
         }
     }
 }
