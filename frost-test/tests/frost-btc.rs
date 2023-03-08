@@ -63,9 +63,10 @@ fn frost_btc() {
     let user_address =
         bitcoin::Address::p2wpkh(&user_public_key, bitcoin::Network::Regtest).unwrap();
     println!(
-        "user public key {} public key hash {:?}",
+        "user public key {} public key hash {:?} p2wpkh signing script {}",
         user_address,
-        user_public_key.wpubkey_hash().unwrap()
+        user_public_key.wpubkey_hash().unwrap(),
+        user_address.script_pubkey().p2wpkh_script_code().unwrap()
     );
 
     // mine block
@@ -97,12 +98,12 @@ fn frost_btc() {
         user_utxo.value,
         user_utxo.script_pubkey.asm()
     );
-    let user_utxo_msg = Message::from_slice(&user_funding_transaction.signature_hash(
+    let sighash = user_funding_transaction.signature_hash(
         0,
-        &user_utxo.script_pubkey,
+        &user_address.script_pubkey().p2wpkh_script_code().unwrap(),
         EcdsaSighashType::All as u32,
-    ))
-    .unwrap();
+    );
+    let user_utxo_msg = Message::from_slice(&sighash).unwrap();
     let user_utxo_sig = secp.sign_ecdsa_low_r(&user_utxo_msg, &user_secret_key);
 
     let mut peg_in = build_peg_in_op_return(
