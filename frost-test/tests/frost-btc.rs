@@ -9,6 +9,7 @@ use bitcoin::{
     SchnorrSighashType, Script, Transaction, XOnlyPublicKey,
 };
 use ctrlc::Signal;
+use frost_test::bitcoind;
 use hashbrown::HashMap;
 use nix::libc::pid_t;
 use nix::sys::signal;
@@ -53,7 +54,7 @@ fn frost_btc() {
         bitcoin::PublicKey::from_slice(&group_public_key.compress().as_bytes()).unwrap();
 
     // bitcoind regtest
-    let bitcoind_pid = bitcoind_setup();
+    let bitcoind_pid = bitcoind::bitcoind_setup();
 
     // create user keys
     let secp = bitcoin::secp256k1::Secp256k1::new();
@@ -192,28 +193,6 @@ fn bitcoind_rpc(method: &str, params: impl ureq::serde::Serialize) -> serde_json
             json
         }
     }
-}
-
-fn bitcoind_setup() -> pid_t {
-    let bitcoind_child = Command::new("bitcoind")
-        .arg("-regtest")
-        .arg("-rpcuser=abcd")
-        .arg("-rpcpassword=abcd")
-        .stdout(Stdio::null())
-        .spawn()
-        .expect("bitcoind failed to start");
-    let bitcoind_pid = bitcoind_child.id() as pid_t;
-    ctrlc::set_handler(move || {
-        println!("kill bitcoind pid {:?}", bitcoind_pid);
-        stop_pid(bitcoind_pid)
-    })
-    .expect("Error setting Ctrl-C handler");
-    println!(
-        "bitconind started. waiting 1 second to warm up. {}",
-        BITCOIND_URL
-    );
-    thread::sleep(Duration::from_millis(500));
-    bitcoind_pid
 }
 
 fn bitcoind_mine(public_key_bytes: &[u8; 33]) -> Value {
