@@ -10,6 +10,7 @@ use bitcoin::{
 };
 use ctrlc::Signal;
 use frost_test::bitcoind;
+use frost_test::bitcoind::stop_pid;
 use hashbrown::HashMap;
 use nix::libc::pid_t;
 use nix::sys::signal;
@@ -199,10 +200,6 @@ fn bitcoind_mine(public_key_bytes: &[u8; 33]) -> Value {
     let public_key = bitcoin::PublicKey::from_slice(public_key_bytes).unwrap();
     let address = bitcoin::Address::p2wpkh(&public_key, bitcoin::Network::Regtest).unwrap();
     bitcoind_rpc("generatetoaddress", (128, address.to_string()))
-}
-
-fn stop_pid(pid: pid_t) {
-    signal::kill(Pid::from_raw(pid), Signal::SIGTERM).unwrap();
 }
 
 fn build_peg_in_op_return(
