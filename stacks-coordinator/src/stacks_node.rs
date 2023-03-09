@@ -1,6 +1,8 @@
 use blockstack_lib::chainstate::burn::operations as burn_ops;
 use blockstack_lib::types::chainstate::StacksAddress;
 
+use crate::stacks_transaction::StacksTransaction;
+
 #[cfg_attr(test, mockall::automock)]
 pub trait StacksNode {
     fn get_peg_in_ops(&self, block_height: u64) -> Vec<PegInOp>;
@@ -12,6 +14,3 @@ pub trait StacksNode {
 
 pub type PegInOp = burn_ops::PegInOp;
 pub type PegOutRequestOp = burn_ops::PegOutRequestOp;
-
-// TODO: Find appropriate type
-pub type StacksTransaction = String;
