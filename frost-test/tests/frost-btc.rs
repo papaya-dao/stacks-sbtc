@@ -37,7 +37,33 @@ const BITCOIND_URL: &str = "http://abcd:abcd@localhost:18443";
 #[test]
 fn blog_post() {
     // https://medium.com/coinmonks/creating-and-signing-a-segwit-transaction-from-scratch-ec98577b526a
-    let tx = hex::decode("0200000003ed204affc7519dfce341db0569687569d12b1520a91a9824531c038ad62aa9d1010000001976a914b780d54c6b03b053916333b50a213d566bbedd1388acffffffff9cb872539fbe1bc0b9c5562195095f3f35e6e13919259956c6263c9bd53b20b70100000000ffffffff8012f1ec8aa9a63cf8b200c25ddae2dece42a2495cc473c1758972cfcd84d9040100000000ffffffff01b580f50000000000160014cb61ee4568082cb59ac26bb96ec8fbe0109a4c000000000001000000").unwrap();
+    let secp = bitcoin::secp256k1::Secp256k1::new();
+
+    let secret_bytes =
+        hex::decode("26F85CE8B2C635AD92F6148E4443FE415F512F3F29F44AB0E2CBDA819295BBD5").unwrap();
+    let secret_key = bitcoin::secp256k1::SecretKey::from_slice(&secret_bytes).unwrap();
+    let private_key = bitcoin::PrivateKey::new(secret_key, bitcoin::Network::Bitcoin);
+    let public_key = bitcoin::PublicKey::from_private_key(&secp, &private_key);
+    let address = bitcoin::Address::p2wpkh(&public_key, bitcoin::Network::Bitcoin).unwrap();
+    let tx_bytes = hex::decode("0200000003ed204affc7519dfce341db0569687569d12b1520a91a9824531c038ad62aa9d1010000001976a914b780d54c6b03b053916333b50a213d566bbedd1388acffffffff9cb872539fbe1bc0b9c5562195095f3f35e6e13919259956c6263c9bd53b20b70100000000ffffffff8012f1ec8aa9a63cf8b200c25ddae2dece42a2495cc473c1758972cfcd84d9040100000000ffffffff01b580f50000000000160014cb61ee4568082cb59ac26bb96ec8fbe0109a4c000000000001000000").unwrap();
+    let transaction = bitcoin::Transaction::consensus_decode(&mut tx_bytes.as_slice()).unwrap();
+    println!("TX {:?}", transaction);
+
+    let sighash = transaction.signature_hash(
+        0,
+        &address.script_pubkey().p2wpkh_script_code().unwrap(),
+        EcdsaSighashType::All as u32,
+    );
+    let user_utxo_msg = Message::from_slice(&sighash).unwrap();
+    let user_utxo_sig = secp.sign_ecdsa_low_r(&user_utxo_msg, &secret_key);
+
+    let mut witness = bitcoin::Witness::new();
+    witness.push_bitcoin_signature(&user_utxo_sig.serialize_der(), EcdsaSighashType::All);
+
+    println!("CALC SIG {}", hex::encode(witness.last().unwrap()));
+    let sig_bytes = hex::decode("3045022100f8dac321b0429798df2952d086e763dd5b374d031c7f400d92370ae3c5f57afd0220531207b28b1b137573941c7b3cf5384a3658ef5fc238d26150d8f75b2bcc61e701").unwrap();
+    println!("GOOD SIG {}", hex::encode(&sig_bytes));
+    assert_eq!(user_utxo_sig.serialize_der().to_vec(), sig_bytes);
 }
 
 #[test]
