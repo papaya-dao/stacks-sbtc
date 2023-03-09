@@ -9,10 +9,6 @@ pub struct Cli {
     #[arg(short, long, action = clap::ArgAction::SetTrue)]
     pub debug: bool,
 
-    /// Associated signer id
-    #[arg(short, long)]
-    pub id: u32,
-
     /// Subcommand action to take
     #[clap(subcommand)]
     pub command: Command,
@@ -22,7 +18,11 @@ pub struct Cli {
 #[derive(Subcommand)]
 pub enum Command {
     /// Join the p2p network as specified in the config file
-    Run,
+    Run {
+        /// Associated signer id
+        #[arg(short, long)]
+        id: u32,
+    },
     /// Generate Secp256k1 Private Key
     Secp256k1(Secp256k1),
 }

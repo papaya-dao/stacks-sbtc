@@ -19,14 +19,11 @@ fn main() {
 
     // Determine what action the caller wishes to perform
     match cli.command {
-        Command::Run => {
-            // Set up p2p network and listen for incoming messages
-            let cli = Cli::parse();
-
+        Command::Run { id } => {
             //TODO: getConf from sBTC contract instead
             let config = Config::from_file("conf/stacker.toml").unwrap();
 
-            let mut signer = Signer::new(config, cli.id);
+            let mut signer = Signer::new(config, id);
             info!("{} signer id #{}", stacks_signer::version(), signer.id); // sign-on message
             if let Err(e) = signer.create_p2p_sync() {
                 warn!("An error occurred in the P2P Network: {}", e);
