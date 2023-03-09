@@ -1,7 +1,5 @@
 /// Module for defining the CLI and its operations
 pub mod cli;
-/// Module defining configuration options
-pub mod config;
 /// Module for secp256k1 operations
 pub mod secp256k1;
 /// Module for signer operations

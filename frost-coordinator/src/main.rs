@@ -20,10 +20,11 @@ fn main() {
     logging::initiate_tracing_subscriber(tracing::Level::INFO).unwrap();
 
     let cli = Cli::parse();
-    let config = Config::from_file("conf/stacker.toml").unwrap();
 
-    let net: HttpNet = HttpNet::new(config.common.stacks_node_url.clone());
+    let config = Config::from_path("conf/stacker.toml").unwrap();
+    let net: HttpNet = HttpNet::new(config.stacks_node_url.clone());
     let net_listen: HttpNetListen = HttpNetListen::new(net, vec![]);
+
     let mut coordinator = Coordinator::new(
         DEVNET_COORDINATOR_ID,
         DEVNET_COORDINATOR_DKG_ID,

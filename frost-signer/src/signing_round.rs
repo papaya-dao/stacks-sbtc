@@ -1,3 +1,4 @@
+use crate::signer::Signer as FrostSigner;
 use hashbrown::HashMap;
 use rand_core::OsRng;
 use serde::{Deserialize, Serialize};
@@ -369,6 +370,37 @@ impl SigningRound {
             shares_clone.keys(),
         );
         Ok(vec![])
+    }
+}
+
+impl From<&FrostSigner> for SigningRound {
+    fn from(signer: &FrostSigner) -> Self {
+        let signer_id = signer.frost_id;
+        assert!(signer_id > 0 && signer_id as usize <= signer.config.max_party_id);
+        let party_ids = vec![(signer_id * 2 - 2) as usize, (signer_id * 2 - 1) as usize]; // make two party_ids based on signer_id
+
+        assert!(signer.config.minimum_parties <= signer.config.total_parties);
+        let mut rng = OsRng::default();
+        let frost_signer = v1::Signer::new(
+            &party_ids,
+            signer.config.total_parties,
+            signer.config.minimum_parties,
+            &mut rng,
+        );
+
+        SigningRound {
+            dkg_id: None,
+            threshold: signer.config.minimum_parties,
+            total: signer.config.total_parties,
+            signer: Signer {
+                frost_signer,
+                signer_id,
+            },
+            state: States::Idle,
+            commitments: BTreeMap::new(),
+            shares: HashMap::new(),
+            public_nonces: vec![],
+        }
     }
 }
 

@@ -1,10 +1,9 @@
-use std::fmt::Debug;
-
 use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
+use std::sync::mpsc;
 use tracing::{debug, info, warn};
 
 use crate::signing_round;
-
 // Message is the format over the wire
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Message {
@@ -123,6 +122,21 @@ pub enum HttpNetError {
 
     #[error("Network error: {0}")]
     NetworkError(#[from] Box<ureq::Error>),
+
+    #[error("Recv Error: {0}")]
+    RecvError(#[from] mpsc::RecvError),
+
+    #[error("Send Error")]
+    SendError,
+
+    #[error("DKG signing error")]
+    DKGSigningError(String),
+}
+
+impl From<mpsc::SendError<Message>> for HttpNetError {
+    fn from(_: mpsc::SendError<Message>) -> HttpNetError {
+        HttpNetError::SendError
+    }
 }
 
 fn url_with_id(base: &str, id: u32) -> String {

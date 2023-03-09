@@ -5,23 +5,11 @@ use toml;
 
 #[derive(Clone, Deserialize, Default, Debug)]
 pub struct Config {
-    pub common: Common,
-    pub signer: Signer,
-}
-
-#[derive(Clone, Deserialize, Default, Debug)]
-pub struct Common {
     pub stacks_node_url: String,
     pub total_signers: usize,
     pub total_parties: usize,
     pub minimum_parties: usize,
-}
-
-// on-disk format for frost save data
-#[derive(Clone, Deserialize, Default, Debug)]
-pub struct Signer {
-    pub frost_id: u32,
-    pub frost_state_file: String,
+    pub max_party_id: usize,
 }
 
 #[derive(Parser)]
@@ -37,18 +25,12 @@ pub struct Cli {
 
     /// ID associated with signer
     #[arg(short, long)]
-    id: Option<u32>,
+    pub id: u32,
 }
 
 impl Config {
-    pub fn from_file(path: &str) -> Result<Config, String> {
+    pub fn from_path(path: &str) -> Result<Config, String> {
         let content = fs::read_to_string(path).map_err(|e| format!("Invalid path: {}", &e))?;
         toml::from_str(&content).map_err(|e| format!("Invalid toml: {}", e))
-    }
-
-    pub fn merge(&mut self, cli: &Cli) {
-        if let Some(frost_id) = cli.id {
-            self.signer.frost_id = frost_id;
-        }
     }
 }
