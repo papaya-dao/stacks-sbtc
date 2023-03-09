@@ -1,6 +1,7 @@
 use bitcoin::consensus::{Decodable, Encodable};
 use bitcoin::hashes::sha256;
 use bitcoin::psbt::serialize::Serialize;
+use bitcoin::secp256k1::ecdsa::SerializedSignature;
 use bitcoin::secp256k1::rand::thread_rng;
 use bitcoin::secp256k1::{rand, Message, Secp256k1};
 use bitcoin::util::key;
@@ -34,6 +35,12 @@ use wtfrost::{
 const BITCOIND_URL: &str = "http://abcd:abcd@localhost:18443";
 
 #[test]
+fn blog_post() {
+    // https://medium.com/coinmonks/creating-and-signing-a-segwit-transaction-from-scratch-ec98577b526a
+    let tx = hex::decode("0200000003ed204affc7519dfce341db0569687569d12b1520a91a9824531c038ad62aa9d1010000001976a914b780d54c6b03b053916333b50a213d566bbedd1388acffffffff9cb872539fbe1bc0b9c5562195095f3f35e6e13919259956c6263c9bd53b20b70100000000ffffffff8012f1ec8aa9a63cf8b200c25ddae2dece42a2495cc473c1758972cfcd84d9040100000000ffffffff01b580f50000000000160014cb61ee4568082cb59ac26bb96ec8fbe0109a4c000000000001000000").unwrap();
+}
+
+#[test]
 fn frost_btc() {
     // Singer setup
     let threshold = 3;
@@ -65,8 +72,9 @@ fn frost_btc() {
     let user_address =
         bitcoin::Address::p2wpkh(&user_public_key, bitcoin::Network::Regtest).unwrap();
     println!(
-        "user public key {} public key hash {:?} p2wpkh signing script {}",
+        "user public key {} serialized {} witness hash {:?} p2wpkh signing script {}",
         user_address,
+        hex::encode(user_public_key.serialize()),
         user_public_key.wpubkey_hash().unwrap(),
         user_address.script_pubkey().p2wpkh_script_code().unwrap()
     );
@@ -93,6 +101,7 @@ fn frost_btc() {
         &mut hex::decode(result.as_str().unwrap()).unwrap().as_slice(),
     )
     .unwrap();
+    println!("{:?}", user_funding_transaction);
 
     let user_utxo = &user_funding_transaction.output[0];
     println!(
@@ -107,7 +116,6 @@ fn frost_btc() {
     );
     let user_utxo_msg = Message::from_slice(&sighash).unwrap();
     let user_utxo_sig = secp.sign_ecdsa_low_r(&user_utxo_msg, &user_secret_key);
-
     let mut peg_in = build_peg_in_op_return(
         2200,
         peg_wallet_address,
@@ -119,9 +127,7 @@ fn frost_btc() {
     peg_in.input[0]
         .witness
         .push_bitcoin_signature(&user_utxo_sig.serialize_der(), EcdsaSighashType::All);
-    peg_in.input[0]
-        .witness
-        .push(user_public_key.wpubkey_hash().unwrap());
+    peg_in.input[0].witness.push(user_public_key.serialize());
 
     let mut peg_in_bytes: Vec<u8> = vec![];
     peg_in.consensus_encode(&mut peg_in_bytes).unwrap();
@@ -199,7 +205,7 @@ fn bitcoind_rpc(method: &str, params: impl ureq::serde::Serialize) -> serde_json
 fn bitcoind_mine(public_key_bytes: &[u8; 33]) -> Value {
     let public_key = bitcoin::PublicKey::from_slice(public_key_bytes).unwrap();
     let address = bitcoin::Address::p2wpkh(&public_key, bitcoin::Network::Regtest).unwrap();
-    bitcoind_rpc("generatetoaddress", (128, address.to_string()))
+    bitcoind_rpc("generatetoaddress", (100, address.to_string()))
 }
 
 fn build_peg_in_op_return(
