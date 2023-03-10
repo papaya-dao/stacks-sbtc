@@ -2,7 +2,7 @@ pub trait BitcoinNode {
     fn broadcast_transaction(&self, tx: &BitcoinTransaction);
 }
 
-pub type BitcoinTransaction = String;
+pub type BitcoinTransaction = bitcoin::Transaction;
 
 pub struct LocalhostBitcoinNode {}
 

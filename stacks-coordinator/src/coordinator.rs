@@ -1,3 +1,4 @@
+use bitcoin::psbt::serialize::Serialize;
 use frost_coordinator::create_coordinator;
 use frost_signer::net::HttpNetListen;
 use std::sync::mpsc;
@@ -68,7 +69,7 @@ trait CoordinatorHelpers: Coordinator {
 
         //TODO: what do we do with the returned signature?
         self.frost_coordinator_mut()
-            .sign_message(fulfill_tx.as_bytes())?;
+            .sign_message(&fulfill_tx.serialize())?;
 
         self.stacks_node().broadcast_transaction(&burn_tx);
         self.bitcoin_node().broadcast_transaction(&fulfill_tx);

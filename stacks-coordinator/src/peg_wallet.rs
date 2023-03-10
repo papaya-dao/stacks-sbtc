@@ -1,3 +1,4 @@
+use bitcoin::consensus::Decodable;
 use serde::Serialize;
 
 use crate::bitcoin_node;
@@ -67,6 +68,6 @@ pub struct FileBitcoinWallet {}
 
 impl BitcoinWallet for FileBitcoinWallet {
     fn fulfill_peg_out(&self, op: &PegOutRequestOp) -> BitcoinTransaction {
-        todo!()
+        BitcoinTransaction::consensus_decode(&mut "".as_bytes()).unwrap()
     }
 }
