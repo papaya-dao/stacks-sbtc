@@ -1,4 +1,4 @@
-use bitcoin::consensus::Decodable;
+use bitcoin::hashes::Hash;
 use serde::Serialize;
 
 use crate::bitcoin_node;
@@ -68,6 +68,30 @@ pub struct FileBitcoinWallet {}
 
 impl BitcoinWallet for FileBitcoinWallet {
     fn fulfill_peg_out(&self, op: &PegOutRequestOp) -> BitcoinTransaction {
-        BitcoinTransaction::consensus_decode(&mut "".as_bytes()).unwrap()
+        //fn build_peg_out(satoshis: u64, user_address: bitcoin::PublicKey, utxo: OutPoint) -> Transaction
+        let bitcoin_txid = bitcoin::Txid::from_slice(op.txid.as_bytes()).unwrap();
+        let utxo = bitcoin::OutPoint {
+            txid: bitcoin_txid,
+            vout: op.vtxindex,
+        };
+        let peg_out_input = bitcoin::TxIn {
+            previous_output: utxo,
+            script_sig: Default::default(),
+            sequence: Default::default(),
+            witness: Default::default(),
+        };
+        // todo: op.recipient should be a bitcoin address
+        let user_address = bitcoin::PublicKey::from_slice(&op.recipient.bytes()).unwrap();
+        let p2wpk = bitcoin::Script::new_v0_p2wpkh(&user_address.wpubkey_hash().unwrap());
+        let peg_out_output = bitcoin::TxOut {
+            value: op.amount,
+            script_pubkey: p2wpk,
+        };
+        bitcoin::blockdata::transaction::Transaction {
+            version: 0,
+            lock_time: bitcoin::PackedLockTime(0),
+            input: vec![peg_out_input],
+            output: vec![peg_out_output],
+        }
     }
 }
