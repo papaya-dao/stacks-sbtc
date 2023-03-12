@@ -51,15 +51,15 @@ impl PegWallet for WrapPegWallet {
 pub struct FileStacksWallet {}
 
 impl StacksWallet for FileStacksWallet {
-    fn mint(&mut self, op: &PegInOp) -> Result<StacksTransaction> {
+    fn mint(&mut self, _op: &PegInOp) -> Result<StacksTransaction> {
         todo!()
     }
 
-    fn burn(&mut self, op: &PegOutRequestOp) -> Result<StacksTransaction> {
+    fn burn(&mut self, _op: &PegOutRequestOp) -> Result<StacksTransaction> {
         todo!()
     }
 
-    fn set_wallet_address(&mut self, address: PegWalletAddress) -> Result<StacksTransaction> {
+    fn set_wallet_address(&mut self, _address: PegWalletAddress) -> Result<StacksTransaction> {
         todo!()
     }
 }

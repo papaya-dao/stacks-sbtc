@@ -18,11 +18,11 @@ pub type PegOutRequestOp = burn_ops::PegOutRequestOp;
 pub struct LocalhostStacksNode {}
 
 impl StacksNode for LocalhostStacksNode {
-    fn get_peg_in_ops(&self, block_height: u64) -> Vec<PegInOp> {
+    fn get_peg_in_ops(&self, _block_height: u64) -> Vec<PegInOp> {
         todo!()
     }
 
-    fn get_peg_out_request_ops(&self, block_height: u64) -> Vec<PegOutRequestOp> {
+    fn get_peg_out_request_ops(&self, _block_height: u64) -> Vec<PegOutRequestOp> {
         todo!()
     }
 
@@ -30,11 +30,11 @@ impl StacksNode for LocalhostStacksNode {
         todo!()
     }
 
-    fn next_nonce(&self, addr: StacksAddress) {
+    fn next_nonce(&self, _addr: StacksAddress) {
         todo!()
     }
 
-    fn broadcast_transaction(&self, tx: &StacksTransaction) {
+    fn broadcast_transaction(&self, _tx: &StacksTransaction) {
         todo!()
     }
 }
