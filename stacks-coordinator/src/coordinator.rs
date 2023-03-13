@@ -65,7 +65,7 @@ trait CoordinatorHelpers: Coordinator {
     fn peg_out(&mut self, op: stacks_node::PegOutRequestOp) -> Result<()> {
         let _stacks = self.fee_wallet().stacks_mut();
         let burn_tx = self.fee_wallet().stacks_mut().burn(&op)?;
-        let fulfill_tx = self.fee_wallet().bitcoin_mut().fulfill_peg_out(&op);
+        let fulfill_tx = self.fee_wallet().bitcoin_mut().fulfill_peg_out(&op)?;
 
         //TODO: what do we do with the returned signature?
         self.frost_coordinator_mut()
