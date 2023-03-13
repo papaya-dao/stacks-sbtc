@@ -188,10 +188,12 @@ impl SigningRound {
             Ok(mut out) => {
                 if self.can_dkg_end() {
                     info!(
-                        "can_dkg_end==true. shares {} commitments {}",
+                        "can_dkg_end==true. shares {}",
                         self.shares.len(),
-                        self.commitments.len()
                     );
+                    for (id, comm) in &self.commitments {
+                        info!("{} {}", id, comm);
+                    }
                     let dkg_end_msgs = self.dkg_ended()?;
                     out.push(dkg_end_msgs);
                     self.move_to(States::Idle)?;
@@ -300,6 +302,11 @@ impl SigningRound {
                 .collect();
             let signer_nonces: Vec<PublicNonce> =
                 sign_request.nonces.iter().map(|(_, n)| n.clone()).collect();
+            info!("signer ids: {:?}", &signer_ids);
+            info!("signer nonces:");
+            for nonce in &signer_nonces {
+                info!("{}", nonce);
+            }
             let share = party.sign(&sign_request.message, &signer_ids, &signer_nonces);
 
             let response = MessageTypes::SignShareResponse(SignatureShareResponse {

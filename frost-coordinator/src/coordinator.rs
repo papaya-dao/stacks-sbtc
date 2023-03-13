@@ -195,11 +195,15 @@ where
             .collect();
 
         info!(
-            "SignatureAggregator::new total_keys: {} threshold: {} commitments: {} ",
+            "SignatureAggregator::new total_keys: {} threshold: {}",
             self.total_keys,
             self.threshold,
-            polys.len()
         );
+
+        for (id, share) in &self.dkg_public_shares {
+            info!("dkg public share {} {}", id, share.public_share);
+        }
+        
         let mut aggregator =
             match v1::SignatureAggregator::new(self.total_keys, self.threshold, polys) {
                 Ok(aggregator) => aggregator,
@@ -252,6 +256,10 @@ where
         }
 
         // call aggregator.sign()
+        let nonce_ids = id_nonces
+            .iter()
+            .map(|(i, _)| *i)
+            .collect::<Vec<u32>>();
         let nonces = id_nonces
             .iter()
             .map(|(_i, n)| n.clone())
@@ -266,6 +274,13 @@ where
             nonces.len(),
             shares.len()
         );
+        info!("{:?}", &nonce_ids);
+        for nonce in &nonces {
+            info!("{}", nonce);
+        }
+        for share in &shares {
+            info!("{}", share.id);
+        }
 
         let sig = match aggregator.sign(msg, &nonces, &shares) {
             Ok(sig) => sig,
