@@ -378,7 +378,7 @@ pub enum Error {
     NetworkError(#[from] HttpNetError),
     #[error("No aggregate public key")]
     NoAggregatePublicKey,
-    #[error("Aggregate failed to sign")]
+    #[error("Aggregator failed to sign: {0}")]
     Aggregator(AggregatorError),
     #[error("BIP-340 error")]
     Bip340(Bip340Error),
