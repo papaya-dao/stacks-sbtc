@@ -2,16 +2,25 @@ use std::any::Any;
 use std::collections::BTreeMap;
 use std::time::Duration;
 
+use frost_signer::config::Config;
 use frost_signer::net::{HttpNetError, Message, NetListen};
 use frost_signer::signing_round::{
     DkgBegin, DkgPublicShare, MessageTypes, NonceRequest, NonceResponse, SignatureShareRequest,
 };
 use hashbrown::HashSet;
 use tracing::{debug, info};
-use wtfrost::common::PublicNonce;
-use wtfrost::{common::PolyCommitment, common::Signature, errors::AggregatorError, v1, Point};
+use wtfrost::{
+    bip340::{Error as Bip340Error, SchnorrProof},
+    common::{PolyCommitment, PublicNonce, Signature},
+    compute,
+    errors::AggregatorError,
+    v1, Point,
+};
 
 use serde::{Deserialize, Serialize};
+
+pub const DEVNET_COORDINATOR_ID: usize = 0;
+pub const DEVNET_COORDINATOR_DKG_ID: u64 = 0; //TODO: Remove, this is a correlation id
 
 #[derive(clap::Subcommand, Debug)]
 pub enum Command {
@@ -26,7 +35,7 @@ pub struct Coordinator<Network: NetListen> {
     id: u32, // Used for relay coordination
     current_dkg_id: u64,
     total_signers: usize, // Assuming the signers cover all id:s in {1, 2, ..., total_signers}
-    total_parties: usize,
+    total_keys: usize,
     threshold: usize,
     network: Network,
     dkg_public_shares: BTreeMap<u32, DkgPublicShare>,
@@ -36,20 +45,13 @@ pub struct Coordinator<Network: NetListen> {
 }
 
 impl<Network: NetListen> Coordinator<Network> {
-    pub fn new(
-        id: usize,
-        dkg_id: u64,
-        total_signers: usize,
-        total_parties: usize,
-        threshold: usize,
-        network: Network,
-    ) -> Self {
+    pub fn new(id: usize, dkg_id: u64, config: &Config, network: Network) -> Self {
         Self {
             id: id as u32,
             current_dkg_id: dkg_id,
-            total_signers,
-            total_parties,
-            threshold,
+            total_signers: config.total_signers,
+            total_keys: config.total_keys,
+            threshold: config.keys_threshold,
             network,
             dkg_public_shares: Default::default(),
             public_nonces: Default::default(),
@@ -65,7 +67,10 @@ where
 {
     pub fn run(&mut self, command: &Command) -> Result<(), Error> {
         match command {
-            Command::Dkg => self.run_distributed_key_generation(),
+            Command::Dkg => {
+                self.run_distributed_key_generation()?;
+                Ok(())
+            }
             Command::Sign { msg } => {
                 self.sign_message(msg)?;
                 Ok(())
@@ -84,7 +89,15 @@ where
         }
     }
 
-    pub fn run_distributed_key_generation(&mut self) -> Result<(), Error> {
+    pub fn run_distributed_key_generation(&mut self) -> Result<Point, Error> {
+        self.start_dkg()?;
+        let result = self.wait_for_dkg_end();
+        info!("DKG round #{} finished", self.current_dkg_id);
+        result
+    }
+
+    fn start_dkg(&mut self) -> Result<(), Error> {
+        self.dkg_public_shares.clear();
         self.current_dkg_id += 1;
         info!("Starting DKG round #{}", self.current_dkg_id);
         let dkg_begin_message = Message {
@@ -95,16 +108,11 @@ where
         };
 
         self.network.send_message(dkg_begin_message)?;
-
-        let result = self.wait_for_dkg_end();
-        info!("DKG round #{} finished", self.current_dkg_id);
-        result
+        Ok(())
     }
 
-    pub fn sign_message(&mut self, msg: &[u8]) -> Result<Signature, Error> {
-        if self.aggregate_public_key == Point::default() {
-            return Err(Error::NoAggregatePublicKey);
-        }
+    fn collect_nonces(&mut self) -> Result<(), Error> {
+        self.public_nonces.clear();
 
         let nonce_request_message = Message {
             msg: MessageTypes::NonceRequest(NonceRequest {
@@ -134,9 +142,36 @@ where
                 }
             }
 
-            if self.public_nonces.len() == self.total_parties {
+            if self.public_nonces.len() == self.total_keys {
                 info!("Nonce threshold of {} met.", self.threshold);
                 break;
+            }
+        }
+        Ok(())
+    }
+
+    #[allow(non_snake_case)]
+    pub fn sign_message(&mut self, msg: &[u8]) -> Result<(Signature, SchnorrProof), Error> {
+        if self.aggregate_public_key == Point::default() {
+            return Err(Error::NoAggregatePublicKey);
+        }
+
+        loop {
+            self.collect_nonces()?;
+
+            // check to see if the aggregate nonce R has even y
+            let ids: Vec<usize> = self.public_nonces.keys().map(|i| *i as usize).collect();
+            let nonces: Vec<PublicNonce> = self
+                .public_nonces
+                .values()
+                .map(|n| n.nonce.clone())
+                .collect();
+            let (_, R) = compute::intermediate(msg, &ids, &nonces);
+            if R.has_even_y() {
+                info!("R has even y coord: {}", &R);
+                break;
+            } else {
+                info!("R does not have even y coord: {}", &R);
             }
         }
 
@@ -147,7 +182,7 @@ where
         // make an array of dkg public share polys for SignatureAggregator
         info!(
             "collecting commitments from 1..{} in {:?}",
-            self.total_parties,
+            self.total_keys,
             self.dkg_public_shares.keys().collect::<Vec<&u32>>()
         );
         let polys: Vec<PolyCommitment> = self
@@ -157,13 +192,14 @@ where
             .collect();
 
         info!(
-            "SignatureAggregator::new total_parties: {} threshold: {} commitments: {} ",
-            self.total_parties,
+            "SignatureAggregator::new total_keys: {} threshold: {} commitments: {}",
+            self.total_keys,
             self.threshold,
             polys.len()
         );
+
         let mut aggregator =
-            match v1::SignatureAggregator::new(self.total_parties, self.threshold, polys) {
+            match v1::SignatureAggregator::new(self.total_keys, self.threshold, polys) {
                 Ok(aggregator) => aggregator,
                 Err(e) => return Err(Error::Aggregator(e)),
             };
@@ -236,7 +272,21 @@ where
 
         info!("Signature ({}, {})", sig.R, sig.z);
 
-        Ok(sig)
+        let proof = match SchnorrProof::new(&sig) {
+            Ok(proof) => proof,
+            Err(e) => {
+                return Err(Error::Bip340(e));
+            }
+        };
+
+        info!("SchnorrProof ({}, {})", proof.r, proof.s);
+
+        if !proof.verify(&self.aggregate_public_key.x(), msg) {
+            info!("SchnorrProof failed to verify!");
+            return Err(Error::SchnorrProofFailed);
+        }
+
+        Ok((sig, proof))
     }
 
     pub fn calculate_aggregate_public_key(&mut self) -> Result<Point, Error> {
@@ -255,23 +305,38 @@ where
         }
     }
 
-    fn wait_for_dkg_end(&mut self) -> Result<(), Error> {
+    fn wait_for_dkg_end(&mut self) -> Result<Point, Error> {
         let mut ids_to_await: HashSet<usize> = (1..=self.total_signers).collect();
+
         info!(
             "DKG round #{} started. Waiting for DkgEnd from signers {:?}",
             self.current_dkg_id, ids_to_await
         );
+
         loop {
-            match (ids_to_await.len(), self.wait_for_next_message()?.msg) {
-                (0, _) => return Ok(()),
-                (_, MessageTypes::DkgEnd(dkg_end_msg)) => {
+            if ids_to_await.is_empty() {
+                let key = self.calculate_aggregate_public_key()?;
+                // check to see if aggregate public key has even y
+                if key.has_even_y() {
+                    info!("Aggregate public key has even y coord!");
+                    info!("Aggregate public key: {}", key);
+                    return Ok(key);
+                } else {
+                    info!("Aggregate public key does not have even y coord, re-run dkg!");
+                    ids_to_await = (1..=self.total_signers).collect();
+                    self.start_dkg()?;
+                }
+            }
+
+            match self.wait_for_next_message()?.msg {
+                MessageTypes::DkgEnd(dkg_end_msg) => {
                     ids_to_await.remove(&dkg_end_msg.signer_id);
                     info!(
                         "DKG_End round #{} from signer #{}. Waiting on {:?}",
                         dkg_end_msg.dkg_id, dkg_end_msg.signer_id, ids_to_await
                     );
                 }
-                (_, MessageTypes::DkgPublicShare(dkg_public_share)) => {
+                MessageTypes::DkgPublicShare(dkg_public_share) => {
                     self.dkg_public_shares
                         .insert(dkg_public_share.party_id, dkg_public_share.clone());
 
@@ -280,12 +345,7 @@ where
                         dkg_public_share.dkg_id, dkg_public_share.party_id
                     );
                 }
-                (_, _) => {}
-            }
-            if ids_to_await.is_empty() {
-                let key = self.calculate_aggregate_public_key()?;
-                info!("Aggregate public key {}", key);
-                return Ok(());
+                _ => {}
             }
         }
     }
@@ -316,8 +376,12 @@ pub enum Error {
     NetworkError(#[from] HttpNetError),
     #[error("No aggregate public key")]
     NoAggregatePublicKey,
-    #[error("Aggregate failed to sign")]
+    #[error("Aggregator failed to sign: {0}")]
     Aggregator(AggregatorError),
+    #[error("BIP-340 error")]
+    Bip340(Bip340Error),
+    #[error("SchnorrProof failed to verify")]
+    SchnorrProofFailed,
     #[error("Operation timed out")]
     Timeout,
 }
