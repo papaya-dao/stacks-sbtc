@@ -188,12 +188,10 @@ impl SigningRound {
             Ok(mut out) => {
                 if self.can_dkg_end() {
                     info!(
-                        "can_dkg_end==true. shares {}",
+                        "can_dkg_end==true. shares {} commitments {}",
                         self.shares.len(),
+                        self.commitments.len()
                     );
-                    for (id, comm) in &self.commitments {
-                        info!("{} {}", id, comm);
-                    }
                     let dkg_end_msgs = self.dkg_ended()?;
                     out.push(dkg_end_msgs);
                     self.move_to(States::Idle)?;
@@ -224,11 +222,12 @@ impl SigningRound {
                 shares.keys()
             );
             if let Err(secret_error) = party.compute_secret(shares, &commitments) {
-                warn!(
+                panic!(
                     "DKG round #{}: party {} compute_secret failed in : {}",
                     self.dkg_id, party.id, secret_error
                 );
             }
+            info!("Party #{} group key {}", party.id, party.group_key);
         }
         let dkg_end = MessageTypes::DkgEnd(DkgEnd {
             dkg_id: self.dkg_id,
@@ -302,11 +301,6 @@ impl SigningRound {
                 .collect();
             let signer_nonces: Vec<PublicNonce> =
                 sign_request.nonces.iter().map(|(_, n)| n.clone()).collect();
-            info!("signer ids: {:?}", &signer_ids);
-            info!("signer nonces:");
-            for nonce in &signer_nonces {
-                info!("{}", nonce);
-            }
             let share = party.sign(&sign_request.message, &signer_ids, &signer_nonces);
 
             let response = MessageTypes::SignShareResponse(SignatureShareResponse {
