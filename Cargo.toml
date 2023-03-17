@@ -6,8 +6,8 @@ members = [
   "frost-coordinator",
   "stacks-coordinator",
   "stacks-signer",
-  "yarpc",
-  "minedoc"]
+  "stacks-doctor",
+  "yarpc"]
 
 [workspace.dependencies]
 base58 = "0.2"

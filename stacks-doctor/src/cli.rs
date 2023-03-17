@@ -5,21 +5,21 @@ use clap::{Parser, Subcommand};
 #[derive(Parser, Debug)]
 pub struct AnalyzeRPCArgs {
     /// URL to the node RPC API
-    #[arg(short, long, env = "MINEDOC_RPC_URL")]
+    #[arg(short, long, env = "DOCTOR_RPC_URL")]
     pub rpc_url: String,
 }
 
 #[derive(Parser, Debug)]
 pub struct AnalyzeLogsArgs {
     /// Path to the node log file
-    #[arg(short, long, env = "MINEDOC_LOG_FILE")]
+    #[arg(short, long, env = "DOCTOR_LOG_FILE")]
     pub log_file: PathBuf,
 }
 
 #[derive(Parser, Debug)]
 pub struct AnalyzeDBArgs {
     /// Path to the node db file
-    #[arg(short, long, env = "MINEDOC_DB_FILE")]
+    #[arg(short, long, env = "DOCTOR_DB_FILE")]
     pub db_file: PathBuf,
 }
 
@@ -28,15 +28,15 @@ pub struct AnalyzeDBArgs {
 #[command(author, version, about)]
 pub struct AnalyzeAllArgs {
     /// URL to the node RPC API
-    #[arg(short, long, env = "MINEDOC_RPC_URL")]
+    #[arg(short, long, env = "DOCTOR_RPC_URL")]
     pub rpc_url: String,
 
     /// Path to the node log file
-    #[arg(short, long, env = "MINEDOC_LOG_FILE")]
+    #[arg(short, long, env = "DOCTOR_LOG_FILE")]
     pub log_file: PathBuf,
 
     /// Path to the node db file
-    #[arg(short, long, env = "MINEDOC_DB_FILE")]
+    #[arg(short, long, env = "DOCTOR_DB_FILE")]
     pub db_file: PathBuf,
 }
 

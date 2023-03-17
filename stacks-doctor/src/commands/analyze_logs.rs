@@ -12,7 +12,7 @@ cd stacks-blockchain/testnet/stacks-node;
 cargo run -p stacks-node --bin stacks-node -- testnet 2>&1 | tee node.log;
 
 # Set other variables accordingly
-minedoc -l /path/to/node.log analyze
+stacks-doctor -l /path/to/node.log analyze
 ```
 */
 pub fn analyze_logs(log_file: PathBuf) -> bool {
