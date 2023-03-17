@@ -112,13 +112,15 @@ fn blog_post() {
 
     println!(
         "CALC SIG ({}) {}",
-        finalized.len(),
+        user_utxo_segwit_sig_bytes.len(),
         hex::encode(&user_utxo_segwit_sig_bytes)
     );
     let calc_verify = secp.verify_ecdsa(&user_utxo_msg, &user_utxo_segwit_sig, &secp_public_key);
     assert!(calc_verify.is_ok(), "calc sig check {:?}", calc_verify);
 
-    let blog_post_good_sig_bytes = hex::decode("3046022100c19dd8be499a40ac95f568a7a6e065290992fd52390380dda85ce3aec9ca985e022100c129ee56e5b54747e4c31c32b6c36f087047febdd50d763b10b8886af182dfac").unwrap();
+    // libsecp verify only works on "low_r" 70 byte signatures
+    // while this doesnt match the blog post, it is a sig of the same data, re-running openssl unil the result is short/low
+    let blog_post_good_sig_bytes = hex::decode("30440220492eae58ddf8c2f8f1ab5b2b2c45432902a3c2dda508bf79319b3fde26e1364a022078bbdde1b79410efc07b19a64038242525883a94de3079668308aa45b035a6d8").unwrap();
     println!(
         "BLOG SIG ({}) {}",
         blog_post_good_sig_bytes.len(),
@@ -128,7 +130,7 @@ fn blog_post() {
         bitcoin::secp256k1::ecdsa::Signature::from_der(&blog_post_good_sig_bytes).unwrap();
     let blog_verify = secp.verify_ecdsa(&user_utxo_msg, &blog_sig, &secp_public_key);
     // https://docs.rs/secp256k1/0.24.1/src/secp256k1/ecdsa/mod.rs.html#400
-    //assert!(blog_verify.is_ok(), "blog sig check {:?}", blog_verify);
+    assert!(blog_verify.is_ok(), "blog sig check {:?}", blog_verify);
 }
 
 #[test]
