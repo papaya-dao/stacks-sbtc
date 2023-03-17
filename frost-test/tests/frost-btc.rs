@@ -19,6 +19,7 @@ use nix::unistd::Pid;
 use rand_core::OsRng;
 use std::iter::Map;
 use std::process::{Child, Command, Stdio};
+use std::str::FromStr;
 use std::thread;
 use std::time::Duration;
 use ureq::serde_json;
@@ -42,10 +43,16 @@ fn blog_post() {
     let secret_bytes =
         hex::decode("26F85CE8B2C635AD92F6148E4443FE415F512F3F29F44AB0E2CBDA819295BBD5").unwrap();
     let secret_key = bitcoin::secp256k1::SecretKey::from_slice(&secret_bytes).unwrap();
+    let secp_public_key = bitcoin::secp256k1::PublicKey::from_secret_key(&secp, &secret_key);
     let private_key = bitcoin::PrivateKey::new(secret_key, bitcoin::Network::Testnet);
     let public_key = bitcoin::PublicKey::from_private_key(&secp, &private_key);
     let address = bitcoin::Address::p2wpkh(&public_key, bitcoin::Network::Testnet).unwrap();
-    println!("address {} public_key {}", address, public_key);
+    println!(
+        "address {} public_key {} {}",
+        address,
+        public_key,
+        address.script_pubkey()
+    );
 
     let blog_tx_bytes = hex::decode("02000000000103ed204affc7519dfce341db0569687569d12b1520a91a9824531c038ad62aa9d1010000006a47304402200da2c4d8f2f44a8154fe127fe5bbe93be492aa589870fe77eb537681bc29c8ec02201eee7504e37db2ef27fa29afda46b6c331cd1a651bb6fa5fd85dcf51ac01567a01210242BF11B788DDFF450C791F16E83465CC67328CA945C703469A08E37EF0D0E061ffffffff9cb872539fbe1bc0b9c5562195095f3f35e6e13919259956c6263c9bd53b20b70100000000ffffffff8012f1ec8aa9a63cf8b200c25ddae2dece42a2495cc473c1758972cfcd84d90401000000171600146a721dcca372f3c17b2c649b2ba61aa0fda98a91ffffffff01b580f50000000000160014cb61ee4568082cb59ac26bb96ec8fbe0109a4c000002483045022100f8dac321b0429798df2952d086e763dd5b374d031c7f400d92370ae3c5f57afd0220531207b28b1b137573941c7b3cf5384a3658ef5fc238d26150d8f75b2bcc61e70121025972A1F2532B44348501075075B31EB21C02EEF276B91DB99D30703F2081B7730247304402204ebf033caf3a1a210623e98b49acb41db2220c531843106d5c50736b144b15aa02201a006be1ebc2ffef0927d4458e3bb5e41e5abc7e44fc5ceb920049b46f879711012102AE68D299CBB8AB99BF24C9AF79A7B13D28AC8CD21F6F7F750300EDA41A589A5D00000000").unwrap();
     let transaction =
@@ -86,7 +93,7 @@ fn blog_post() {
         hex::encode(segwit_sighash.to_vec())
     );
     let blog_sighash_bytes =
-        hex::decode("764811168397d53d1a8aa22b28073663f3779a8b1375d7a471d37f4a3a7da21f").unwrap();
+        hex::decode("4876161197833dd58a1a2ba20728633677f38b9a7513a4d7d3714a7f7d3a1fa2").unwrap();
     println!(
         "blog sighash len {} {}",
         blog_sighash_bytes.len(),
@@ -102,13 +109,19 @@ fn blog_post() {
     ]
     .concat();
     println!("CALC SIG ({}) {}", finalized.len(), hex::encode(&finalized));
-    let blog_post_good_sig_bytes = hex::decode("3045022100f8dac321b0429798df2952d086e763dd5b374d031c7f400d92370ae3c5f57afd0220531207b28b1b137573941c7b3cf5384a3658ef5fc238d26150d8f75b2bcc61e701").unwrap();
+    let calc_verify = secp.verify_ecdsa(&user_utxo_msg, &user_utxo_segwit_sig, &secp_public_key);
+    assert!(calc_verify.is_ok(), "calc sig check {:?}", calc_verify);
+    let blog_post_good_sig_bytes = hex::decode("3046022100c19dd8be499a40ac95f568a7a6e065290992fd52390380dda85ce3aec9ca985e022100c129ee56e5b54747e4c31c32b6c36f087047febdd50d763b10b8886af182dfac").unwrap();
+
     println!(
         "BLOG SIG ({}) {}",
         blog_post_good_sig_bytes.len(),
         hex::encode(&blog_post_good_sig_bytes)
     );
-    assert_eq!(finalized, blog_post_good_sig_bytes);
+    let blog_sig =
+        bitcoin::secp256k1::ecdsa::Signature::from_der(&blog_post_good_sig_bytes).unwrap();
+    let blog_verify = secp.verify_ecdsa(&user_utxo_msg, &blog_sig, &secp_public_key);
+    assert!(blog_verify.is_ok(), "blog sig check {:?}", blog_verify);
 }
 
 #[test]
