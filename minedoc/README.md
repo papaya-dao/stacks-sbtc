@@ -23,9 +23,9 @@ minedoc \
 If you want to simplify the command it's possible to move arguments to environment variables.
 
 ```
-export MINEDOC_RPC_URL=http://localhost:8545;
-export MINEDOC_LOG_FILE=/path/to/node.log;
-export MINEDOC_DB_FILE=/path/to/db.sqlite;
+export RPC_URL=http://localhost:8545;
+export LOG_FILE=/path/to/node.log;
+export DB_FILE=/path/to/db.sqlite;
 
 minedoc analyze
 ```
