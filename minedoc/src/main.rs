@@ -8,8 +8,6 @@ mod commands;
 fn main() {
     let args = Args::parse();
 
-    dbg!(&args);
-
     match args.cmd {
         Commands::Analyze => commands::analyze(args),
     }
