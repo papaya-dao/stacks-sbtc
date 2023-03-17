@@ -64,7 +64,7 @@ fn blog_post() {
         hex::encode(transaction.input[1].witness.last().unwrap())
     );
 
-    let segwit_signing_input_script_pubkey = bitcoin::Script::new(); //address.script_pubkey().p2wpkh_script_code().unwrap();
+    let segwit_signing_input_script_pubkey = address.script_pubkey().p2wpkh_script_code().unwrap();
 
     println!(
         "sighash input #{} script_pubkey {} value {}",
@@ -81,25 +81,18 @@ fn blog_post() {
         )
         .unwrap();
     println!(
-        "calc sighash  len {} {}",
+        "calc sighash len {} {}",
         segwit_sighash.len(),
         hex::encode(segwit_sighash.to_vec())
     );
-    let blog_sig1hash_bytes =
-        hex::decode("bb8981256c7999752595728eb9b79da3334c043d8c167f1da764d8b026d96fc2").unwrap();
-    println!(
-        "blog sig1hash len {} {}",
-        blog_sig1hash_bytes.len(),
-        hex::encode(&blog_sig1hash_bytes)
-    ); // first sha256
-    let blog_sig2hash_bytes =
+    let blog_sighash_bytes =
         hex::decode("764811168397d53d1a8aa22b28073663f3779a8b1375d7a471d37f4a3a7da21f").unwrap();
     println!(
-        "blog sig2hash len {} {}",
-        blog_sig2hash_bytes.len(),
-        hex::encode(&blog_sig2hash_bytes)
+        "blog sighash len {} {}",
+        blog_sighash_bytes.len(),
+        hex::encode(&blog_sighash_bytes)
     ); // second sha256
-    assert_eq!(segwit_sighash.to_vec(), blog_sig2hash_bytes);
+    assert_eq!(segwit_sighash.to_vec(), blog_sighash_bytes);
 
     let user_utxo_msg = Message::from_slice(&segwit_sighash).unwrap();
     let user_utxo_segwit_sig = secp.sign_ecdsa_low_r(&user_utxo_msg, &secret_key);
