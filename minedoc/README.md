@@ -1,4 +1,4 @@
-# minedoc (miner doctor) - CLI Tool for Debugging Running Nodes
+# minedoc (miner doctor) - CLI Tool for Debugging Running Stacks Nodes
 
 This CLI tool is designed to help developers debug running nodes by sourcing node information from various sources such as the node's RPC API, logs, and database.
 
@@ -14,7 +14,7 @@ To use this tool, simply run the command with the appropriate options and argume
 
 ```
 minedoc \
-  --node-url=http://localhost:8545 \
+  --rpc_url=http://localhost:8545 \
   --log-file=/path/to/node.log \
   --db-file=/path/to/db.sqlite \
   analyze
@@ -23,11 +23,11 @@ minedoc \
 If you want to simplify the command it's possible to move arguments to environment variables.
 
 ```
-export MINEDOC_NODE_URL=http://localhost:8545;
+export MINEDOC_RPC_URL=http://localhost:8545;
 export MINEDOC_LOG_FILE=/path/to/node.log;
 export MINEDOC_DB_FILE=/path/to/db.sqlite;
 
-minedoc qanalyze
+minedoc analyze
 ```
 
 This command will get data from all sources provided and output information about any potential problems.
