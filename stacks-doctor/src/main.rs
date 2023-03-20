@@ -25,6 +25,7 @@ fn main() {
                 println!("Problems detected");
             }
         }
+        cli::Commands::Burns(burns_args) => commands::burns(burns_args),
         cli::Commands::Env => commands::show_env(),
     };
 }

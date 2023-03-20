@@ -1,4 +1,10 @@
-use std::path::PathBuf;
+use core::fmt::{self, Formatter};
+use std::{
+    ascii::AsciiExt,
+    fmt::{Debug, Display},
+    path::PathBuf,
+    str::FromStr,
+};
 
 use clap::{Parser, Subcommand};
 
@@ -52,11 +58,48 @@ pub enum AnalyzeCommands {
     All(AnalyzeAllArgs),
 }
 
+#[derive(Debug, Clone)]
+pub enum Network {
+    Mainnet,
+    Testnet,
+}
+
+impl Display for Network {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl FromStr for Network {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "mainnet" => Ok(Network::Mainnet),
+            "testnet" => Ok(Network::Testnet),
+            _ => Err(format!("Could not parse Network: {}", s)),
+        }
+    }
+}
+
+#[derive(Parser, Debug)]
+pub struct BurnsArgs {
+    /// How many recent recipients to take into account
+    #[arg(short, long, default_value_t = 250)]
+    pub recipients: u64,
+
+    /// Which network to analyze
+    #[arg(short, long, default_value_t = Network::Mainnet)]
+    pub network: Network,
+}
+
 #[derive(Subcommand, Debug)]
 pub enum Commands {
     /// Analyze miner
     #[command(subcommand)]
     Analyze(AnalyzeCommands),
+    /// Print information about burn amount for recent reward recipiets
+    Burns(BurnsArgs),
     /// Print related environment variables that are set
     Env,
 }

@@ -7,3 +7,5 @@ edition = "2021"
 
 [dependencies]
 clap.workspace = true
+reqwest = { workspace = true, features = ["blocking", "json"] }
+serde_json.workspace = true
