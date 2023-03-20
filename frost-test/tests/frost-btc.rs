@@ -176,7 +176,7 @@ fn frost_btc() {
         user_address.script_pubkey().p2wpkh_script_code().unwrap()
     );
 
-    // mine block
+    // mine block to create btc
     let result = bitcoind_mine(&user_public_key.serialize().try_into().unwrap());
     let block_id = result
         .as_array()
@@ -231,8 +231,15 @@ fn frost_btc() {
     println!("peg-in OP_RETURN tx {}", peg_in.txid());
     let peg_in_bytes_hex = hex::encode(&peg_in_bytes);
     let _ = bitcoind_rpc("decoderawtransaction", [&peg_in_bytes_hex]);
-    println!("{}", peg_in_bytes_hex);
-    bitcoind_rpc("sendrawtransaction", [&peg_in_bytes_hex]);
+    println!("peg-IN tx bytes {}", peg_in_bytes_hex);
+    let peg_in_result_value = bitcoind_rpc("sendrawtransaction", [&peg_in_bytes_hex]);
+    let peg_in_result = peg_in_result_value.as_object().unwrap();
+    println!("{:?}", peg_in_result);
+    assert!(
+        !peg_in_result.contains_key("error"),
+        "{}",
+        peg_in_result.get("error").unwrap().get("message").unwrap()
+    );
 
     // Peg out to btc address
     let peg_in_utxo = OutPoint {
@@ -273,8 +280,7 @@ fn frost_btc() {
 
     let peg_out_bytes_hex = hex::encode(&peg_out_bytes);
 
-    println!("peg-out tx");
-    println!("{:?}", &peg_out_bytes_hex);
+    println!("peg-OUT tx bytes {}", &peg_out_bytes_hex);
 
     bitcoind_rpc("sendrawtransaction", [&peg_out_bytes_hex]);
 
