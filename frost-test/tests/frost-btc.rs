@@ -191,14 +191,26 @@ fn frost_btc() {
     let txid = block.get("tx").unwrap().get(0).unwrap().as_str().unwrap();
     println!("mined txid {:?}", txid);
     let result = bitcoind_rpc("getrawtransaction", (txid, false, block_id));
+    let user_funding_transaction_bytes_hex = result.as_str().unwrap();
+    let _ = bitcoind_rpc(
+        "decoderawtransaction",
+        [&user_funding_transaction_bytes_hex],
+    );
 
     // Peg in to stx address
     let stx_address = [0; 32];
     let user_funding_transaction = bitcoin::Transaction::consensus_decode(
-        &mut hex::decode(result.as_str().unwrap()).unwrap().as_slice(),
+        &mut hex::decode(user_funding_transaction_bytes_hex)
+            .unwrap()
+            .as_slice(),
     )
     .unwrap();
-    println!("{:?}", user_funding_transaction);
+    println!(
+        "funding tx txid {} wtxid {}",
+        user_funding_transaction.txid(),
+        user_funding_transaction.wtxid()
+    );
+    println!("funding tx {:?}", user_funding_transaction);
 
     let user_utxo = &user_funding_transaction.output[0];
     println!(
@@ -228,7 +240,7 @@ fn frost_btc() {
 
     let mut peg_in_bytes: Vec<u8> = vec![];
     peg_in.consensus_encode(&mut peg_in_bytes).unwrap();
-    println!("peg-in OP_RETURN tx {}", peg_in.txid());
+    println!("peg-in (OP_RETURN) tx id {}", peg_in.txid());
     let peg_in_bytes_hex = hex::encode(&peg_in_bytes);
     let _ = bitcoind_rpc("decoderawtransaction", [&peg_in_bytes_hex]);
     println!("peg-IN tx bytes {}", peg_in_bytes_hex);
