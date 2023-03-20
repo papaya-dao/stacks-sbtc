@@ -218,13 +218,6 @@ fn frost_btc() {
         user_utxo.value,
         user_utxo.script_pubkey.asm()
     );
-    let sighash = user_funding_transaction.signature_hash(
-        0,
-        &user_address.script_pubkey().p2wpkh_script_code().unwrap(),
-        EcdsaSighashType::All as u32,
-    );
-    let user_utxo_msg = Message::from_slice(&sighash).unwrap();
-    let user_utxo_sig = secp.sign_ecdsa_low_r(&user_utxo_msg, &user_secret_key);
     let mut peg_in = build_peg_in_op_return(
         2200,
         peg_wallet_address,
@@ -232,10 +225,17 @@ fn frost_btc() {
         user_funding_transaction,
         0,
     );
+    let peg_in_sighash = peg_in.signature_hash(
+        0,
+        &user_address.script_pubkey().p2wpkh_script_code().unwrap(),
+        EcdsaSighashType::All as u32,
+    );
+    let peg_in_msg = Message::from_slice(&peg_in_sighash).unwrap();
+    let peg_in_sig = secp.sign_ecdsa_low_r(&peg_in_msg, &user_secret_key);
     //let (peg_in_step_a, peg_in_step_b) = two_phase_peg_in(peg_wallet_address, stx_address, user_utxo);
     peg_in.input[0]
         .witness
-        .push_bitcoin_signature(&user_utxo_sig.serialize_der(), EcdsaSighashType::All);
+        .push_bitcoin_signature(&peg_in_sig.serialize_der(), EcdsaSighashType::All);
     peg_in.input[0].witness.push(user_public_key.serialize());
 
     let mut peg_in_bytes: Vec<u8> = vec![];
