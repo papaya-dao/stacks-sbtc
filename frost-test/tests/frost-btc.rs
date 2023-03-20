@@ -27,6 +27,10 @@ use ureq::serde_json::Value;
 use wtfrost::common::{PolyCommitment, Signature};
 use wtfrost::errors::AggregatorError;
 use wtfrost::{
+    bip340::{
+        test_helpers::{dkg, sign},
+        Error as Bip340Error, SchnorrProof,
+    },
     common::PublicNonce,
     traits::Signer,
     v1::{self, SignatureAggregator},
@@ -247,27 +251,32 @@ fn frost_btc() {
     let signing_payload = sighash.as_hash().to_vec();
 
     // signing. Signers: 0 (parties: 0, 1) and 1 (parties: 2)
-    let result_ok = signing_round(
+    let schnorr_proof = signing_round(
         &signing_payload,
         threshold,
         total,
         &mut rng,
         &mut signers,
         public_key_shares,
-    );
-    assert!(result_ok.is_ok());
-    let result = result_ok.unwrap();
+    )
+    .unwrap();
 
     let mut sig_bytes = vec![];
-    let sig_pubkey_xonly = result.R.compress().as_bytes()[1..32].to_vec();
-    sig_bytes.extend(sig_pubkey_xonly);
-    sig_bytes.extend(result.z.to_bytes());
+
+    sig_bytes.extend(schnorr_proof.r.to_bytes());
+    sig_bytes.extend(schnorr_proof.s.to_bytes());
+
     peg_out.input[0].witness.push(&sig_bytes);
     peg_out.input[0]
         .witness
-        .push(&group_public_key.compress().as_bytes());
+        .push(&group_public_key.x().to_bytes());
+
+    let peg_out_bytes_hex = hex::encode(&peg_out_bytes);
+
     println!("peg-out tx");
-    println!("{:?}", hex::encode(&peg_out_bytes));
+    println!("{:?}", &peg_out_bytes_hex);
+
+    bitcoind_rpc("sendrawtransaction", [&peg_out_bytes_hex]);
 
     stop_pid(bitcoind_pid);
 }
@@ -444,7 +453,7 @@ fn build_peg_out(satoshis: u64, user_address: bitcoin::PublicKey, utxo: OutPoint
         script_pubkey: p2wpk,
     };
     bitcoin::blockdata::transaction::Transaction {
-        version: 0,
+        version: 2,
         lock_time: PackedLockTime(0),
         input: vec![peg_out_input],
         output: vec![peg_out_output],
@@ -458,78 +467,25 @@ fn signing_round(
     mut rng: &mut OsRng,
     signers: &mut [v1::Signer; 3],
     public_commitments: Vec<PolyCommitment>,
-) -> Result<Signature, AggregatorError> {
+) -> Result<SchnorrProof, Bip340Error> {
     // decide which signers will be used
     let mut signers = [signers[0].clone(), signers[1].clone()];
 
-    // get nonces and shares
-    let (nonces, shares) = {
-        let ids: Vec<usize> = signers.iter().flat_map(|s| s.get_ids()).collect();
-        // get nonces
-        let nonces: Vec<PublicNonce> = signers
-            .iter_mut()
-            .flat_map(|s| s.gen_nonces(&mut rng))
-            .collect();
-        // get shares
-        let shares = signers
-            .iter()
-            .flat_map(|s| s.sign(message, &ids, &nonces))
-            .collect::<Vec<_>>();
+    let (nonces, shares) = sign(message, &mut signers, rng);
 
-        (nonces, shares)
-    };
-
-    SignatureAggregator::new(total, threshold, public_commitments.clone())
+    let sig = SignatureAggregator::new(total, threshold, public_commitments.clone())
         .unwrap()
         .sign(&message, &nonces, &shares)
+        .unwrap();
+
+    SchnorrProof::new(&sig)
 }
 
 fn dkg_round(
     mut rng: &mut OsRng,
     signers: &mut [v1::Signer; 3],
 ) -> (Vec<PolyCommitment>, wtfrost::Point) {
-    {
-        let public_key_shares = signers
-            .iter()
-            .flat_map(|s| s.get_poly_commitments(&mut rng))
-            .collect::<Vec<_>>();
-
-        // each party broadcasts their commitments
-        // these hashmaps will need to be serialized in tuples w/ the value encrypted
-        let broadcast_shares = signers
-            .iter()
-            .flat_map(|signer| signer.parties.iter())
-            .map(|party| (party.id, party.get_shares()))
-            .collect::<Vec<_>>();
-
-        // each party collects its shares from the broadcasts
-        // maybe this should collect into a hashmap first?
-        let secret_errors = signers
-            .iter_mut()
-            .flat_map(|s| s.parties.iter_mut())
-            .filter_map(|party| {
-                let h = broadcast_shares
-                    .iter()
-                    .map(|(id, share)| (*id, share[&party.id]))
-                    .collect::<HashMap<_, _>>();
-
-                // should a signer go at error state if error?
-                if let Err(secret_error) = party.compute_secret(h, &public_key_shares) {
-                    Some((party.id, secret_error))
-                } else {
-                    None
-                }
-            })
-            .collect::<HashMap<_, _>>();
-
-        if secret_errors.is_empty() {
-            let group_key = public_key_shares
-                .iter()
-                .fold(Point::default(), |s, public_share| s + public_share.A[0]);
-            Ok((public_key_shares, group_key))
-        } else {
-            Err(secret_errors)
-        }
-    }
-    .unwrap()
+    let polys = dkg(signers, rng).unwrap();
+    let pubkey = polys.iter().fold(Point::new(), |s, poly| s + poly.A[0]);
+    (polys, pubkey)
 }
