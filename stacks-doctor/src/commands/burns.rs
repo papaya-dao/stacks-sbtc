@@ -37,10 +37,12 @@ pub fn burns(args: BurnsArgs) {
         recipients_to_fetch -= batch_size;
     }
 
+    dbg!(&burn_amounts);
+
     burn_amounts.sort();
 
     println!(
-        "Recent {} burnchain winner burns for {}: min={} max={} mean={} avg={}",
+        "Last {} burnchain winner burns for {}: min={} max={} mean={} avg={}",
         args.recipients,
         args.network.to_string().to_ascii_lowercase(),
         burn_amounts.first().unwrap(),
