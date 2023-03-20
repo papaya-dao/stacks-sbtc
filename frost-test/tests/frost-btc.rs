@@ -214,17 +214,17 @@ fn frost_btc() {
     );
     println!("funding tx {:?}", user_funding_transaction);
 
-    let user_utxo = &user_funding_transaction.output[0];
+    let funding_utxo = &user_funding_transaction.output[0];
     println!(
-        "user UTXO with {:?} sats script_pub_key: {}",
-        user_utxo.value,
-        user_utxo.script_pubkey.asm()
+        "funding UTXO with {:?} sats script_pub_key: {}",
+        funding_utxo.value,
+        funding_utxo.script_pubkey.asm()
     );
     let mut peg_in = build_peg_in_op_return(
         2200,
         peg_wallet_address,
         stx_address,
-        user_funding_transaction,
+        &user_funding_transaction,
         0,
     );
     let peg_in_sighash_pubkey_script = user_address.script_pubkey().p2wpkh_script_code().unwrap();
@@ -242,9 +242,21 @@ fn frost_btc() {
         .witness
         .push_bitcoin_signature(&peg_in_sig.serialize_der(), EcdsaSighashType::All);
     peg_in.input[0].witness.push(user_public_key.serialize());
-
     let mut peg_in_bytes: Vec<u8> = vec![];
     peg_in.consensus_encode(&mut peg_in_bytes).unwrap();
+
+    let mut consensus_check_funding_in: Vec<u8> = vec![];
+    user_funding_transaction.output[0]
+        .consensus_encode(&mut consensus_check_funding_in)
+        .unwrap();
+    let mut consensus_peg_in: Vec<u8> = vec![];
+    let bitcoin_check = bitcoin::bitcoinconsensus::verify(
+        &consensus_check_funding_in,
+        funding_utxo.value,
+        &peg_in_bytes,
+        0,
+    );
+    println!("peg-in bitcoinconsensus.verify {:?}", bitcoin_check);
     println!(
         "peg-in (OP_RETURN) tx id {} signing txin pubkey script {}",
         peg_in.txid(),
@@ -341,7 +353,7 @@ fn build_peg_in_op_return(
     satoshis: u64,
     peg_wallet_address: bitcoin::PublicKey,
     stx_address: [u8; 32],
-    utxo: Transaction,
+    utxo: &Transaction,
     utxo_vout: u32,
 ) -> Transaction {
     let utxo_point = OutPoint {
