@@ -164,6 +164,8 @@ fn frost_btc() {
     // create user keys
     let secp = bitcoin::secp256k1::Secp256k1::new();
     let user_secret_key = bitcoin::secp256k1::SecretKey::new(&mut rand::thread_rng());
+    let user_secp_public_key =
+        bitcoin::secp256k1::PublicKey::from_secret_key(&secp, &user_secret_key);
     let user_private_key = bitcoin::PrivateKey::new(user_secret_key, bitcoin::Network::Regtest);
     let user_public_key = bitcoin::PublicKey::from_private_key(&secp, &user_private_key);
     let user_address =
@@ -225,13 +227,16 @@ fn frost_btc() {
         user_funding_transaction,
         0,
     );
+    let peg_in_sighash_pubkey_script = user_address.script_pubkey().p2wpkh_script_code().unwrap();
     let peg_in_sighash = peg_in.signature_hash(
         0,
-        &user_address.script_pubkey().p2wpkh_script_code().unwrap(),
+        &peg_in_sighash_pubkey_script,
         EcdsaSighashType::All as u32,
     );
     let peg_in_msg = Message::from_slice(&peg_in_sighash).unwrap();
     let peg_in_sig = secp.sign_ecdsa_low_r(&peg_in_msg, &user_secret_key);
+    let peg_in_verify = secp.verify_ecdsa(&peg_in_msg, &peg_in_sig, &user_secp_public_key);
+    assert!(peg_in_verify.is_ok());
     //let (peg_in_step_a, peg_in_step_b) = two_phase_peg_in(peg_wallet_address, stx_address, user_utxo);
     peg_in.input[0]
         .witness
@@ -240,7 +245,11 @@ fn frost_btc() {
 
     let mut peg_in_bytes: Vec<u8> = vec![];
     peg_in.consensus_encode(&mut peg_in_bytes).unwrap();
-    println!("peg-in (OP_RETURN) tx id {}", peg_in.txid());
+    println!(
+        "peg-in (OP_RETURN) tx id {} signing txin pubkey script {}",
+        peg_in.txid(),
+        peg_in_sighash_pubkey_script.asm()
+    );
     let peg_in_bytes_hex = hex::encode(&peg_in_bytes);
     let _ = bitcoind_rpc("decoderawtransaction", [&peg_in_bytes_hex]);
     println!("peg-IN tx bytes {}", peg_in_bytes_hex);
