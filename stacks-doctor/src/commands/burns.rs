@@ -42,7 +42,7 @@ pub fn burns(args: Args, burns_args: BurnsArgs) {
     burn_fees.sort();
 
     println!(
-        "Burn stats for last {} blocks: min={} max={} mean={} avg={}",
+        "Burn fee stats for last {} blocks: min={} max={} mean={} avg={}",
         burns_args.blocks,
         burn_fees.first().unwrap(),
         burn_fees.last().unwrap(),
