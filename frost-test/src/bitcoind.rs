@@ -19,7 +19,7 @@ pub fn bitcoind_rpc(method: &str, params: impl ureq::serde::Serialize) -> serde_
         Ok(response) => {
             let json = response.into_json::<serde_json::Value>().unwrap();
             let result = json.as_object().unwrap().get("result").unwrap().clone();
-            println!("{} -> {}", rpc, result);
+            //println!("{} -> {}", rpc, result);
             result
         }
         Err(err) => {

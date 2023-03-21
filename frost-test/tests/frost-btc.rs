@@ -6,7 +6,7 @@ use bitcoin::{
     XOnlyPublicKey,
 };
 use frost_test::bitcoind;
-use frost_test::bitcoind::stop_pid;
+use frost_test::bitcoind::{bitcoind_mine, bitcoind_rpc, stop_pid};
 use rand_core::OsRng;
 use ureq::serde_json;
 use ureq::serde_json::Value;
@@ -248,9 +248,9 @@ fn frost_btc() {
     // Peg out to btc address
     let peg_in_utxo = OutPoint {
         txid: peg_in.txid(),
-        vout: 0,
+        vout: 1,
     };
-    let mut peg_out = build_peg_out(funding_utxo.value - 1000, user_public_key, peg_in_utxo);
+    let mut peg_out = build_peg_out(funding_utxo.value - 2000, user_public_key, peg_in_utxo);
     let mut peg_out_bytes: Vec<u8> = vec![];
     let _peg_out_bytes_len = peg_out.consensus_encode(&mut peg_out_bytes).unwrap();
 
@@ -290,35 +290,6 @@ fn frost_btc() {
     assert!(peg_out_result_value.is_string(), "{}", peg_out_result_value);
 
     stop_pid(bitcoind_pid);
-}
-
-fn bitcoind_rpc(method: &str, params: impl ureq::serde::Serialize) -> serde_json::Value {
-    let rpc = ureq::json!({"jsonrpc": "1.0", "id": "tst", "method": method, "params": params});
-    match ureq::post(BITCOIND_URL).send_json(&rpc) {
-        Ok(response) => {
-            let status = response.status();
-            let json = response.into_json::<serde_json::Value>().unwrap();
-            let result = json.as_object().unwrap().get("result").unwrap().clone();
-            println!("{} -> {}", rpc.to_string(), result.to_string());
-            result
-        }
-        Err(err) => {
-            let json = err
-                .into_response()
-                .unwrap()
-                .into_json::<serde_json::Value>()
-                .unwrap();
-            let err = json.as_object().unwrap().get("error").unwrap();
-            println!("{} -> {}", rpc.to_string(), err.to_string());
-            json
-        }
-    }
-}
-
-fn bitcoind_mine(public_key_bytes: &[u8; 33]) -> Value {
-    let public_key = bitcoin::PublicKey::from_slice(public_key_bytes).unwrap();
-    let address = bitcoin::Address::p2wpkh(&public_key, bitcoin::Network::Regtest).unwrap();
-    bitcoind_rpc("generatetoaddress", (100, address.to_string()))
 }
 
 fn build_peg_in_op_return(
