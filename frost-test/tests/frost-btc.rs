@@ -205,8 +205,8 @@ fn frost_btc() {
         0,
     );
     let peg_in_sighash_pubkey_script = user_address.script_pubkey().p2wpkh_script_code().unwrap();
-    let mut comp = bitcoin::util::sighash::SighashCache::new(&peg_in);
-    let peg_in_sighash = comp
+    let mut sighash_cache_peg_in = bitcoin::util::sighash::SighashCache::new(&peg_in);
+    let peg_in_sighash = sighash_cache_peg_in
         .segwit_signature_hash(
             0,
             &peg_in_sighash_pubkey_script,
@@ -242,23 +242,22 @@ fn frost_btc() {
     println!("peg-IN tx bytes {}", peg_in_bytes_hex);
     let peg_in_result_value = bitcoind_rpc("sendrawtransaction", [&peg_in_bytes_hex]);
     assert!(peg_in_result_value.is_string(), "{}", peg_in_result_value);
-    let peg_in_result = peg_in_result_value.as_str().unwrap();
-    println!("PEG-IN TX {}", peg_in_result);
 
+    let peg_in_utxo = &peg_in.output[1];
     // Peg out to btc address
-    let peg_in_utxo = OutPoint {
+    let peg_in_utxo_point = OutPoint {
         txid: peg_in.txid(),
         vout: 1,
     };
-    let mut peg_out = build_peg_out(funding_utxo.value - 2000, user_public_key, peg_in_utxo);
-    let mut peg_out_bytes: Vec<u8> = vec![];
-    let _peg_out_bytes_len = peg_out.consensus_encode(&mut peg_out_bytes).unwrap();
-
-    let sighash = peg_out.signature_hash(
-        0,
-        &peg_in.output[0].script_pubkey,
-        SchnorrSighashType::All as u32,
-    );
+    let mut peg_out = build_peg_out(peg_in_utxo.value - 2000, user_public_key, peg_in_utxo_point);
+    let mut sighash_cache_peg_out = bitcoin::util::sighash::SighashCache::new(&peg_out);
+    let sighash = sighash_cache_peg_out
+        .taproot_key_spend_signature_hash(
+            0,
+            &bitcoin::util::sighash::Prevouts::All(&[&peg_in.output[0]]),
+            SchnorrSighashType::All,
+        )
+        .unwrap();
     let signing_payload = sighash.as_hash().to_vec();
 
     // signing. Signers: 0 (parties: 0, 1) and 1 (parties: 2)
@@ -276,12 +275,12 @@ fn frost_btc() {
 
     sig_bytes.extend(schnorr_proof.r.to_bytes());
     sig_bytes.extend(schnorr_proof.s.to_bytes());
+    // is &group_public_key.x().to_bytes() used?
 
     peg_out.input[0].witness.push(&sig_bytes);
-    peg_out.input[0]
-        .witness
-        .push(&group_public_key.x().to_bytes());
 
+    let mut peg_out_bytes: Vec<u8> = vec![];
+    let _peg_out_bytes_len = peg_out.consensus_encode(&mut peg_out_bytes).unwrap();
     let peg_out_bytes_hex = hex::encode(&peg_out_bytes);
 
     println!("peg-OUT tx bytes {}", &peg_out_bytes_hex);
