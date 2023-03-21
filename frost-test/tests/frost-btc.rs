@@ -1,39 +1,21 @@
 use bitcoin::consensus::{Decodable, Encodable};
-use bitcoin::hashes::sha256;
 use bitcoin::psbt::serialize::Serialize;
-use bitcoin::secp256k1::ecdsa::SerializedSignature;
-use bitcoin::secp256k1::rand::thread_rng;
-use bitcoin::secp256k1::{rand, Message, Secp256k1};
-use bitcoin::util::key;
+use bitcoin::secp256k1::{rand, Message};
 use bitcoin::{
-    EcdsaSighashType, KeyPair, Network, OutPoint, PackedLockTime, PrivateKey, PublicKey,
-    SchnorrSighashType, Script, Transaction, XOnlyPublicKey,
+    EcdsaSighashType, OutPoint, PackedLockTime, PublicKey, SchnorrSighashType, Script, Transaction,
+    XOnlyPublicKey,
 };
-use ctrlc::Signal;
 use frost_test::bitcoind;
 use frost_test::bitcoind::stop_pid;
-use hashbrown::HashMap;
-use nix::libc::pid_t;
-use nix::sys::signal;
-use nix::unistd::Pid;
 use rand_core::OsRng;
-use std::ffi::c_uint;
-use std::iter::Map;
-use std::process::{Child, Command, Stdio};
-use std::str::FromStr;
-use std::thread;
-use std::time::Duration;
 use ureq::serde_json;
 use ureq::serde_json::Value;
-use wtfrost::common::{PolyCommitment, Signature};
-use wtfrost::errors::AggregatorError;
+use wtfrost::common::PolyCommitment;
 use wtfrost::{
     bip340::{
         test_helpers::{dkg, sign},
         Error as Bip340Error, SchnorrProof,
     },
-    common::PublicNonce,
-    traits::Signer,
     v1::{self, SignatureAggregator},
     Point,
 };
@@ -109,12 +91,6 @@ fn blog_post() {
     let user_utxo_msg = Message::from_slice(&segwit_sighash).unwrap();
     let user_utxo_segwit_sig = secp.sign_ecdsa_low_r(&user_utxo_msg, &secret_key);
     let user_utxo_segwit_sig_bytes = user_utxo_segwit_sig.serialize_der();
-    let finalized = [
-        user_utxo_segwit_sig_bytes.as_ref(),
-        &[EcdsaSighashType::All.to_u32() as u8],
-    ]
-    .concat();
-
     println!(
         "CALC SIG ({}) {}",
         user_utxo_segwit_sig_bytes.len(),
@@ -265,13 +241,9 @@ fn frost_btc() {
     let _ = bitcoind_rpc("decoderawtransaction", [&peg_in_bytes_hex]);
     println!("peg-IN tx bytes {}", peg_in_bytes_hex);
     let peg_in_result_value = bitcoind_rpc("sendrawtransaction", [&peg_in_bytes_hex]);
-    let peg_in_result = peg_in_result_value.as_object().unwrap();
-    println!("{:?}", peg_in_result);
-    assert!(
-        !peg_in_result.contains_key("error"),
-        "{}",
-        peg_in_result.get("error").unwrap().get("message").unwrap()
-    );
+    assert!(peg_in_result_value.is_string(), "{}", peg_in_result_value);
+    let peg_in_result = peg_in_result_value.as_str().unwrap();
+    println!("PEG-IN TX {}", peg_in_result);
 
     // Peg out to btc address
     let peg_in_utxo = OutPoint {
@@ -314,7 +286,8 @@ fn frost_btc() {
 
     println!("peg-OUT tx bytes {}", &peg_out_bytes_hex);
 
-    bitcoind_rpc("sendrawtransaction", [&peg_out_bytes_hex]);
+    let peg_out_result_value = bitcoind_rpc("sendrawtransaction", [&peg_out_bytes_hex]);
+    assert!(peg_out_result_value.is_string(), "{}", peg_out_result_value);
 
     stop_pid(bitcoind_pid);
 }
@@ -502,7 +475,7 @@ fn signing_round(
     message: &[u8],
     threshold: usize,
     total: usize,
-    mut rng: &mut OsRng,
+    rng: &mut OsRng,
     signers: &mut [v1::Signer; 3],
     public_commitments: Vec<PolyCommitment>,
 ) -> Result<SchnorrProof, Bip340Error> {
@@ -520,7 +493,7 @@ fn signing_round(
 }
 
 fn dkg_round(
-    mut rng: &mut OsRng,
+    rng: &mut OsRng,
     signers: &mut [v1::Signer; 3],
 ) -> (Vec<PolyCommitment>, wtfrost::Point) {
     let polys = dkg(signers, rng).unwrap();
