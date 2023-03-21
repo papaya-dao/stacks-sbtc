@@ -35,7 +35,7 @@ pub fn bitcoind_rpc(method: &str, params: impl ureq::serde::Serialize) -> serde_
     }
 }
 
-pub fn bitcoind_setup() -> pid_t {
+pub fn bitcoind_setup() -> BitcoinPid {
     let bitcoind_child = Command::new("bitcoind")
         .arg("-regtest")
         .arg("-rpcuser=abcd")
@@ -50,11 +50,11 @@ pub fn bitcoind_setup() -> pid_t {
     })
     .expect("Error setting Ctrl-C handler");
     println!(
-        "bitconind started. waiting 1 second to warm up. {}",
-        BITCOIND_URL
+        "bitconind {} started. waiting 1 second to warm up. {}",
+        bitcoind_pid, BITCOIND_URL
     );
     thread::sleep(Duration::from_millis(500));
-    bitcoind_pid
+    BitcoinPid::new(bitcoind_pid)
 }
 
 pub fn bitcoind_mine(public_key_bytes: &[u8; 33]) -> Value {
@@ -64,5 +64,23 @@ pub fn bitcoind_mine(public_key_bytes: &[u8; 33]) -> Value {
 }
 
 pub fn stop_pid(pid: pid_t) {
-    signal::kill(Pid::from_raw(pid), Signal::SIGTERM).unwrap();
+    signal::kill(Pid::from_raw(pid), Signal::SIGTERM)
+        .map_err(|e| println!("warning: signaling bitcoind {} failed {:?}", pid, e));
+}
+
+pub struct BitcoinPid {
+    pid: pid_t,
+}
+
+impl BitcoinPid {
+    fn new(pid: pid_t) -> Self {
+        BitcoinPid { pid: pid }
+    }
+}
+
+impl Drop for BitcoinPid {
+    fn drop(&mut self) {
+        println!("bitcoind {} stopping", self.pid);
+        stop_pid(self.pid);
+    }
 }

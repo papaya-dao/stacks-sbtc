@@ -287,8 +287,6 @@ fn frost_btc() {
 
     let peg_out_result_value = bitcoind_rpc("sendrawtransaction", [&peg_out_bytes_hex]);
     assert!(peg_out_result_value.is_string(), "{}", peg_out_result_value);
-
-    stop_pid(bitcoind_pid);
 }
 
 fn build_peg_in_op_return(
