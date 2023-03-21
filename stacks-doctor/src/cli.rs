@@ -91,6 +91,14 @@ pub struct BurnsArgs {
     /// Which network to analyze
     #[arg(short, long, default_value_t = Network::Mainnet)]
     pub network: Network,
+
+    // How many recent blocks to take into account
+    #[arg(short, long, default_value_t = 1000)]
+    pub blocks: u64,
+
+    /// Path to the node db file
+    #[arg(short, long, env = "DOCTOR_DB_DIR")]
+    pub db_dir: PathBuf,
 }
 
 #[derive(Subcommand, Debug)]

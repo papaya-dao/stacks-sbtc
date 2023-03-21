@@ -9,3 +9,4 @@ edition = "2021"
 clap.workspace = true
 reqwest = { workspace = true, features = ["blocking", "json"] }
 serde_json.workspace = true
+rusqlite.workspace = true
