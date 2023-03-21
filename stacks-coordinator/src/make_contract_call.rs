@@ -17,6 +17,14 @@ pub type StacksNetworkNameOrStacksNetwork = serde_json::Value;
 
 pub type BooleanOrClarityAbi = serde_json::Value;
 
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("IO Error: {0}")]
+    IO(#[from] std::io::Error),
+    #[error("Invalid Path: {0}")]
+    InvalidPath(std::path::PathBuf),
+}
+
 #[allow(non_snake_case)]
 #[derive(Serialize)]
 pub struct SignedContractCallOptions {
@@ -113,13 +121,18 @@ pub type LengthPrefixedList = serde_json::Value;
 pub struct MakeContractCall(Js);
 
 impl MakeContractCall {
-    pub fn call(&mut self, input: &SignedContractCallOptions) -> StacksTransaction {
-        self.0
-            .call(&DispatchCommand("makeContractCall".to_string(), input))
-            .unwrap()
+    pub fn call(&mut self, input: &SignedContractCallOptions) -> Result<StacksTransaction, Error> {
+        Ok(self
+            .0
+            .call(&DispatchCommand("makeContractCall".to_string(), input))?)
     }
-    pub fn new(path: &str) -> Self {
+    pub fn new(path: &str) -> Result<Self, Error> {
         let file_name = Path::new(path).join("yarpc/js/stacks/transactions.ts");
-        Self(Js::new(file_name.to_str().unwrap()).unwrap())
+        Ok(Self(Js::new(
+            file_name
+                .clone()
+                .to_str()
+                .ok_or_else(|| Error::InvalidPath(file_name))?,
+        )?))
     }
 }
