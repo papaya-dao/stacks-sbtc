@@ -36,11 +36,11 @@ pub fn bitcoind_rpc(method: &str, params: impl ureq::serde::Serialize) -> serde_
 }
 
 pub fn bitcoind_setup() -> pid_t {
-    let bitcoind_child = Command::new("bitcoind")
+    let bitcoind_child = Command::new("/Users/axoloki/src/bitcoin/build-22.0/src/bitcoind")
         .arg("-regtest")
         .arg("-rpcuser=abcd")
         .arg("-rpcpassword=abcd")
-        .stdout(Stdio::null())
+        .stdout(Stdio::inherit())
         .spawn()
         .expect("bitcoind failed to start");
     let bitcoind_pid = bitcoind_child.id() as pid_t;

@@ -249,6 +249,7 @@ fn frost_btc() {
         txid: peg_in.txid(),
         vout: 1,
     };
+    //let mut peg_out = build_peg_out(peg_in_utxo.value - 2000, peg_wallet_address, peg_in_utxo_point);
     let mut peg_out = build_peg_out(peg_in_utxo.value - 2000, user_public_key, peg_in_utxo_point);
     let mut sighash_cache_peg_out = bitcoin::util::sighash::SighashCache::new(&peg_out);
     let sighash = sighash_cache_peg_out
@@ -271,6 +272,10 @@ fn frost_btc() {
     )
     .unwrap();
 
+    println!("R frost_btc PUBKEY32 {}", hex::encode(group_public_key.x().to_bytes()));
+    println!("R frost_btc MSG32    {}", hex::encode(&signing_payload));
+    schnorr_proof.verify(&group_public_key.x(), &signing_payload);
+    
     let mut sig_bytes = vec![];
 
     sig_bytes.extend(schnorr_proof.r.to_bytes());
