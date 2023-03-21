@@ -17,6 +17,7 @@ use nix::libc::pid_t;
 use nix::sys::signal;
 use nix::unistd::Pid;
 use rand_core::OsRng;
+use std::ffi::c_uint;
 use std::iter::Map;
 use std::process::{Child, Command, Stdio};
 use std::str::FromStr;
@@ -216,23 +217,27 @@ fn frost_btc() {
 
     let funding_utxo = &user_funding_transaction.output[0];
     println!(
-        "funding UTXO with {:?} sats script_pub_key: {}",
+        "funding UTXO with {:?} sats utxo.script_pub_key: {}",
         funding_utxo.value,
         funding_utxo.script_pubkey.asm()
     );
     let mut peg_in = build_peg_in_op_return(
-        2200,
+        funding_utxo.value - 1000,
         peg_wallet_address,
         stx_address,
         &user_funding_transaction,
         0,
     );
     let peg_in_sighash_pubkey_script = user_address.script_pubkey().p2wpkh_script_code().unwrap();
-    let peg_in_sighash = peg_in.signature_hash(
-        0,
-        &peg_in_sighash_pubkey_script,
-        EcdsaSighashType::All as u32,
-    );
+    let mut comp = bitcoin::util::sighash::SighashCache::new(&peg_in);
+    let peg_in_sighash = comp
+        .segwit_signature_hash(
+            0,
+            &peg_in_sighash_pubkey_script,
+            funding_utxo.value,
+            EcdsaSighashType::All,
+        )
+        .unwrap();
     let peg_in_msg = Message::from_slice(&peg_in_sighash).unwrap();
     let peg_in_sig = secp.sign_ecdsa_low_r(&peg_in_msg, &user_secret_key);
     let peg_in_verify = secp.verify_ecdsa(&peg_in_msg, &peg_in_sig, &user_secp_public_key);
@@ -245,18 +250,12 @@ fn frost_btc() {
     let mut peg_in_bytes: Vec<u8> = vec![];
     peg_in.consensus_encode(&mut peg_in_bytes).unwrap();
 
-    let mut consensus_check_funding_in: Vec<u8> = vec![];
+    let mut consensus_check_funding_out0: Vec<u8> = vec![];
     user_funding_transaction.output[0]
-        .consensus_encode(&mut consensus_check_funding_in)
+        .script_pubkey
+        .consensus_encode(&mut consensus_check_funding_out0)
         .unwrap();
-    let mut consensus_peg_in: Vec<u8> = vec![];
-    let bitcoin_check = bitcoin::bitcoinconsensus::verify(
-        &consensus_check_funding_in,
-        funding_utxo.value,
-        &peg_in_bytes,
-        0,
-    );
-    println!("peg-in bitcoinconsensus.verify {:?}", bitcoin_check);
+
     println!(
         "peg-in (OP_RETURN) tx id {} signing txin pubkey script {}",
         peg_in.txid(),
@@ -279,7 +278,7 @@ fn frost_btc() {
         txid: peg_in.txid(),
         vout: 0,
     };
-    let mut peg_out = build_peg_out(1000, user_public_key, peg_in_utxo);
+    let mut peg_out = build_peg_out(funding_utxo.value - 1000, user_public_key, peg_in_utxo);
     let mut peg_out_bytes: Vec<u8> = vec![];
     let _peg_out_bytes_len = peg_out.consensus_encode(&mut peg_out_bytes).unwrap();
 
