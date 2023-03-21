@@ -1,6 +1,6 @@
 use bitcoin::consensus::{Decodable, Encodable};
 use bitcoin::psbt::serialize::Serialize;
-use bitcoin::secp256k1::{rand, Message};
+use bitcoin::secp256k1::{rand, Message, Secp256k1};
 use bitcoin::{
     EcdsaSighashType, OutPoint, PackedLockTime, PublicKey, SchnorrSighashType, Script, Transaction,
     XOnlyPublicKey,
@@ -125,21 +125,25 @@ fn frost_btc() {
         v1::Signer::new(&[2], total, threshold, &mut rng),
         v1::Signer::new(&[3], total, threshold, &mut rng),
     ];
+    let secp = bitcoin::secp256k1::Secp256k1::new();
 
     // DKG (Distributed Key Generation)
     let (public_key_shares, group_public_key) = dkg_round(&mut rng, &mut signers);
 
-    let peg_wallet_lobby_address = bitcoin::PublicKey::from_slice(&[0; 33]);
+    // placeholder group key for Schnorr testing (remove this and use group_key when working)
+    let group_placeholder_secretkey = bitcoin::secp256k1::SecretKey::new(&mut rand::thread_rng());
+    let group_placeholder_privatekey =
+        bitcoin::PrivateKey::new(group_placeholder_secretkey, bitcoin::Network::Regtest);
+    let group_placeholder_publickey =
+        bitcoin::PublicKey::from_private_key(&secp, &group_placeholder_privatekey);
 
     // Peg Wallet Address from group key
-    let peg_wallet_address =
-        bitcoin::PublicKey::from_slice(&group_public_key.compress().as_bytes()).unwrap();
+    let peg_wallet_address = group_placeholder_publickey; // bitcoin::PublicKey::from_slice(&group_public_key.compress().as_bytes()).unwrap();
 
     // bitcoind regtest
     let bitcoind_pid = bitcoind::bitcoind_setup();
 
     // create user keys
-    let secp = bitcoin::secp256k1::Secp256k1::new();
     let user_secret_key = bitcoin::secp256k1::SecretKey::new(&mut rand::thread_rng());
     let user_secp_public_key =
         bitcoin::secp256k1::PublicKey::from_secret_key(&secp, &user_secret_key);
@@ -251,15 +255,14 @@ fn frost_btc() {
     };
     let mut peg_out = build_peg_out(peg_in_utxo.value - 2000, user_public_key, peg_in_utxo_point);
     let mut sighash_cache_peg_out = bitcoin::util::sighash::SighashCache::new(&peg_out);
-    let sighash = sighash_cache_peg_out
+    let taproot_sighash = sighash_cache_peg_out
         .taproot_key_spend_signature_hash(
             0,
             &bitcoin::util::sighash::Prevouts::All(&[&peg_in.output[0]]),
             SchnorrSighashType::All,
         )
         .unwrap();
-    let signing_payload = sighash.as_hash().to_vec();
-
+    let signing_payload = taproot_sighash.as_hash().to_vec();
     // signing. Signers: 0 (parties: 0, 1) and 1 (parties: 2)
     let schnorr_proof = signing_round(
         &signing_payload,
@@ -271,13 +274,26 @@ fn frost_btc() {
     )
     .unwrap();
 
-    let mut sig_bytes = vec![];
+    let taproot_sighash_msg = Message::from_slice(&taproot_sighash).unwrap();
 
+    let system_schnorr_sig = secp.sign_schnorr(
+        &taproot_sighash_msg,
+        &group_placeholder_secretkey.keypair(&secp),
+    );
+    let system_schnorr_sig_bytes = &system_schnorr_sig[..];
+    let mut sig_bytes = vec![];
     sig_bytes.extend(schnorr_proof.r.to_bytes());
     sig_bytes.extend(schnorr_proof.s.to_bytes());
     // is &group_public_key.x().to_bytes() used?
 
-    peg_out.input[0].witness.push(&sig_bytes);
+    //peg_out.input[0].witness.push(&sig_bytes);
+    // placeholder to use system schnorr signing to validate the rest of the system
+    peg_out.input[0].witness.push(system_schnorr_sig_bytes);
+    println!(
+        "system schnorr sig ({}) {}",
+        system_schnorr_sig_bytes.len(),
+        hex::encode(system_schnorr_sig_bytes)
+    );
 
     let mut peg_out_bytes: Vec<u8> = vec![];
     let _peg_out_bytes_len = peg_out.consensus_encode(&mut peg_out_bytes).unwrap();
