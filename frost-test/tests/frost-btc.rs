@@ -1,12 +1,12 @@
 use bitcoin::consensus::{Decodable, Encodable};
 use bitcoin::psbt::serialize::Serialize;
-use bitcoin::secp256k1::{rand, Message, Secp256k1};
+use bitcoin::secp256k1::{rand, Message};
 use bitcoin::{
     EcdsaSighashType, OutPoint, PackedLockTime, PublicKey, SchnorrSighashType, Script, Transaction,
     XOnlyPublicKey,
 };
 use frost_test::bitcoind;
-use frost_test::bitcoind::{bitcoind_mine, bitcoind_rpc, stop_pid};
+use frost_test::bitcoind::{bitcoind_mine, bitcoind_rpc};
 use rand_core::OsRng;
 use ureq::serde_json;
 use ureq::serde_json::Value;
@@ -262,6 +262,10 @@ fn frost_btc() {
             SchnorrSighashType::All,
         )
         .unwrap();
+    println!(
+        "taproot sighash {}",
+        hex::encode(taproot_sighash.as_hash().to_vec())
+    );
     let signing_payload = taproot_sighash.as_hash().to_vec();
     // signing. Signers: 0 (parties: 0, 1) and 1 (parties: 2)
     let schnorr_proof = signing_round(
