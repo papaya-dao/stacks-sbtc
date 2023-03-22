@@ -1,6 +1,6 @@
 use bitcoin::consensus::{Decodable, Encodable};
 use bitcoin::psbt::serialize::Serialize;
-use bitcoin::schnorr::TapTweak;
+use bitcoin::schnorr::{TapTweak, UntweakedKeyPair};
 use bitcoin::secp256k1::{rand, Message};
 use bitcoin::{
     EcdsaSighashType, OutPoint, PackedLockTime, PublicKey, SchnorrSighashType, Script, Transaction,
@@ -283,10 +283,11 @@ fn frost_btc() {
     .unwrap();
 
     let taproot_sighash_msg = Message::from_slice(&taproot_sighash).unwrap();
-
+    let group_placeholder_keypair: UntweakedKeyPair = group_placeholder_secretkey.keypair(&secp);
+    let group_placeholder_keypair_tweaked = group_placeholder_keypair.tap_tweak(&secp, None);
     let system_schnorr_sig = secp.sign_schnorr(
         &taproot_sighash_msg,
-        &group_placeholder_secretkey.keypair(&secp),
+        &group_placeholder_keypair_tweaked.to_inner(),
     );
     let system_schnorr_sig_bytes = &system_schnorr_sig[..];
     let mut sig_bytes = vec![];
