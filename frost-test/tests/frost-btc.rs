@@ -151,8 +151,9 @@ fn frost_btc() {
     let user_public_key = bitcoin::PublicKey::from_private_key(&secp, &user_private_key);
     let user_address =
         bitcoin::Address::p2wpkh(&user_public_key, bitcoin::Network::Regtest).unwrap();
+    println!("user private key {}", user_private_key);
     println!(
-        "user public key {} serialized {} witness hash {:?} p2wpkh signing script {}",
+        "user address {} public key {} witness hash {:?} p2wpkh signing script {}",
         user_address,
         hex::encode(user_public_key.serialize()),
         user_public_key.wpubkey_hash().unwrap(),
