@@ -219,6 +219,7 @@ fn frost_btc() {
             EcdsaSighashType::All,
         )
         .unwrap();
+    println!("peg-in segwit sighash {}", peg_in_sighash);
     let peg_in_msg = Message::from_slice(&peg_in_sighash).unwrap();
     let peg_in_sig = secp.sign_ecdsa_low_r(&peg_in_msg, &user_secret_key);
     let peg_in_verify = secp.verify_ecdsa(&peg_in_msg, &peg_in_sig, &user_secp_public_key);
@@ -238,13 +239,17 @@ fn frost_btc() {
         .unwrap();
 
     println!(
-        "peg-in (OP_RETURN) tx id {} signing txin pubkey script {}",
+        "peg-in tx id {} outputs {:?}",
         peg_in.txid(),
-        peg_in_sighash_pubkey_script.asm()
+        peg_in
+            .output
+            .iter()
+            .map(|o| { o.value })
+            .collect::<Vec<_>>()
     );
     let peg_in_bytes_hex = hex::encode(&peg_in_bytes);
     let _ = bitcoind_rpc("decoderawtransaction", [&peg_in_bytes_hex]);
-    println!("peg-IN tx bytes {}", peg_in_bytes_hex);
+    println!("peg-in tx bytes {}", peg_in_bytes_hex);
     let peg_in_result_value = bitcoind_rpc("sendrawtransaction", [&peg_in_bytes_hex]);
     assert!(peg_in_result_value.is_string(), "{}", peg_in_result_value);
 
@@ -263,10 +268,7 @@ fn frost_btc() {
             SchnorrSighashType::All,
         )
         .unwrap();
-    println!(
-        "taproot sighash {}",
-        hex::encode(taproot_sighash.as_hash().to_vec())
-    );
+    println!("peg-out taproot sighash {}", hex::encode(taproot_sighash),);
     let signing_payload = taproot_sighash.as_hash().to_vec();
     // signing. Signers: 0 (parties: 0, 1) and 1 (parties: 2)
     let schnorr_proof = signing_round(
@@ -299,12 +301,21 @@ fn frost_btc() {
         system_schnorr_sig_bytes.len(),
         hex::encode(system_schnorr_sig_bytes)
     );
+    println!(
+        "peg-out tx id {} outputs {:?}",
+        peg_out.txid(),
+        peg_out
+            .output
+            .iter()
+            .map(|o| { o.value })
+            .collect::<Vec<_>>()
+    );
 
     let mut peg_out_bytes: Vec<u8> = vec![];
     let _peg_out_bytes_len = peg_out.consensus_encode(&mut peg_out_bytes).unwrap();
     let peg_out_bytes_hex = hex::encode(&peg_out_bytes);
 
-    println!("peg-OUT tx bytes {}", &peg_out_bytes_hex);
+    println!("peg-out tx bytes {}", &peg_out_bytes_hex);
 
     let peg_out_result_value = bitcoind_rpc("sendrawtransaction", [&peg_out_bytes_hex]);
     assert!(peg_out_result_value.is_string(), "{}", peg_out_result_value);
