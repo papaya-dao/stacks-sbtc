@@ -266,7 +266,7 @@ fn frost_btc() {
         .taproot_key_spend_signature_hash(
             0,
             &bitcoin::util::sighash::Prevouts::All(&[&peg_in.output[1]]),
-            SchnorrSighashType::All,
+            SchnorrSighashType::Default,
         )
         .unwrap();
     println!("peg-out taproot sighash {}", hex::encode(taproot_sighash),);
