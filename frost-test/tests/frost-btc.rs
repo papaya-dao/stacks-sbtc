@@ -139,7 +139,8 @@ fn frost_btc() {
         bitcoin::PublicKey::from_private_key(&secp, &group_placeholder_privatekey);
 
     // Peg Wallet Address from group key
-    let peg_wallet_address = group_placeholder_publickey; // bitcoin::PublicKey::from_slice(&group_public_key.compress().as_bytes()).unwrap();
+    let peg_wallet_address =
+        bitcoin::PublicKey::from_slice(&group_public_key.compress().as_bytes()).unwrap();
 
     // bitcoind regtest
     let bitcoind_pid = bitcoind::bitcoind_setup();
@@ -294,18 +295,18 @@ fn frost_btc() {
         &group_placeholder_keypair_tweaked.to_inner(),
     );
     let system_schnorr_sig_bytes = &system_schnorr_sig[..];
-    let mut sig_bytes = vec![];
-    sig_bytes.extend(schnorr_proof.r.to_bytes());
-    sig_bytes.extend(schnorr_proof.s.to_bytes());
+    let mut frost_sig_bytes = vec![];
+    frost_sig_bytes.extend(schnorr_proof.r.to_bytes());
+    frost_sig_bytes.extend(schnorr_proof.s.to_bytes());
     // is &group_public_key.x().to_bytes() used?
 
     //peg_out.input[0].witness.push(&sig_bytes);
     // placeholder to use system schnorr signing to validate the rest of the system
-    peg_out.input[0].witness.push(system_schnorr_sig_bytes);
+    peg_out.input[0].witness.push(&frost_sig_bytes);
     println!(
-        "system schnorr sig ({}) {}",
-        system_schnorr_sig_bytes.len(),
-        hex::encode(system_schnorr_sig_bytes)
+        "frost sig ({}) {}",
+        frost_sig_bytes.len(),
+        hex::encode(frost_sig_bytes)
     );
     println!(
         "peg-out tx id {} outputs {:?}",
