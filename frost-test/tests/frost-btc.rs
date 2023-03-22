@@ -1,5 +1,6 @@
 use bitcoin::consensus::{Decodable, Encodable};
 use bitcoin::psbt::serialize::Serialize;
+use bitcoin::schnorr::TapTweak;
 use bitcoin::secp256k1::{rand, Message};
 use bitcoin::{
     EcdsaSighashType, OutPoint, PackedLockTime, PublicKey, SchnorrSighashType, Script, Transaction,
@@ -325,7 +326,9 @@ fn build_peg_in_op_return(
     // crate type weirdness
     let peg_wallet_address_secp =
         bitcoin::secp256k1::PublicKey::from_slice(&peg_wallet_address.to_bytes()).unwrap();
-    let taproot = Script::new_v1_p2tr(&secp, XOnlyPublicKey::from(peg_wallet_address_secp), None);
+    let peg_wallet_address_xonly = XOnlyPublicKey::from(peg_wallet_address_secp);
+    let peg_wallet_address_tweaked = peg_wallet_address_xonly.tap_tweak(&secp, None);
+    let taproot = Script::new_v1_p2tr_tweaked(peg_wallet_address_tweaked.0);
     let peg_in_output_1 = bitcoin::TxOut {
         value: satoshis,
         script_pubkey: taproot,
