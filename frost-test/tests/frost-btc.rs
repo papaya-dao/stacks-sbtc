@@ -265,7 +265,7 @@ fn frost_btc() {
     let taproot_sighash = sighash_cache_peg_out
         .taproot_key_spend_signature_hash(
             0,
-            &bitcoin::util::sighash::Prevouts::All(&[&peg_in.output[0]]),
+            &bitcoin::util::sighash::Prevouts::All(&[&peg_in.output[1]]),
             SchnorrSighashType::All,
         )
         .unwrap();
@@ -285,6 +285,10 @@ fn frost_btc() {
     let taproot_sighash_msg = Message::from_slice(&taproot_sighash).unwrap();
     let group_placeholder_keypair: UntweakedKeyPair = group_placeholder_secretkey.keypair(&secp);
     let group_placeholder_keypair_tweaked = group_placeholder_keypair.tap_tweak(&secp, None);
+    println!(
+        "group_placeholder_keypair_tweaked {}",
+        group_placeholder_keypair_tweaked.to_inner().public_key()
+    );
     let system_schnorr_sig = secp.sign_schnorr(
         &taproot_sighash_msg,
         &group_placeholder_keypair_tweaked.to_inner(),
@@ -354,6 +358,10 @@ fn build_peg_in_op_return(
         bitcoin::secp256k1::PublicKey::from_slice(&peg_wallet_address.to_bytes()).unwrap();
     let peg_wallet_address_xonly = XOnlyPublicKey::from(peg_wallet_address_secp);
     let peg_wallet_address_tweaked = peg_wallet_address_xonly.tap_tweak(&secp, None);
+    println!(
+        "build peg-in with shared wallet public key {} tweaked {}",
+        peg_wallet_address_secp, peg_wallet_address_tweaked.0
+    );
     let taproot = Script::new_v1_p2tr_tweaked(peg_wallet_address_tweaked.0);
     let peg_in_output_1 = bitcoin::TxOut {
         value: satoshis,
