@@ -17,7 +17,7 @@ jobs:
     runs-on: ${{matrix.os}}
     steps:
     - uses: actions/checkout@v3
-    - run: ./.install/${{matrix.os}}.sh
+    - run: ./.install/bitcoin.sh
     - uses: denoland/setup-deno@v1
       with:
         deno-version: v1.*
