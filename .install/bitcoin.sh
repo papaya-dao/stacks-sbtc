@@ -2,7 +2,7 @@ if [[ $OSTYPE == 'darwin'* ]]
 then
     curl -o bitcoin-22.0-osx-signed.dmg https://bitcoincore.org/bin/bitcoin-core-22.0/bitcoin-22.0-osx-signed.dmg
     sudo hdiutil attach bitcoin-22.0-osx-signed.dmg
-    sudo installer -package /Volumes/Bitcoin-Core/Bitcoin-Core.pkg -target /
+    sudo installer -package /Volumes/Bitcoin-Core/Bitcoin-Qt.app -target /
 else
     curl -o bitcoin-22.0-x86_64-linux-gnu.tar.gz https://bitcoincore.org/bin/bitcoin-core-22.0/bitcoin-22.0-x86_64-linux-gnu.tar.gz
     tar xzf bitcoin-22.0-x86_64-linux-gnu.tar.gz
