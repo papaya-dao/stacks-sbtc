@@ -1,6 +1,6 @@
 use bitcoin::consensus::{Decodable, Encodable};
 use bitcoin::psbt::serialize::Serialize;
-use bitcoin::schnorr::{TapTweak, UntweakedKeyPair};
+use bitcoin::schnorr::{TapTweak, TweakedPublicKey, UntweakedKeyPair};
 use bitcoin::secp256k1::{rand, Message};
 use bitcoin::{
     EcdsaSighashType, OutPoint, PackedLockTime, PublicKey, SchnorrSighashType, Script, Transaction,
@@ -282,6 +282,7 @@ fn frost_btc() {
         public_key_shares,
     )
     .unwrap();
+    assert!(schnorr_proof.verify(&group_public_key.x(), &signing_payload));
 
     let taproot_sighash_msg = Message::from_slice(&taproot_sighash).unwrap();
     let group_placeholder_keypair: UntweakedKeyPair = group_placeholder_secretkey.keypair(&secp);
@@ -358,12 +359,13 @@ fn build_peg_in_op_return(
     let peg_wallet_address_secp =
         bitcoin::secp256k1::PublicKey::from_slice(&peg_wallet_address.to_bytes()).unwrap();
     let peg_wallet_address_xonly = XOnlyPublicKey::from(peg_wallet_address_secp);
-    let peg_wallet_address_tweaked = peg_wallet_address_xonly.tap_tweak(&secp, None);
+    //let peg_wallet_address_tweaked = peg_wallet_address_xonly.tap_tweak(&secp, None);
+    let peg_wallet_address_tweaked = TweakedPublicKey::dangerous_assume_tweaked(peg_wallet_address_xonly);
     println!(
-        "build peg-in with shared wallet public key {} tweaked {}",
-        peg_wallet_address_secp, peg_wallet_address_tweaked.0
+        "build peg-in with shared wallet public key {} tweaked {:?}",
+        peg_wallet_address_secp, peg_wallet_address_tweaked
     );
-    let taproot = Script::new_v1_p2tr_tweaked(peg_wallet_address_tweaked.0);
+    let taproot = Script::new_v1_p2tr_tweaked(peg_wallet_address_tweaked);
     let peg_in_output_1 = bitcoin::TxOut {
         value: satoshis,
         script_pubkey: taproot,
