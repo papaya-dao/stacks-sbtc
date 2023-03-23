@@ -13,3 +13,5 @@ Documentation: https://core-eng.pages.dev/
 
 - [Rust 1.67.1+](https://www.rust-lang.org)
 - [Deno 1.30.3+](https://deno.land)
+- [Bitcoin Core](https://bitcoin.org/en/download)
+  - Mac OS: `brew install bitcoin`
