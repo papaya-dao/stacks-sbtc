@@ -10,7 +10,13 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+    - run: curl -o bitcoin-22.0-x86_64-linux-gnu.tar.gz https://bitcoincore.org/bin/bitcoin-core-22.0/bitcoin-22.0-x86_64-linux-gnu.tar.gz
+
   build:
+    needs: install
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -34,7 +40,6 @@ jobs:
         type: ['', '--release']
     runs-on: ${{matrix.os}}
     steps:
-    - run: curl -o bitcoin-22.0-x86_64-linux-gnu.tar.gz http://filename-4.0.1.tar.gz https://bitcoincore.org/bin/bitcoin-core-22.0/bitcoin-22.0-x86_64-linux-gnu.tar.gz
     - uses: denoland/setup-deno@v1
       with:
         deno-version: v1.*
