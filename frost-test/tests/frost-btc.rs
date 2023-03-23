@@ -360,7 +360,8 @@ fn build_peg_in_op_return(
         bitcoin::secp256k1::PublicKey::from_slice(&peg_wallet_address.to_bytes()).unwrap();
     let peg_wallet_address_xonly = XOnlyPublicKey::from(peg_wallet_address_secp);
     //let peg_wallet_address_tweaked = peg_wallet_address_xonly.tap_tweak(&secp, None);
-    let peg_wallet_address_tweaked = TweakedPublicKey::dangerous_assume_tweaked(peg_wallet_address_xonly);
+    let peg_wallet_address_tweaked =
+        TweakedPublicKey::dangerous_assume_tweaked(peg_wallet_address_xonly);
     println!(
         "build peg-in with shared wallet public key {} tweaked {:?}",
         peg_wallet_address_secp, peg_wallet_address_tweaked

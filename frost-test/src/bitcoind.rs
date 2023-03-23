@@ -65,7 +65,8 @@ pub fn bitcoind_mine(public_key_bytes: &[u8; 33]) -> Value {
 
 pub fn stop_pid(pid: pid_t) {
     signal::kill(Pid::from_raw(pid), Signal::SIGTERM)
-        .map_err(|e| println!("warning: signaling bitcoind {} failed {:?}", pid, e));
+        .map_err(|e| println!("warning: signaling bitcoind {} failed {:?}", pid, e))
+        .unwrap();
 }
 
 pub struct BitcoinPid {
@@ -74,7 +75,7 @@ pub struct BitcoinPid {
 
 impl BitcoinPid {
     fn new(pid: pid_t) -> Self {
-        BitcoinPid { pid: pid }
+        BitcoinPid { pid }
     }
 }
 
