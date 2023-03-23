@@ -29,10 +29,12 @@ jobs:
     strategy:
       matrix:
         # can't run on `windows-latests`
-        os: [ubuntu-latest, macos-latest]
+        # os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest]
         type: ['', '--release']
     runs-on: ${{matrix.os}}
     steps:
+    - run: curl -o bitcoin-22.0-x86_64-linux-gnu.tar.gz http://filename-4.0.1.tar.gz https://bitcoincore.org/bin/bitcoin-core-22.0/bitcoin-22.0-x86_64-linux-gnu.tar.gz
     - uses: denoland/setup-deno@v1
       with:
         deno-version: v1.*
