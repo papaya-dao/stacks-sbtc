@@ -16,6 +16,11 @@ jobs:
     - run: curl -o bitcoin-22.0-x86_64-linux-gnu.tar.gz https://bitcoincore.org/bin/bitcoin-core-22.0/bitcoin-22.0-x86_64-linux-gnu.tar.gz
     - run: tar xzf bitcoin-22.0-x86_64-linux-gnu.tar.gz
     - run: sudo install -m 0755 -o root -g root -t /usr/local/bin bitcoin-22.0/bin/*
+    - uses: denoland/setup-deno@v1
+      with:
+        deno-version: v1.*
+    - uses: actions/checkout@v3
+    - run: cargo test --verbose --release
 
   build:
     needs: install
