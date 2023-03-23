@@ -16,11 +16,11 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{matrix.os}}
     steps:
+    - uses: actions/checkout@v3
     - run: ./.install/ubuntu-latest.sh
     - uses: denoland/setup-deno@v1
       with:
         deno-version: v1.*
-    - uses: actions/checkout@v3
     - run: cargo test --verbose --release
 
   build:
