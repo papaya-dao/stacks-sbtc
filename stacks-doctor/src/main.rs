@@ -1,5 +1,6 @@
 use clap::Parser;
-use commands::analyze_logs;
+use cli::Commands;
+use commands::{analyze_logs, burns, show_env};
 
 use crate::cli::Args;
 
@@ -10,9 +11,23 @@ fn main() {
     let args = Args::parse();
 
     match &args.cmd {
-        cli::Commands::Analyze => analyze_logs(args.log_file),
-        cli::Commands::Burns(burns_args) => commands::burns(args.clone(), burns_args.clone()),
-        cli::Commands::Env => commands::show_env(),
+        Commands::Analyze => {
+            if let Some(log_file) = args.log_file {
+                analyze_logs(log_file)
+            } else {
+                eprintln!("Log file path needs to be passed");
+                Ok(())
+            }
+        }
+        Commands::Burns(burns_args) => {
+            if let Some(db_dir) = args.db_dir {
+                burns(args.network, &db_dir, burns_args)
+            } else {
+                eprintln!("Database directory path needs to be passed");
+                Ok(())
+            }
+        }
+        Commands::Env => show_env(),
     }
     .unwrap();
 }

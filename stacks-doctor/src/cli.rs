@@ -58,15 +58,15 @@ pub struct Args {
 
     /// URL to the node RPC API
     #[arg(short, long, env = "DOCTOR_RPC_URL")]
-    pub rpc_url: String,
+    pub rpc_url: Option<String>,
 
     /// Path to the node log file
     #[arg(short, long, env = "DOCTOR_LOG_FILE")]
-    pub log_file: PathBuf,
+    pub log_file: Option<PathBuf>,
 
     /// Path to the node directory with all the databases, usually contains a <mode>/ dir such as xenon/
     #[arg(short, long, env = "DOCTOR_DB_DIR")]
-    pub db_dir: PathBuf,
+    pub db_dir: Option<PathBuf>,
 
     #[command(subcommand)]
     pub cmd: Commands,

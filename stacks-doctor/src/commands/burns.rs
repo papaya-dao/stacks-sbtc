@@ -1,14 +1,16 @@
+use std::path::Path;
+
 use anyhow::{anyhow, Context, Result};
 use rusqlite::OpenFlags;
 
-use crate::cli::{Args, BurnsArgs, Network};
+use crate::cli::{BurnsArgs, Network};
 
-pub fn burns(args: Args, burns_args: BurnsArgs) -> Result<()> {
-    let mode = match args.network {
+pub fn burns(network: Network, db_dir: &Path, burns_args: &BurnsArgs) -> Result<()> {
+    let mode = match network {
         Network::Mainnet => "mainnet/",
         Network::Testnet => "xenon/",
     };
-    let db_file = args.db_dir.join(mode).join("burnchain/burnchain.sqlite");
+    let db_file = db_dir.join(mode).join("burnchain/burnchain.sqlite");
     let conn = rusqlite::Connection::open_with_flags(db_file, OpenFlags::SQLITE_OPEN_READ_ONLY)
         .context("Could not open database connection")?;
 
