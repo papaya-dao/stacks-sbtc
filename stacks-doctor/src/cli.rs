@@ -41,7 +41,6 @@ pub struct BurnsArgs {
 #[derive(Subcommand, Clone, Debug)]
 pub enum Commands {
     /// Analyze miner
-    #[command(subcommand)]
     Analyze,
     /// Print burn fee information
     Burns(BurnsArgs),
