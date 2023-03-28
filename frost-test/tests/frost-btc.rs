@@ -3,7 +3,7 @@ use bitcoin::psbt::serialize::Serialize;
 use bitcoin::schnorr::TweakedPublicKey;
 use bitcoin::secp256k1::{rand, Message};
 use bitcoin::{
-    EcdsaSighashType, OutPoint, PackedLockTime, SchnorrSighashType, Script, Transaction,
+    EcdsaSighashType, OutPoint, PackedLockTime, PublicKey, SchnorrSighashType, Script, Transaction,
     XOnlyPublicKey,
 };
 use frost_test::bitcoind;
@@ -18,6 +18,8 @@ use wtfrost::{
     v1::{self, SignatureAggregator},
     Point,
 };
+
+const BITCOIND_URL: &str = "http://abcd:abcd@localhost:18443";
 
 #[test]
 fn blog_post() {
@@ -193,6 +195,8 @@ fn frost_btc() {
         funding_utxo.value,
         funding_utxo.script_pubkey.asm()
     );
+
+    // op_return style peg-in
     let mut peg_in = build_peg_in_op_return(
         funding_utxo.value - 1000,
         peg_wallet_address,
@@ -330,7 +334,7 @@ fn build_peg_in_op_return(
         value: 0,
         script_pubkey: op_return,
     };
-    let _secp = bitcoin::util::key::Secp256k1::new();
+
     // crate type weirdness
     let peg_wallet_address_secp =
         bitcoin::secp256k1::PublicKey::from_slice(&peg_wallet_address.to_bytes()).unwrap();
@@ -352,6 +356,94 @@ fn build_peg_in_op_return(
         lock_time: PackedLockTime(0),
         input: vec![peg_in_input],
         output: vec![peg_in_output_0, peg_in_output_1],
+    }
+}
+
+fn two_phase_peg_in(
+    peg_wallet_address: PublicKey,
+    stx_address: [u8; 32],
+    user_utxo: OutPoint,
+) -> (Transaction, Transaction) {
+    let peg_in_step_a = build_peg_in_step_a(1000, peg_wallet_address, stx_address, user_utxo);
+    let mut peg_in_step_a_bytes: Vec<u8> = vec![];
+    peg_in_step_a
+        .consensus_encode(&mut peg_in_step_a_bytes)
+        .unwrap();
+    println!("peg-in step A tx");
+    println!("{:?}", hex::encode(&peg_in_step_a_bytes));
+
+    let peg_in_step_b = build_peg_in_step_b(&peg_in_step_a, peg_wallet_address);
+    let mut peg_in_step_b_bytes: Vec<u8> = vec![];
+    peg_in_step_b
+        .consensus_encode(&mut peg_in_step_b_bytes)
+        .unwrap();
+    println!("peg-in step B tx");
+    println!("{:?}", hex::encode(&peg_in_step_b_bytes));
+    (peg_in_step_a, peg_in_step_b)
+}
+
+fn build_peg_in_step_a(
+    satoshis: u64,
+    peg_wallet_lobby_address: bitcoin::PublicKey,
+    stx_address: [u8; 32],
+    utxo: OutPoint,
+) -> Transaction {
+    // Peg-In TX
+    // crate type weirdness
+    let peg_wallet_lobby_address_secp =
+        bitcoin::secp256k1::PublicKey::from_slice(&peg_wallet_lobby_address.to_bytes()).unwrap();
+    let lobby_tx_out = Script::new_v0_p2wpkh(
+        &bitcoin::PublicKey::new(peg_wallet_lobby_address_secp)
+            .wpubkey_hash()
+            .unwrap(),
+    );
+    let peg_in_input = bitcoin::TxIn {
+        previous_output: utxo,
+        script_sig: lobby_tx_out.p2wpkh_script_code().unwrap(),
+        sequence: Default::default(),
+        witness: Default::default(),
+    };
+    let p2wpk = Script::new_v0_p2wpkh(&peg_wallet_lobby_address.wpubkey_hash().unwrap());
+    let peg_in_output = bitcoin::TxOut {
+        value: satoshis,
+        script_pubkey: p2wpk,
+    };
+    bitcoin::blockdata::transaction::Transaction {
+        version: 2,
+        lock_time: PackedLockTime(0),
+        input: vec![peg_in_input],
+        output: vec![peg_in_output],
+    }
+}
+
+fn build_peg_in_step_b(
+    step_a: &Transaction,
+    peg_wallet_address: bitcoin::PublicKey,
+) -> Transaction {
+    let peg_in_outpoint = OutPoint {
+        txid: step_a.txid(),
+        vout: 0,
+    };
+    let peg_out_input = bitcoin::TxIn {
+        previous_output: peg_in_outpoint,
+        script_sig: Default::default(),
+        sequence: Default::default(),
+        witness: Default::default(),
+    };
+    // crate type weirdness
+    let peg_wallet_address_secp =
+        bitcoin::secp256k1::PublicKey::from_slice(&peg_wallet_address.to_bytes()).unwrap();
+    let secp = bitcoin::util::key::Secp256k1::new();
+    let taproot = Script::new_v1_p2tr(&secp, XOnlyPublicKey::from(peg_wallet_address_secp), None);
+    let peg_out_output = bitcoin::TxOut {
+        value: step_a.output[0].value,
+        script_pubkey: taproot,
+    };
+    bitcoin::blockdata::transaction::Transaction {
+        version: 2,
+        lock_time: PackedLockTime(0),
+        input: vec![peg_out_input],
+        output: vec![peg_out_output],
     }
 }
 
