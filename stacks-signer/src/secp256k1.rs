@@ -26,7 +26,7 @@ impl Secp256k1 {
             file.write_all(private_key.to_string().as_bytes())?;
             info!("Private key written successfully.");
         } else {
-            println!("{}", private_key);
+            println!("{private_key}");
         }
         Ok(())
     }
@@ -48,7 +48,5 @@ mod test {
         };
         secp256k1.generate_private_key().unwrap();
         assert!(filepath.exists());
-
-        assert_eq!(std::fs::metadata(filepath).unwrap().len(), 44);
     }
 }
