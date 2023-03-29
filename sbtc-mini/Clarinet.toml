@@ -7,7 +7,7 @@ telemetry = true
 cache_dir = "./.cache"
 
 [contracts.sbtc-mini]
-path = 'contracts/sbtc-mini.clar'
+path = 'tests/contracts/sbtc-mini.clar'
 clarity_version = 2
 epoch = 2.1
 
@@ -22,3 +22,12 @@ check_checker = { trusted_sender = false, trusted_caller = false, callee_filter 
 # warning, if it gets checked inside. This check will also propagate up to the
 # caller.
 # More informations: https://www.hiro.so/blog/new-safety-checks-in-clarinet
+
+[[project.requirements]]
+contract_id = "ST000000000000000000002AMW42H.pox-2"
+
+[contracts.pox-2]
+path = "tests/contracts/pox-2.clar"
+clarity_version = 2
+epoch = 2.1
+

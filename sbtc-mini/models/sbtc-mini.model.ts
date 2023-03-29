@@ -1,6 +1,6 @@
 import { Chain, Account, Tx, types, ReadOnlyFn } from "../utils/deps.ts";
 
-enum ErrCode {
+export enum ErrCode {
   ERR_MISSING_DISBURSEMENTS = 1,
   ERR_TX_ALREADY_PROCESSED = 2,
   ERR_INVALID_BITCOIN_TX = 3,
@@ -29,6 +29,23 @@ enum ErrCode {
   ERR_NOT_A_SIGNER = 3004,
 }
 
+export enum ConstValues {
+  first_burn_block_height = 666050,
+  reward_cycle_len = 2100,
+  // Relative burnchain block heights (between 0 and 2100) as to when the system transitions into different states
+  registration_window_rel_end = 1600,
+  voting_window_rel_end = 1900,
+  transfer_window_rel_end = 2000,
+  penalty_window_rel_end = 2100,
+  // Minimum number of uSTX required to be a signer (1,000 STX,
+  // This is used in place of the stacking minimum, which we don't have access to at the time of registration.
+  // Set this to whatever is appropriate.
+  ustx_minimum = 100000000,
+  // Highest reward cycle in which all rewards are disbursed
+  highest_disbursed_reward_cycle = 0,
+  
+}
+
 interface Extension {
   extension: string;
   enabled: boolean;
@@ -38,6 +55,7 @@ export class SbtcMini {
   // Basic Info
 
   name = "sbtc-mini";
+  static readonly ConstValues = ConstValues;
   static readonly ErrCode = ErrCode;
   chain: Chain;
   deployer: Account;
@@ -80,18 +98,18 @@ export class SbtcMini {
   }
 
   is_authorized_as_stacker (stacker: string, burn_ht: number): ReadOnlyFn {
-    return this.callReadOnlyFn("is_authorized_as_stacker", [types.principal(stacker), types.uint(burn_ht)]);
+    return this.callReadOnlyFn("is-authorized-as-stacker", [types.principal(stacker), types.uint(burn_ht)]);
   }
 
   // Get the reward cycle for a given burn block height.
   // Runtime-panics if it's before first-burn-block-height.
   get_reward_cycle (burn_block_ht: number): ReadOnlyFn {
-    return this.callReadOnlyFn("get_reward_cycle", [types.uint(burn_block_ht)]);
+    return this.callReadOnlyFn("get-reward-cycle", [types.uint(burn_block_ht)]);
   }
 
   // Have all funds been disbursed from the last reward cycle?
   all_rewards_disbursed (burn_ht: number): ReadOnlyFn {
-    return this.callReadOnlyFn("all_rewards_disbursed", [types.uint(burn_ht)]);
+    return this.callReadOnlyFn("all-rewards-disbursed", [types.uint(burn_ht)]);
   }
 
   // Tabulate how much BTC was won through PoX for the next 100 blocks.
@@ -99,12 +117,12 @@ export class SbtcMini {
   // TODO: some benchmarking on this method will be needed to determine how much compute resources it uses.
   // It may need to be reduced (or increased!).
   get_next_btc_payout (rc: number, burn_ht: number): ReadOnlyFn {
-    return this.callReadOnlyFn("get_next_btc_payout", [types.uint(burn_ht)]);
+    return this.callReadOnlyFn("get-next-btc-payout", [types.uint(rc), types.uint(burn_ht)]);
   }
 
   // The total BTC payout for the given reward cycle must already have been calculated.
   get_btc_owed (rc: number, signer: string): ReadOnlyFn {
-    return this.callReadOnlyFn("get_next_btc_payout", [types.uint(rc), types.principal(signer)]);
+    return this.callReadOnlyFn("get-next-btc-payout", [types.uint(rc), types.principal(signer)]);
   }
 
   // Verify that a Bitcoin transaction was mined on the Bitcoin chain
@@ -112,66 +130,66 @@ export class SbtcMini {
   // Returns (err ...) if not.
   // TODO: implement this
   authenticate_bitcoin_tx (burn_ht: number): ReadOnlyFn {
-    return this.callReadOnlyFn("authenticate_bitcoin_tx", [types.uint(burn_ht)]);
+    return this.callReadOnlyFn("authenticate-bitcoin-tx", [types.uint(burn_ht)]);
   }
 
   // Decode a raw Bitcoin transaction to extract its disbursement outputs.
   // Returns a list of up to 16 recipients and the BTC they each received.
   // TODO: implement this
   decode_disbursement_tx (tx: string, reward_cycle: number): ReadOnlyFn {
-    return this.callReadOnlyFn("decode_disbursement_tx", [types.buff(tx), types.uint(reward_cycle)]);
+    return this.callReadOnlyFn("decode-disbursement-tx", [types.buff(tx), types.uint(reward_cycle)]);
   }
 
   // Is a burn block height in the registration window?
   in_registration_window (burn_ht: number): ReadOnlyFn {
-    return this.callReadOnlyFn("in_registration_window", [types.uint(burn_ht)]);
+    return this.callReadOnlyFn("in-registration-window", [types.uint(burn_ht)]);
   }
 
   // Is a burn block height in the voting window?
   in_voting_window (burn_ht: number): ReadOnlyFn {
-    return this.callReadOnlyFn("in_voting_window", [types.uint(burn_ht)]);
+    return this.callReadOnlyFn("in-voting-window", [types.uint(burn_ht)]);
   }
 
   // Is a burn block height in the transfer window?
   in_transfer_window (burn_ht: number): ReadOnlyFn {
-    return this.callReadOnlyFn("in_transfer_window", [types.uint(burn_ht)]);
+    return this.callReadOnlyFn("in-transfer-window", [types.uint(burn_ht)]);
   }
 
   // Is a burn block height in the penalty window?
   in_penalty_window (burn_ht: number): ReadOnlyFn {
-    return this.callReadOnlyFn("in_penalty_window", [types.uint(burn_ht)]);
+    return this.callReadOnlyFn("in-penalty-window", [types.uint(burn_ht)]);
   }
 
   // Can a stacker pre_register to be a signer?
   can_signer_pre_register (signer: string): ReadOnlyFn {
-    return this.callReadOnlyFn("can_signer_pre_register", [types.principal(signer)]);
+    return this.callReadOnlyFn("can-signer-pre-register", [types.principal(signer)]);
   }
 
   // Can a stacker register as a signer?
   can_signer_register (signer: string): ReadOnlyFn {
-    return this.callReadOnlyFn("can_signer_register", [types.principal(signer)]);
+    return this.callReadOnlyFn("can-signer-register", [types.principal(signer)]);
   }
 
   // Can a Stacker vote for an address?
   can_signer_vote (signer: string): ReadOnlyFn {
-    return this.callReadOnlyFn("can_signer_vote", [types.principal(signer)]);
+    return this.callReadOnlyFn("can-signer-vote", [types.principal(signer)]);
   }
 
   // Get the winning PoX address for the upcoming reward cycle.
   // Only works if voting period for the upcoming reward cycle's sBTC wallet address is closed.
   inner_get_sbtc_wallet_addr (burn_ht: number): ReadOnlyFn {
-    return this.callReadOnlyFn("inner_get_sbtc_wallet_addr", [types.uint(burn_ht)]);
+    return this.callReadOnlyFn("inner-get-sbtc-wallet-addr", [types.uint(burn_ht)]);
   }
 
   // Get the sBTC wallet
   get_sbtc_wallet_addr(): ReadOnlyFn {
-    return this.callReadOnlyFn("get_sbtc_wallet_addr", []);
+    return this.callReadOnlyFn("get-sbtc-wallet-addr", []);
   }
 
   // Determine how many signing slots a signer has for a given reward cycle
   // This determines how many shares of the signature this stacker must contribute.
   get_signing_slots (signer: string, reward_cycle: number): ReadOnlyFn {
-    return this.callReadOnlyFn("get_signing_slots", [types.principal(signer), types.uint(reward_cycle)]);
+    return this.callReadOnlyFn("get-signing-slots", [types.principal(signer), types.uint(reward_cycle)]);
   }
 
 }
