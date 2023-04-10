@@ -50,7 +50,21 @@ gantt
     section P-24
         Implementation          :i1, 2023-04-03, 7d
         Integration testing     :i2, after i1, 7d
+        
+    section P-12
+        Registration Clarity Smart Contract  :j1, 2023-04-11, 7d
 
+    section P-13
+        Disbursement Clarity Smart Contract  :j1, 2023-04-11, 7d
+
+    section P-15
+        Peg-in Clarity Smart Contract  :k1, after j1, 7d  
+
+    section P-17
+        Peg-out Request Clarity Smart Contract  :k1, after j1, 7d  
+        
+    section P-18
+        Peg-out Fulfillment Clarity Smart Contract  :k1, after j1, 7d  
 ```
 
 
