@@ -1,7 +1,6 @@
 // TODO: Set appropriate types
 type ContractIdentifier = String;
 type StacksPrivateKey = String;
-type BitcoinPrivateKey = String;
 type Url = String;
 
 /// Errors associated with reading the Config file
@@ -14,16 +13,24 @@ pub enum Error {
 }
 
 #[derive(serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Network {
+    Mainnet,
+    Testnet,
+}
+
+#[derive(serde::Deserialize)]
 pub struct Config {
     pub sbtc_contract: ContractIdentifier,
     pub stacks_private_key: StacksPrivateKey,
-    pub bitcoin_private_key: BitcoinPrivateKey,
     pub stacks_node_rpc_url: Url,
     pub bitcoin_node_rpc_url: Url,
     pub frost_dkg_round_id: u64,
     pub signer_config_path: String,
     pub start_block_height: Option<u64>,
     pub rusqlite_path: Option<String>,
+    /// The network version we are using ('mainnet' or 'testnet'). Default: 'mainnet'
+    pub network: Option<Network>,
 }
 
 impl Config {

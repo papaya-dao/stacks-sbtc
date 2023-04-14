@@ -28,7 +28,7 @@ fn main() {
                     // Determine what action the caller wishes to perform
                     match cli.command {
                         Command::Run => {
-                            info!("Running coordinator");
+                            info!("Running Coordinator");
                             //TODO: set up coordination with the stacks node
                             if let Err(e) = coordinator.run() {
                                 warn!("An error occurred running the coordinator: {}", e);
