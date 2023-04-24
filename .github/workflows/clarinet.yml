@@ -7,7 +7,7 @@ on:
 
 jobs:
   check:
-    name: Clarinet check for sbtc-ops
+    name: Clarinet check for sbtc-ops and sbtc-mini
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository

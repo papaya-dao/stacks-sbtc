@@ -40,7 +40,7 @@ Clarinet.run({
 			if (!isTestContract(contractName))
 				continue;
 
-			let hasDefaultPrepareFunction = contract.contract_interface.functions.reduce(
+			const hasDefaultPrepareFunction = contract.contract_interface.functions.reduce(
 				(a, v) => a || (v.name === 'prepare' && v.access === 'public' && v.args.length === 0),
 				false);
 			const meta = extractTestMetadata(contract.source);
