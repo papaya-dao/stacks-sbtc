@@ -1,0 +1,22 @@
+# Adopted from https://hub.docker.com/r/christophebedard/dco-check#Example-CI-configurations
+name: DCO
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+jobs:
+  check:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v1
+      with:
+        python-version: '3.11'
+    - name: Check DCO
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        pip3 install -U dco-check
+        dco-check
