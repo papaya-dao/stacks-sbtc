@@ -1,14 +1,13 @@
 use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
-use std::sync::mpsc;
-use tracing::{debug, info, warn};
+use std::{fmt::Debug, time::Duration};
+use tracing::{debug, warn};
 
 use crate::signing_round;
 // Message is the format over the wire
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Message {
     pub msg: signing_round::MessageTypes,
-    pub sig: [u8; 32],
+    pub sig: Vec<u8>,
 }
 
 // Http listen/poll with queue (requires mutable access, is configured by passing in HttpNet)
@@ -27,11 +26,15 @@ impl HttpNetListen {
 #[derive(Clone)]
 pub struct HttpNet {
     pub http_relay_url: String,
+    connected: bool,
 }
 
 impl HttpNet {
     pub fn new(http_relay_url: String) -> Self {
-        HttpNet { http_relay_url }
+        HttpNet {
+            http_relay_url,
+            connected: true,
+        }
     }
 }
 
@@ -46,7 +49,7 @@ pub trait NetListen {
 }
 
 impl NetListen for HttpNetListen {
-    type Error = HttpNetError;
+    type Error = Error;
 
     fn listen(&self) {}
 
@@ -55,6 +58,7 @@ impl NetListen for HttpNetListen {
         debug!("poll {}", url);
         match ureq::get(&url).call() {
             Ok(response) => {
+                self.net.connected = true;
                 if response.status() == 200 {
                     match bincode::deserialize_from::<_, Message>(response.into_reader()) {
                         Ok(msg) => {
@@ -66,7 +70,10 @@ impl NetListen for HttpNetListen {
                 };
             }
             Err(e) => {
-                warn!("{} U: {}", e, url)
+                if self.net.connected {
+                    warn!("{} U: {}", e, url);
+                    self.net.connected = false;
+                }
             }
         };
     }
@@ -88,59 +95,55 @@ pub trait Net {
 }
 
 impl Net for HttpNet {
-    type Error = HttpNetError;
+    type Error = Error;
 
     fn send_message(&self, msg: Message) -> Result<(), Self::Error> {
-        let req = ureq::post(&self.http_relay_url);
+        // sign message
         let bytes = bincode::serialize(&msg)?;
-        let result = req.send_bytes(&bytes[..]);
 
-        match result {
-            Ok(response) => {
-                debug!(
-                    "sent {:?} {} bytes {:?} to {}",
-                    &msg.msg,
-                    bytes.len(),
-                    &response,
-                    self.http_relay_url
-                )
-            }
-            Err(e) => {
-                info!("post failed to {} {}", self.http_relay_url, e);
-                return Err(Box::new(e).into());
-            }
+        let notify = |_err, dur| {
+            debug!(
+                "Failed to connect to {}. Next attempt in {:?}",
+                &self.http_relay_url, dur
+            );
         };
 
+        let send_request = || {
+            ureq::post(&self.http_relay_url)
+                .send_bytes(&bytes[..])
+                .map_err(backoff::Error::transient)
+        };
+        let backoff_timer = backoff::ExponentialBackoffBuilder::new()
+            .with_initial_interval(Duration::from_millis(2))
+            .with_max_interval(Duration::from_millis(128))
+            .build();
+
+        let response = backoff::retry_notify(backoff_timer, send_request, notify)
+            .map_err(|_| Error::Timeout)?;
+
+        debug!(
+            "sent {:?} {} bytes {:?} to {}",
+            &msg.msg,
+            bytes.len(),
+            &response,
+            self.http_relay_url
+        );
         Ok(())
     }
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum HttpNetError {
+pub enum Error {
     #[error("Serialization failed: {0}")]
     SerializationError(#[from] bincode::Error),
-
-    #[error("Network error: {0}")]
+    #[error("{0}")]
     NetworkError(#[from] Box<ureq::Error>),
-
-    #[error("Recv Error: {0}")]
-    RecvError(#[from] mpsc::RecvError),
-
-    #[error("Send Error")]
-    SendError,
-
-    #[error("DKG Error: {0}")]
-    DKGError(String),
-}
-
-impl From<mpsc::SendError<Message>> for HttpNetError {
-    fn from(_: mpsc::SendError<Message>) -> HttpNetError {
-        HttpNetError::SendError
-    }
+    #[error("Failed to connect to network.")]
+    Timeout,
 }
 
 fn url_with_id(base: &str, id: u32) -> String {
     let mut url = base.to_owned();
-    url.push_str(&format!("?id={}", id));
+    url.push_str(&format!("?id={id}"));
     url
 }

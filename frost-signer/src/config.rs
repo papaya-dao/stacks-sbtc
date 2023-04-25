@@ -9,8 +9,11 @@ pub struct Config {
     pub total_signers: usize,
     pub total_keys: usize,
     pub keys_threshold: usize,
-    pub max_party_id: usize,
     pub frost_state_file: String,
+    pub network_private_key: String,
+    pub signer_public_keys: Vec<String>,
+    pub key_public_keys: Vec<String>,
+    pub coordinator_public_key: String,
 }
 
 #[derive(Parser)]
@@ -34,8 +37,16 @@ pub struct Cli {
 }
 
 impl Config {
-    pub fn from_path(path: impl AsRef<std::path::Path>) -> Result<Config, String> {
-        let content = fs::read_to_string(path).map_err(|e| format!("Invalid path: {}", &e))?;
-        toml::from_str(&content).map_err(|e| format!("Invalid toml: {}", e))
+    pub fn from_path(path: impl AsRef<std::path::Path>) -> Result<Config, Error> {
+        let content = fs::read_to_string(path)?;
+        Ok(toml::from_str(&content)?)
     }
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("{0}")]
+    IO(#[from] std::io::Error),
+    #[error("{0}")]
+    Toml(#[from] toml::de::Error),
 }

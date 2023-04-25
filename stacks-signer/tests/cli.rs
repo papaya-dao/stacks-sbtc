@@ -7,7 +7,8 @@ use testdir::testdir;
 fn secp256k1_to_stdout() {
     let mut cmd = Command::cargo_bin("stacks-signer").unwrap();
 
-    cmd.arg("secp256k1");
+    cmd.arg("private-key");
+    cmd.env("RUST_LOG", "info");
     cmd.assert()
         .success()
         .stdout(predicate::str::contains("Generating a new private key."));
@@ -20,7 +21,8 @@ fn secp256k1_to_file() {
     assert!(!output_path.exists());
 
     let mut cmd = Command::cargo_bin("stacks-signer").unwrap();
-    cmd.arg("secp256k1").arg("-f");
+    cmd.arg("private-key").arg("-f");
+    cmd.env("RUST_LOG", "info");
     //Test with no filename specified.
     cmd.assert().failure().stderr(predicate::str::starts_with(
         "error: a value is required for",

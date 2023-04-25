@@ -5,10 +5,6 @@ use clap::{Parser, Subcommand};
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 pub struct Cli {
-    /// Turn debugging information on
-    #[arg(short, long, action = clap::ArgAction::SetTrue)]
-    pub debug: bool,
-
     /// Subcommand action to take
     #[clap(subcommand)]
     pub command: Command,
@@ -27,5 +23,11 @@ pub enum Command {
         config: String,
     },
     /// Generate Secp256k1 Private Key
-    Secp256k1(Secp256k1),
+    PrivateKey(Secp256k1),
+    /// Generate Secp256k1 Public Key
+    PublicKey {
+        /// Config file path
+        #[arg(short, long)]
+        config: String,
+    },
 }
