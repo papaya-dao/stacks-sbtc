@@ -9,20 +9,27 @@ This document provides guidelines and instructions to help make the contribution
 By participating in this project, you agree to abide by our [Code of Conduct](CODE_OF_CONDUCT.md).
 Please report any unacceptable behavior to [marten@trustmachines.co].
 
-## Reporting Issues
+## Issues
 
-All substantial changes to this repo should be formulated as issues and be visible in the [issue tracker](https://github.com/Trust-Machines/core-eng/issues) before being implemented.
-An issue should be formulated with enough context to allow any involved developer to implement it.
+When submitting an issue, please adhere to the following best practices:
 
-## Submitting Pull Requests
+1. **Search for existing issues**: Before creating a new issue, search the existing issues to avoid duplicates. If a similar issue exists, contribute to the discussion there instead of opening a new one.
+2. **Provide a clear and concise title**: Write a meaningful title that reflects the issue's content. This helps maintainers and contributors quickly grasp the issue's context.
+3. **Add a definition of done**: Provide a clear criteria for when the issue is concidered done. This ensures that the implementation lives up to the original intention of the issue.
+4. **Include necessary details**: Explain the issue thoroughly, including steps to reproduce (if applicable), expected behavior, and encountered problems. Include relevant screenshots or log files to better illustrate the issue.
+5. **Stay on topic**: Keep the discussion focused on the issue at hand. Avoid discussing unrelated topics or providing unnecessary information.
 
-When submitting a pull request (PR), please follow these guidelines:
+## Pull Requests
 
-1. Link the issue the PR closes. The issue should provide enough context about the problem the PR addresses, so that the PR does not need to rewrite it. If the PR does not close any issues, please formulate an issue before submitting the PR. The only exception should be bug fixes, documentation updates and throwaway code in `misc`.
-2. Highlight significant implementation details in the description.
-3. Test your changes and ensure they don't introduce new issues or break existing functionality.
-4. Provide a clear and concise description of your changes in the pull request.
-5. Sign your commits using the Developer Certificate of Origin (DCO).
+When creating a pull request, please follow these guidelines to ensure a smooth and efficient review process:
+
+1. **Build on the main branch**: We don't want long-lived feature branches. All changes should be integrated into `main` as early as possible.
+2. **Write a descriptive title**: Summarize your changes with a clear and informative title, highlighting the purpose of the pull request.
+3. **Link to a related issue**: Each pull request should address one and only one issue. Reference the issue number in the description (e.g., `Resolves #123` or `Closes #123`). Trivial hotfixes may be exempt from this rule, but please mention this in the description.
+4. **Explain your changes**: Describe the changes you made and the reasoning behind them. Explain how the changes satisfies the definition of done of the addressed issue.
+5. **Address review feedback**: Respond to the comments and feedback provided by reviewers. Make any necessary changes and update your pull request accordingly. Resolve any open discussions before merging.
+
+By following these guidelines, you'll help maintain a productive and collaborative environment for everyone involved in the project. Thank you for contributing!
 
 ## Developer Certificate of Origin (DCO)
 
@@ -34,4 +41,4 @@ git commit -s -m "Your commit message here"
 
 By signing off your commits, you agree to the [Developer Certificate of Origin](DCO.md):
 
-May the force be with you!
+Thank you for contributing. May the force be with you!
