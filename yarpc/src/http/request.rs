@@ -20,10 +20,9 @@ impl Message for Request {
         content: Vec<u8>,
     ) -> Result<Self, Error> {
         let mut i = first_line.into_iter();
-        let method = Method::try_parse(&i.next().to_io_result("unexpected end of message")?)
-            .to_io_result("unknown method")?;
-        let url = i.next().to_io_result("no URL")?;
-        let protocol = i.next().to_io_result("no protocol")?;
+        let method = Method::try_parse(&i.next().to_io_result()?).to_io_result()?;
+        let url = i.next().to_io_result()?;
+        let protocol = i.next().to_io_result()?;
         Ok(Request {
             method,
             url,

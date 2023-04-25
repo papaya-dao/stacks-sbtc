@@ -2,21 +2,21 @@ use std::io::{Error, ErrorKind};
 
 pub trait ToIoResult {
     type V;
-    fn to_io_result(self, msg: &'static str) -> Result<Self::V, Error>;
+    fn to_io_result(self) -> Result<Self::V, Error>;
 }
 
 fn error<E: Into<Box<dyn std::error::Error + Send + Sync>>>(e: E) -> Error {
     Error::new(ErrorKind::InvalidData, e)
 }
 
-fn err<T, E: Into<Box<dyn std::error::Error + Send + Sync>>>(e: E) -> Result<T, Error> {
+pub fn err<T, E: Into<Box<dyn std::error::Error + Send + Sync>>>(e: E) -> Result<T, Error> {
     Err(error(e))
 }
 
 impl<T> ToIoResult for Option<T> {
     type V = T;
-    fn to_io_result(self, msg: &'static str) -> Result<Self::V, Error> {
-        self.map_or(err(msg), Ok)
+    fn to_io_result(self) -> Result<Self::V, Error> {
+        self.map_or(err("option"), Ok)
     }
 }
 

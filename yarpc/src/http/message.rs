@@ -43,11 +43,11 @@ pub trait Message: Sized {
                 break;
             }
             let (name, value) = {
-                let (name, value) = line.split_once(':').to_io_result("invalid header format")?;
+                let (name, value) = line.split_once(':').to_io_result()?;
                 (name.to_lowercase(), value.trim())
             };
             if name == CONTENT_LENGTH {
-                content_length = value.parse().to_io_result("invalid content-length")?;
+                content_length = value.parse().to_io_result()?;
             } else {
                 headers.insert(name, value.to_string());
             }

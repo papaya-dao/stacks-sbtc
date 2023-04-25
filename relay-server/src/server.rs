@@ -44,7 +44,7 @@ impl Server {
 
         let content = match request.method {
             Method::GET => {
-                let query = *request.url.url_query().get("id").to_io_result("no id")?;
+                let query = *request.url.url_query().get("id").to_io_result()?;
                 self.0.get(query.to_string())?
             }
             Method::POST => {

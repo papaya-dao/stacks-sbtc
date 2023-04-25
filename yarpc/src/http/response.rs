@@ -37,12 +37,12 @@ impl Message for Response {
         content: Vec<u8>,
     ) -> Result<Self, std::io::Error> {
         let mut i = first_line.into_iter();
-        let protocol = i.next().to_io_result("expecting protocol")?;
+        let protocol = i.next().to_io_result()?;
         let code = i
             .next()
-            .to_io_result("expecting status code")?
+            .to_io_result()?
             .parse()
-            .to_io_result("invalid status code")?;
+            .to_io_result()?;
         let phrase = i.next().unwrap_or(String::default());
         Ok(Response {
             protocol,
