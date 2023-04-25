@@ -26,7 +26,8 @@ The following types of behavior are considered unacceptable:
 
 ## 4. Reporting Violations
 
-If you witness or experience any violation of this Code of Conduct or have concerns about someone's behavior, please report the incident to [marten@trustmachines.co] or any other project maintainer. They will investigate and take appropriate action, respecting the confidentiality of the reporter.
+If you witness or experience any violation of this Code of Conduct or have concerns about someone's behavior, please report the incident to [core-eng-leads@trustmachines.co](mailto:core-eng-leads@trustmachines.co) or any project maintainer.
+They will investigate and take appropriate action, respecting the confidentiality of the reporter.
 
 ## 5. Consequences
 
