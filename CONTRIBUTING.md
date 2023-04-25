@@ -7,7 +7,7 @@ This document provides guidelines and instructions to help make the contribution
 ## Code of Conduct
 
 By participating in this project, you agree to abide by our [Code of Conduct](CODE_OF_CONDUCT.md).
-Please report any unacceptable behavior to [marten@trustmachines.co].
+Please report any unacceptable behavior to [marten@trustmachines.co] or any other project maintainer.
 
 ## Issues
 
