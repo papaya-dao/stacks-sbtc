@@ -14,12 +14,13 @@ use crate::{mem_state::MemState, state::State};
 ///
 /// ```
 /// use relay_server::Server;
-/// use yarpc::http::{Call, Method, Response};
+/// use yarpc::http::{Call, Method, Response, Request};
 ///
 /// let mut server = Server::default();
 /// // send a message "Hello!"
 /// {
-///     let request = Method::POST.request(
+///     let request = Request::new(
+///         Method::POST,
 ///         "/".to_string(),
 ///         Default::default(),
 ///         "Hello!".as_bytes().to_vec(),

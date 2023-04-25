@@ -13,7 +13,7 @@ pub const PROTOCOL: &str = "HTTP/1.1";
 const CONTENT_LENGTH: &str = "content-length";
 
 pub trait Message: Sized {
-    fn new(
+    fn parse(
         first_line: Vec<String>,
         headers: HashMap<String, String>,
         content: Vec<u8>,
@@ -56,7 +56,7 @@ pub trait Message: Sized {
         let content = i.read_exact_vec(content_length)?;
 
         // return the message
-        Self::new(first_line, headers, content)
+        Self::parse(first_line, headers, content)
     }
     fn write(&self, o: &mut impl Write) -> Result<(), Error> {
         const EOL: &[u8] = "\r\n".as_bytes();

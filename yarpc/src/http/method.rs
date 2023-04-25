@@ -1,6 +1,6 @@
-use std::collections::HashMap;
+use std::{fmt::Display, io::Error, str::FromStr};
 
-use super::{message::PROTOCOL, Request};
+use crate::to_io_result::err;
 
 #[derive(Debug, PartialEq, Clone, Copy, Eq)]
 pub enum Method {
@@ -11,6 +11,7 @@ pub enum Method {
 const GET: &str = "GET";
 const POST: &str = "POST";
 
+/// See https://www.rfc-editor.org/rfc/rfc9110.html#section-9.1-5
 impl Method {
     pub const fn to_str(self) -> &'static str {
         match self {
@@ -18,25 +19,34 @@ impl Method {
             Method::POST => POST,
         }
     }
-    pub fn try_parse(value: &str) -> Option<Self> {
-        match value {
-            GET => Some(Self::GET),
-            POST => Some(Self::POST),
-            _ => None,
+}
+
+impl FromStr for Method {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // HTTP methods are case-sensitive.
+        match s {
+            GET => Ok(Self::GET),
+            POST => Ok(Self::POST),
+            _ => err("unknown HTTP method"),
         }
     }
-    pub fn request(
-        self,
-        url: String,
-        headers: HashMap<String, String>,
-        content: Vec<u8>,
-    ) -> Request {
-        Request {
-            method: self,
-            url,
-            protocol: PROTOCOL.to_owned(),
-            headers,
-            content,
-        }
+}
+
+impl Display for Method {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.to_str())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Method;
+
+    #[test]
+    fn display() {
+        assert_eq!(format!("method: {}", Method::GET), "method: GET");
+        assert_eq!(format!("method: {}", Method::POST), "method: POST");
     }
 }

@@ -4,10 +4,10 @@ The `relay-server` is an HTTP service that allows clients to send messages and r
 
 It has two functions:
 
-- Accepting messages and storing all of them. `POST` method. 
-  For example, `curl 'http://127.0.0.1:9776' -X POST -d 'message'`. 
-- Returning the messages in the same order as received for each client. 
-  For example, `curl 'http://127.0.0.1:9776/?id=alice'`. 
+- Accepting messages and storing all of them. `POST` method.
+  For example, `curl 'http://127.0.0.1:9776' -X POST -d 'message'`.
+- Returning the messages in the same order as received for each client.
+  For example, `curl 'http://127.0.0.1:9776/?id=alice'`.
 
 ## Installation (optional)
 
@@ -19,8 +19,21 @@ cargo install relay-server --git https://github.com/Trust-Machines/core-eng
 
 ## Start the `relay-server` server
 
-To start the server, you can run `cargo run relay-server` from the root of the repository, 
-or simply `relay-server` if it's installed. The default address for the server is http://127.0.0.1:9776.
+Run
+
+```sh
+cargo run relay-server
+```
+
+from the root of the repository, or
+
+```
+relay-server
+```
+
+if the `relay-server` is installed.
+
+The default address is `http://127.0.0.1:9776`.
 
 ## Integration Test
 
@@ -34,16 +47,17 @@ In addition to being used as a standalone server, the `relay-server` can also be
 
 ### As a local server
 
-The `Server` type can be used as in memory server. By default, it doesn't listen any port. A user 
+The `Server` type can be used as in memory server. By default, it doesn't listen any port. A user
 should bind it with IO.
 
 ```rust
-use relay_server::{Call, Method, Server, Response};
+use relay_server::{Call, Method, Server, Response, Request};
 
 let mut server = Server::default();
 // send a message "Hello!"
 {
-    let request = Method::POST.request(
+    let request = Request::new(
+        Method::POST,
         "/".to_string(),
         Default::default(),
         "Hello!".as_bytes().to_vec(),
@@ -65,7 +79,7 @@ See also [src/bin/relay-server.rs](src/bin/relay-server.rs) as an example.
 
 There are two implementations of the `State` trait:
 - `MemState` keeps a relay-server state in memory.
-- `ProxyState` is a proxy object which communicates with provided IO to 
+- `ProxyState` is a proxy object which communicates with provided IO to
   get and update a remote `relay-server`.
 
 ```rust

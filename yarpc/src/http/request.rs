@@ -2,7 +2,7 @@ use std::{collections::HashMap, io::Error};
 
 use crate::to_io_result::ToIoResult;
 
-use super::{method::Method, Message};
+use super::{message::PROTOCOL, method::Method, Message};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Request {
@@ -13,16 +13,34 @@ pub struct Request {
     pub content: Vec<u8>,
 }
 
+impl Request {
+    pub fn new(
+        method: Method,
+        url: String,
+        headers: HashMap<String, String>,
+        content: Vec<u8>,
+    ) -> Self {
+        Self {
+            method,
+            url,
+            protocol: PROTOCOL.to_owned(),
+            headers,
+            content,
+        }
+    }
+}
+
 impl Message for Request {
-    fn new(
+    fn parse(
         first_line: Vec<String>,
         headers: HashMap<String, String>,
         content: Vec<u8>,
     ) -> Result<Self, Error> {
         let mut i = first_line.into_iter();
-        let method = Method::try_parse(&i.next().to_io_result()?).to_io_result()?;
-        let url = i.next().to_io_result()?;
-        let protocol = i.next().to_io_result()?;
+        let mut next = || i.next().to_io_result();
+        let method = next()?.parse()?;
+        let url = next()?;
+        let protocol = next()?;
         Ok(Request {
             method,
             url,
@@ -34,7 +52,7 @@ impl Message for Request {
 
     fn first_line(&self) -> Vec<String> {
         [
-            self.method.to_str().to_string(),
+            self.method.to_string(),
             self.url.to_owned(),
             self.protocol.to_owned(),
         ]

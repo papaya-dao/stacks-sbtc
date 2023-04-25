@@ -1,6 +1,6 @@
 use std::io::Error;
 
-use yarpc::http::{Call, Method};
+use yarpc::http::{Call, Method, Request};
 
 use crate::state::State;
 
@@ -10,7 +10,8 @@ impl<T: Call> State for ProxyState<T> {
     fn get(&mut self, node_id: String) -> Result<Vec<u8>, Error> {
         Ok(self
             .0
-            .call(Method::GET.request(
+            .call(Request::new(
+                Method::GET,
                 format!("/?id={node_id}"),
                 Default::default(),
                 Default::default(),
@@ -19,8 +20,12 @@ impl<T: Call> State for ProxyState<T> {
     }
 
     fn post(&mut self, msg: Vec<u8>) -> Result<(), Error> {
-        self.0
-            .call(Method::POST.request("/".to_string(), Default::default(), msg))?;
+        self.0.call(Request::new(
+            Method::POST,
+            "/".to_string(),
+            Default::default(),
+            msg,
+        ))?;
         Ok(())
     }
 }
@@ -35,7 +40,6 @@ mod tests {
         let mut state = ProxyState(Server::default());
         assert!(state.get(1.to_string()).unwrap().is_empty());
         assert!(state.get(3.to_string()).unwrap().is_empty());
-        // assert_eq!(0, state.highwaters.len());
         state.post("Msg # 0".as_bytes().to_vec()).unwrap();
         assert_eq!(
             "Msg # 0".as_bytes().to_vec(),
