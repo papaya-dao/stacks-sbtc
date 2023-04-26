@@ -1,6 +1,6 @@
 # Contributing to core-eng
 
-Welocme to the core-eng repo!
+Welcome to the core-eng repo!
 This repo is primarily used by the Core Engineering team at TrustMachines, but anyone is welcome to contribute.
 This document provides guidelines and instructions to help make the contribution process smooth and efficient.
 
