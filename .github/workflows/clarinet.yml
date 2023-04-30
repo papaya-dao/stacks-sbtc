@@ -24,7 +24,7 @@ jobs:
           override: true
 
       - name: Install clarinet
-        run: chmod +x ./bin/install_clarinet_acton.sh && ./bin/install_clarinet_acton.sh
+        run: chmod +x ./bin/install_clarinet_action.sh && ./bin/install_clarinet_action.sh
 
       - name: Run clarinet check for sbtc-ops
         working-directory: ./sbtc-ops/clarinet
