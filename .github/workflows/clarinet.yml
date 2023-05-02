@@ -60,4 +60,8 @@ jobs:
 
       - name: Run clarinet test
         working-directory: ./sbtc-mini
-        run: clarinet test
+        run: ./scripts/test.sh
+
+      - name: Run clarinet coverage
+        working-directory: ./sbtc-mini
+        run: ./scripts/coverage-report.sh
