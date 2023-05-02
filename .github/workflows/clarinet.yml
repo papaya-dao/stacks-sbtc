@@ -32,6 +32,7 @@ jobs:
 
       - name: Run clarinet test
         working-directory: ./sbtc-ops/clarinet
+
         run: clarinet test
   check-mini-clarinet:
     name: Clarinet check for sbtc-mini
