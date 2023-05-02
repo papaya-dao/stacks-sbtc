@@ -14,11 +14,11 @@ use wtfrost::Scalar;
 #[derive(Clone, Deserialize, Default, Debug)]
 pub struct Signer {
     pub config: Config,
-    pub signer_id: u32,
+    pub signer_id: usize,
 }
 
 impl Signer {
-    pub fn new(config: Config, signer_id: u32) -> Self {
+    pub fn new(config: Config, signer_id: usize) -> Self {
         Self { config, signer_id }
     }
 
@@ -124,7 +124,7 @@ impl From<mpsc::SendError<Message>> for Error {
 fn poll_loop(
     mut net: HttpNetListen,
     tx: Sender<Message>,
-    id: u32,
+    id: usize,
     signer_public_keys: Vec<ecdsa::PublicKey>,
     key_public_keys: Vec<ecdsa::PublicKey>,
     coordinator_public_key: ecdsa::PublicKey,
@@ -170,13 +170,13 @@ fn poll_loop(
                         assert!(msg.verify(&m.sig, &coordinator_public_key))
                     }
                     MessageTypes::NonceResponse(msg) => {
-                        assert!(msg.verify(&m.sig, &signer_public_keys[msg.signer_id as usize - 1]))
+                        assert!(msg.verify(&m.sig, &signer_public_keys[msg.signer_id - 1]))
                     }
                     MessageTypes::SignShareRequest(msg) => {
                         assert!(msg.verify(&m.sig, &coordinator_public_key))
                     }
                     MessageTypes::SignShareResponse(msg) => {
-                        assert!(msg.verify(&m.sig, &signer_public_keys[msg.signer_id as usize - 1]))
+                        assert!(msg.verify(&m.sig, &signer_public_keys[msg.signer_id - 1]))
                     }
                 }
 

@@ -43,7 +43,7 @@ pub trait NetListen {
     type Error: Debug;
 
     fn listen(&self);
-    fn poll(&mut self, id: u32);
+    fn poll(&mut self, id: usize);
     fn next_message(&mut self) -> Option<Message>;
     fn send_message(&self, msg: Message) -> Result<(), Self::Error>;
 }
@@ -53,7 +53,7 @@ impl NetListen for HttpNetListen {
 
     fn listen(&self) {}
 
-    fn poll(&mut self, id: u32) {
+    fn poll(&mut self, id: usize) {
         let url = url_with_id(&self.net.http_relay_url, id);
         debug!("poll {}", url);
         match ureq::get(&url).call() {
@@ -142,7 +142,7 @@ pub enum Error {
     Timeout,
 }
 
-fn url_with_id(base: &str, id: u32) -> String {
+fn url_with_id(base: &str, id: usize) -> String {
     let mut url = base.to_owned();
     url.push_str(&format!("?id={id}"));
     url

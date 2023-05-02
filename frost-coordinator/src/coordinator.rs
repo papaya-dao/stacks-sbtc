@@ -54,7 +54,7 @@ pub enum Command {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Coordinator<Network: NetListen> {
-    id: u32, // Used for relay coordination
+    id: usize, // Used for relay coordination
     current_dkg_id: u64,
     current_dkg_public_id: u64,
     current_sign_id: u64,
@@ -64,8 +64,8 @@ pub struct Coordinator<Network: NetListen> {
     threshold: usize,
     network: Network,
     dkg_public_shares: BTreeMap<u32, DkgPublicShare>,
-    public_nonces: BTreeMap<u32, NonceResponse>,
-    signature_shares: BTreeMap<u32, Vec<SignatureShare>>,
+    public_nonces: BTreeMap<usize, NonceResponse>,
+    signature_shares: BTreeMap<usize, Vec<SignatureShare>>,
     aggregate_public_key: Point,
     network_private_key: Scalar,
     signer_public_keys: Vec<String>,
@@ -79,7 +79,7 @@ impl<Network: NetListen> Coordinator<Network> {
             .expect("failed to parse network_private_key from config");
 
         Self {
-            id: id as u32,
+            id,
             current_dkg_id: dkg_id,
             current_dkg_public_id: 1,
             current_sign_id: 1,
@@ -228,12 +228,7 @@ where
         let party_ids = self
             .public_nonces
             .values()
-            .flat_map(|pn| {
-                pn.key_ids
-                    .iter()
-                    .map(|id| *id as usize)
-                    .collect::<Vec<usize>>()
-            })
+            .flat_map(|pn| pn.key_ids.clone())
             .collect::<Vec<usize>>();
         let nonces = self
             .public_nonces
@@ -276,7 +271,7 @@ where
 
     fn collect_signature_shares(&mut self) -> Result<(), Error> {
         // get the parties who responded with a nonce
-        let mut signers: HashSet<u32> = HashSet::from_iter(self.public_nonces.keys().cloned());
+        let mut signers: HashSet<usize> = HashSet::from_iter(self.public_nonces.keys().cloned());
         while !signers.is_empty() {
             match self.wait_for_next_message()?.msg {
                 MessageTypes::SignShareResponse(response) => {
@@ -324,7 +319,7 @@ where
         debug!(
             "collecting commitments from 1..{} in {:?}",
             self.total_keys,
-            self.dkg_public_shares.keys().collect::<Vec<&u32>>()
+            self.dkg_public_shares.keys()
         );
         let polys: Vec<PolyCommitment> = self
             .dkg_public_shares
@@ -498,13 +493,13 @@ where
                             assert!(msg.verify(&m.sig, &coordinator_public_key))
                         }
                         MessageTypes::NonceResponse(msg) => {
-                            assert!(msg.verify(&m.sig, &signer_public_keys[msg.signer_id as usize]))
+                            assert!(msg.verify(&m.sig, &signer_public_keys[msg.signer_id]))
                         }
                         MessageTypes::SignShareRequest(msg) => {
                             assert!(msg.verify(&m.sig, &coordinator_public_key))
                         }
                         MessageTypes::SignShareResponse(msg) => {
-                            assert!(msg.verify(&m.sig, &signer_public_keys[msg.signer_id as usize]))
+                            assert!(msg.verify(&m.sig, &signer_public_keys[msg.signer_id]))
                         }
                     }
                     Ok(m)

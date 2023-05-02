@@ -10,7 +10,7 @@ pub struct Signer {
 }
 
 impl Signer {
-    pub fn new(config: Config, id: u32) -> Self {
+    pub fn new(config: Config, id: usize) -> Self {
         Self {
             frost_signer: FrostSigner::new(config, id),
         }

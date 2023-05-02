@@ -33,7 +33,7 @@ pub struct Cli {
 
     /// ID associated with signer
     #[arg(short, long)]
-    pub id: u32,
+    pub id: usize,
 }
 
 impl Config {

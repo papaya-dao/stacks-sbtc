@@ -17,7 +17,7 @@ pub enum Command {
     Run {
         /// Associated signer id
         #[arg(short, long)]
-        id: u32,
+        id: usize,
         /// Config file path
         #[arg(short, long)]
         config: String,
