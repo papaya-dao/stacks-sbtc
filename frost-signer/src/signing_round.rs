@@ -190,7 +190,7 @@ impl Signable for DkgBegin {
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct DkgEnd {
     pub dkg_id: u64,
-    pub signer_id: usize,
+    pub signer_id: u32,
     pub status: DkgStatus,
 }
 
@@ -406,7 +406,7 @@ impl SigningRound {
     fn dkg_public_ended(&mut self) -> Result<MessageTypes, Error> {
         let dkg_end = DkgEnd {
             dkg_id: self.dkg_id,
-            signer_id: self.signer.signer_id as usize,
+            signer_id: self.signer.signer_id,
             status: DkgStatus::Success,
         };
         let dkg_end = MessageTypes::DkgPublicEnd(dkg_end);
@@ -427,12 +427,12 @@ impl SigningRound {
         {
             Ok(()) => DkgEnd {
                 dkg_id: self.dkg_id,
-                signer_id: self.signer.signer_id as usize,
+                signer_id: self.signer.signer_id,
                 status: DkgStatus::Success,
             },
             Err(dkg_error_map) => DkgEnd {
                 dkg_id: self.dkg_id,
-                signer_id: self.signer.signer_id as usize,
+                signer_id: self.signer.signer_id,
                 status: DkgStatus::Failure(format!("{:?}", dkg_error_map)),
             },
         };
@@ -525,11 +525,11 @@ impl SigningRound {
                             .collect::<Vec<usize>>()
                     })
                     .collect::<Vec<usize>>();
-                let nonces: Vec<PublicNonce> = sign_request
+                let nonces = sign_request
                     .nonce_responses
                     .iter()
                     .flat_map(|nr| nr.nonces.clone())
-                    .collect();
+                    .collect::<Vec<PublicNonce>>();
                 let signature_shares = self.signer.frost_signer.sign(
                     &sign_request.message,
                     &signer_ids,
@@ -655,8 +655,11 @@ impl SigningRound {
 impl From<&FrostSigner> for SigningRound {
     fn from(signer: &FrostSigner) -> Self {
         let signer_id = signer.signer_id;
-        assert!(signer_id > 0 && signer_id as usize <= signer.config.total_signers);
-        let party_ids = vec![(signer_id * 2 - 2) as usize, (signer_id * 2 - 1) as usize]; // make two party_ids based on signer_id
+        assert!(signer_id > 0 && signer_id <= signer.config.total_signers);
+        let party_ids = vec![
+            (signer_id * 2 - 2).try_into().unwrap(),
+            (signer_id * 2 - 1).try_into().unwrap(),
+        ]; // make two party_ids based on signer_id
 
         assert!(signer.config.keys_threshold <= signer.config.total_keys);
         let mut rng = OsRng::default();

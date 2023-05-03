@@ -1,7 +1,6 @@
-use crate::config::Config;
+use crate::config::{Config, Error as ConfigError, SignerKeys};
 use crate::net::{Error as HttpNetError, HttpNet, HttpNetListen, Message, Net, NetListen};
 use crate::signing_round::{Error as SigningRoundError, MessageTypes, Signable, SigningRound};
-use crate::util::{parse_public_key, parse_public_keys};
 use p256k1::ecdsa;
 use serde::Deserialize;
 use std::sync::mpsc;
@@ -23,9 +22,8 @@ impl Signer {
     }
 
     pub fn start_p2p_sync(&mut self) -> Result<(), Error> {
-        let signer_public_keys = parse_public_keys(&self.config.signer_public_keys);
-        let key_public_keys = parse_public_keys(&self.config.key_public_keys);
-        let coordinator_public_key = parse_public_key(&self.config.coordinator_public_key);
+        let signer_keys = self.config.signers()?;
+        let coordinator_public_key = self.config.coordinator_public_key()?;
 
         //Create http relay
         let net: HttpNet = HttpNet::new(self.config.http_relay_url.clone());
@@ -35,16 +33,7 @@ impl Signer {
 
         // start p2p sync
         let id = self.signer_id;
-        spawn(move || {
-            poll_loop(
-                net_queue,
-                tx,
-                id,
-                signer_public_keys,
-                key_public_keys,
-                coordinator_public_key,
-            )
-        });
+        spawn(move || poll_loop(net_queue, tx, id, signer_keys, coordinator_public_key));
 
         // listen to p2p messages
         self.start_signing_round(&net, rx)
@@ -113,6 +102,9 @@ pub enum Error {
 
     #[error("Failed to send message")]
     SendError,
+
+    #[error("Config Error: {0}")]
+    ConfigError(#[from] ConfigError),
 }
 
 impl From<mpsc::SendError<Message>> for Error {
@@ -125,8 +117,7 @@ fn poll_loop(
     mut net: HttpNetListen,
     tx: Sender<Message>,
     id: u32,
-    signer_public_keys: Vec<ecdsa::PublicKey>,
-    key_public_keys: Vec<ecdsa::PublicKey>,
+    signer_keys: SignerKeys,
     coordinator_public_key: ecdsa::PublicKey,
 ) -> Result<(), Error> {
     const BASE_TIMEOUT: u64 = 2;
@@ -146,43 +137,137 @@ fn poll_loop(
             }
             Some(m) => {
                 timeout = 0;
-                match &m.msg {
-                    MessageTypes::DkgBegin(msg) | MessageTypes::DkgPrivateBegin(msg) => {
-                        assert!(msg.verify(&m.sig, &coordinator_public_key))
-                    }
-                    MessageTypes::DkgEnd(msg) | MessageTypes::DkgPublicEnd(msg) => {
-                        assert!(msg.verify(&m.sig, &signer_public_keys[msg.signer_id - 1]))
-                    }
-                    MessageTypes::DkgPublicShare(msg) => {
-                        assert!(msg.verify(&m.sig, &key_public_keys[msg.party_id as usize - 1]))
-                    }
-                    MessageTypes::DkgPrivateShares(msg) => {
-                        assert!(msg.verify(&m.sig, &key_public_keys[msg.key_id as usize]))
-                    }
-                    MessageTypes::DkgQuery(msg) => {
-                        assert!(msg.verify(&m.sig, &coordinator_public_key))
-                    }
-                    MessageTypes::DkgQueryResponse(msg) => {
-                        let key_id = msg.public_share.id.id.get_u32();
-                        assert!(msg.verify(&m.sig, &key_public_keys[key_id as usize - 1]));
-                    }
-                    MessageTypes::NonceRequest(msg) => {
-                        assert!(msg.verify(&m.sig, &coordinator_public_key))
-                    }
-                    MessageTypes::NonceResponse(msg) => {
-                        assert!(msg.verify(&m.sig, &signer_public_keys[msg.signer_id as usize - 1]))
-                    }
-                    MessageTypes::SignShareRequest(msg) => {
-                        assert!(msg.verify(&m.sig, &coordinator_public_key))
-                    }
-                    MessageTypes::SignShareResponse(msg) => {
-                        assert!(msg.verify(&m.sig, &signer_public_keys[msg.signer_id as usize - 1]))
-                    }
+                if verify_msg(&m, &signer_keys, &coordinator_public_key) {
+                    // Only send verified messages down the pipe
+                    tx.send(m)?;
                 }
-
-                tx.send(m)?;
             }
         };
         thread::sleep(time::Duration::from_millis(timeout));
     }
+}
+
+fn verify_msg(
+    m: &Message,
+    signer_keys: &SignerKeys,
+    coordinator_public_key: &ecdsa::PublicKey,
+) -> bool {
+    match &m.msg {
+        MessageTypes::DkgBegin(msg) | MessageTypes::DkgPrivateBegin(msg) => {
+            if !msg.verify(&m.sig, coordinator_public_key) {
+                tracing::warn!("Received a DkgPrivateBegin message with an invalid signature.");
+                return false;
+            }
+        }
+        MessageTypes::DkgEnd(msg) | MessageTypes::DkgPublicEnd(msg) => {
+            if let Some(public_key) = signer_keys.signers.get(&msg.signer_id) {
+                if !msg.verify(&m.sig, public_key) {
+                    tracing::warn!("Received a DkgPublicEnd message with an invalid signature.");
+                    return false;
+                }
+            } else {
+                tracing::warn!(
+                    "Received a DkgPublicEnd message with an unknown id: {}",
+                    msg.signer_id
+                );
+                return false;
+            }
+        }
+        MessageTypes::DkgPublicShare(msg) => {
+            if let Some(public_key) = signer_keys.key_ids.get(&msg.party_id) {
+                if !msg.verify(&m.sig, public_key) {
+                    tracing::warn!("Received a DkgPublicShare message with an invalid signature.");
+                    return false;
+                }
+            } else {
+                tracing::warn!(
+                    "Received a DkgPublicShare message with an unknown id: {}",
+                    msg.party_id
+                );
+                return false;
+            }
+        }
+        MessageTypes::DkgPrivateShares(msg) => {
+            if let Some(public_key) = signer_keys.key_ids.get(&msg.key_id) {
+                if !msg.verify(&m.sig, public_key) {
+                    tracing::warn!(
+                        "Received a DkgPrivateShares message with an invalid signature."
+                    );
+                    return false;
+                }
+            } else {
+                tracing::warn!(
+                    "Received a DkgPrivateShares message with an unknown id: {}",
+                    msg.key_id
+                );
+                return false;
+            }
+        }
+        MessageTypes::DkgQuery(msg) => {
+            if !msg.verify(&m.sig, coordinator_public_key) {
+                tracing::warn!("Received a DkgQuery message with an invalid signature.");
+                return false;
+            }
+        }
+        MessageTypes::DkgQueryResponse(msg) => {
+            let key_id = msg.public_share.id.id.get_u32();
+            if let Some(public_key) = signer_keys.key_ids.get(&key_id) {
+                if !msg.verify(&m.sig, public_key) {
+                    tracing::warn!(
+                        "Received a DkgQueryResponse message with an invalid signature."
+                    );
+                    return false;
+                }
+            } else {
+                tracing::warn!(
+                    "Received a DkgQueryResponse message with an unknown id: {}",
+                    key_id
+                );
+                return false;
+            }
+        }
+        MessageTypes::NonceRequest(msg) => {
+            if !msg.verify(&m.sig, coordinator_public_key) {
+                tracing::warn!("Received a NonceRequest message with an invalid signature.");
+                return false;
+            }
+        }
+        MessageTypes::NonceResponse(msg) => {
+            if let Some(public_key) = signer_keys.signers.get(&msg.signer_id) {
+                if !msg.verify(&m.sig, public_key) {
+                    tracing::warn!("Received a NonceResponse message with an invalid signature.");
+                    return false;
+                }
+            } else {
+                tracing::warn!(
+                    "Received a NonceResponse message with an unknown id: {}",
+                    msg.signer_id
+                );
+                return false;
+            }
+        }
+        MessageTypes::SignShareRequest(msg) => {
+            if !msg.verify(&m.sig, coordinator_public_key) {
+                tracing::warn!("Received a SignShareRequest message with an invalid signature.");
+                return false;
+            }
+        }
+        MessageTypes::SignShareResponse(msg) => {
+            if let Some(public_key) = signer_keys.signers.get(&msg.signer_id) {
+                if !msg.verify(&m.sig, public_key) {
+                    tracing::warn!(
+                        "Received a SignShareResponse message with an invalid signature."
+                    );
+                    return false;
+                }
+            } else {
+                tracing::warn!(
+                    "Received a SignShareResponse message with an unknown id: {}",
+                    msg.signer_id
+                );
+                return false;
+            }
+        }
+    }
+    true
 }
