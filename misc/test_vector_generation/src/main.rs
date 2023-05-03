@@ -101,7 +101,7 @@ fn generate_and_print_peg_out_request_test_vector() {
     let witness_script_hash_bytes = array_bytes::hex2bytes(witness_script_hash).unwrap();
 
     let redeem_script = Builder::new()
-        .push_opcode(opcodes::all::OP_PUSHNUM_1)
+        .push_opcode(opcodes::all::OP_PUSHBYTES_0)
         .push_slice(&witness_script_hash_bytes)
         .into_script();
 
@@ -109,7 +109,7 @@ fn generate_and_print_peg_out_request_test_vector() {
         .push_slice(redeem_script.as_bytes())
         .into_script();
 
-    let witness = vec![witness_script.as_bytes().to_vec(), [60; 97].to_vec()];
+    let witness = vec![witness_script.as_bytes().to_vec()];
 
     tx.input[0].script_sig = script_sig;
     tx.input[0].witness = witness;
