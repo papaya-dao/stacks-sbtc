@@ -64,7 +64,7 @@ fn generate_and_print_peg_out_request_test_vector() {
     };
 
     let op_bytes = vec![105, 100, 'w' as u8];
-    let memo = vec![42; 45];
+    let memo = vec![222, 173, 190, 239];
 
     let op_return_script = Builder::new()
         .push_opcode(opcodes::all::OP_RETURN)
@@ -85,20 +85,34 @@ fn generate_and_print_peg_out_request_test_vector() {
     op_drop_bytes.extend_from_slice(&memo);
     op_drop_bytes.extend_from_slice(&fulfillment_fee.to_be_bytes());
 
+    let pubkeyhash = [12; 32];
+
     let witness_script = Builder::new()
-        .push_slice(op_drop_bytes)
+        .push_slice(&op_drop_bytes)
         .push_opcode(opcodes::all::OP_DROP)
         .push_opcode(opcodes::all::OP_DUP)
         .push_opcode(opcodes::all::OP_HASH160)
-        .push_slice(pubkeyhash)
+        .push_slice(&pubkeyhash)
         .push_opcode(opcodes::all::OP_EQUAL)
-        .push_opcode(opcodes::all::OP_CHECKSIGVERIFY);
+        .push_opcode(opcodes::all::OP_CHECKSIGVERIFY)
+        .into_script();
+
+    let witness_script_hash = sha256::digest(witness_script.as_bytes());
+    let witness_script_hash_bytes = array_bytes::hex2bytes(witness_script_hash).unwrap();
 
     let redeem_script = Builder::new()
         .push_opcode(opcodes::all::OP_PUSHNUM_1)
-        .push_slice(witness_script_hash);
+        .push_slice(&witness_script_hash_bytes)
+        .into_script();
 
-    let script_sig = Builder::new().push_slice().into_script();
+    let script_sig = Builder::new()
+        .push_slice(redeem_script.as_bytes())
+        .into_script();
+
+    let witness = vec![witness_script.as_bytes().to_vec(), [60; 97].to_vec()];
+
+    tx.input[0].script_sig = script_sig;
+    tx.input[0].witness = witness;
 
     let serialized_tx = serialize(&tx);
     let hex_tx = array_bytes::bytes2hex("", &serialized_tx);
