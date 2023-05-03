@@ -57,12 +57,6 @@ impl Signer {
                         MessageTypes::DkgEnd(msg) | MessageTypes::DkgPublicEnd(msg) => {
                             msg.sign(&network_private_key).expect("").to_vec()
                         }
-                        MessageTypes::DkgQuery(msg) => {
-                            msg.sign(&network_private_key).expect("").to_vec()
-                        }
-                        MessageTypes::DkgQueryResponse(msg) => {
-                            msg.sign(&network_private_key).expect("").to_vec()
-                        }
                         MessageTypes::DkgPublicShare(msg) => {
                             msg.sign(&network_private_key).expect("").to_vec()
                         }
@@ -161,6 +155,9 @@ fn verify_msg(
         }
         MessageTypes::DkgEnd(msg) | MessageTypes::DkgPublicEnd(msg) => {
             if let Some(public_key) = signer_keys.signers.get(&msg.signer_id) {
+                println!("HERE WE GO");
+                println!("{:?}", public_key.to_bytes());
+
                 if !msg.verify(&m.sig, public_key) {
                     tracing::warn!("Received a DkgPublicEnd message with an invalid signature.");
                     return false;
@@ -199,29 +196,6 @@ fn verify_msg(
                 tracing::warn!(
                     "Received a DkgPrivateShares message with an unknown id: {}",
                     msg.key_id
-                );
-                return false;
-            }
-        }
-        MessageTypes::DkgQuery(msg) => {
-            if !msg.verify(&m.sig, coordinator_public_key) {
-                tracing::warn!("Received a DkgQuery message with an invalid signature.");
-                return false;
-            }
-        }
-        MessageTypes::DkgQueryResponse(msg) => {
-            let key_id = msg.public_share.id.id.get_u32();
-            if let Some(public_key) = signer_keys.key_ids.get(&key_id) {
-                if !msg.verify(&m.sig, public_key) {
-                    tracing::warn!(
-                        "Received a DkgQueryResponse message with an invalid signature."
-                    );
-                    return false;
-                }
-            } else {
-                tracing::warn!(
-                    "Received a DkgQueryResponse message with an unknown id: {}",
-                    key_id
                 );
                 return false;
             }
@@ -270,4 +244,485 @@ fn verify_msg(
         }
     }
     true
+}
+
+#[cfg(test)]
+mod test {
+    use hashbrown::HashMap;
+    use p256k1::ecdsa::PublicKey;
+    use rand_core::OsRng;
+    use wtfrost::{
+        common::{PolyCommitment, PublicNonce},
+        schnorr::ID,
+        Scalar,
+    };
+
+    use crate::{
+        config::SignerKeys,
+        net::Message,
+        signer::verify_msg,
+        signing_round::{
+            DkgBegin, DkgEnd, DkgPrivateShares, DkgPublicShare, DkgStatus, MessageTypes,
+            NonceRequest, NonceResponse, Signable, SignatureShareRequest, SignatureShareResponse,
+        },
+    };
+
+    fn generate_key_pair() -> (Scalar, PublicKey) {
+        // Generate a secret and public key
+        let mut rnd = OsRng::default();
+        let sec_key = Scalar::random(&mut rnd);
+        let pub_key = PublicKey::new(&sec_key).unwrap();
+        (sec_key, pub_key)
+    }
+
+    struct TestConfig {
+        coordinator_sec_key: Scalar,
+        coordinator_pub_key: PublicKey,
+        sec_keys: Vec<Scalar>,
+        signer_keys: SignerKeys,
+    }
+
+    impl TestConfig {
+        pub fn new() -> Self {
+            let (coordinator_sec_key, coordinator_pub_key) = generate_key_pair();
+
+            let (sec_key1, pub_key1) = generate_key_pair();
+            let (sec_key2, pub_key2) = generate_key_pair();
+
+            let signer_keys = SignerKeys {
+                signers: HashMap::from([(1, pub_key1), (2, pub_key2)]),
+                key_ids: HashMap::from([
+                    (1, pub_key1),
+                    (2, pub_key1),
+                    (3, pub_key2),
+                    (4, pub_key2),
+                ]),
+            };
+            Self {
+                coordinator_sec_key,
+                coordinator_pub_key,
+                sec_keys: [sec_key1, sec_key2].to_vec(),
+                signer_keys,
+            }
+        }
+    }
+
+    #[test]
+    fn verify_msg_dkg_begin() {
+        let config = TestConfig::new();
+        //Test DkgBegin && DkgPrivateBegin branch
+        let inner = DkgBegin { dkg_id: 0 };
+        let sig = inner.sign(&config.coordinator_sec_key).unwrap();
+        // DkgBegin
+        let msg = MessageTypes::DkgBegin(inner.clone());
+        let dkg_begin = Message {
+            msg,
+            sig: sig.clone(),
+        };
+        // DkgPrivateBegin
+        let msg = MessageTypes::DkgPrivateBegin(inner);
+        let dkg_private_begin = Message { msg, sig };
+
+        // Check with correct public key
+        assert!(verify_msg(
+            &dkg_begin,
+            &config.signer_keys,
+            &config.coordinator_pub_key
+        ));
+        assert!(verify_msg(
+            &dkg_private_begin,
+            &config.signer_keys,
+            &config.coordinator_pub_key
+        ));
+
+        // Check with incorrect public key
+        assert!(!verify_msg(
+            &dkg_begin,
+            &config.signer_keys,
+            &config.signer_keys.key_ids.get(&1).unwrap(),
+        ));
+        assert!(!verify_msg(
+            &dkg_private_begin,
+            &config.signer_keys,
+            &config.signer_keys.key_ids.get(&1).unwrap(),
+        ));
+    }
+
+    #[test]
+    fn verify_msg_dkg_end_valid_signer_id() {
+        let config = TestConfig::new();
+        //Test DkgEnd and DkgPublicEnd
+        let inner = DkgEnd {
+            dkg_id: 0,
+            signer_id: 1,
+            status: DkgStatus::Success,
+        };
+        let sig = inner.sign(&config.sec_keys[0]).unwrap();
+        let msg = MessageTypes::DkgEnd(inner.clone());
+        let dkg_end = Message {
+            msg,
+            sig: sig.clone(),
+        };
+        let msg = MessageTypes::DkgPublicEnd(inner.clone());
+        let dkg_public_end = Message {
+            msg: msg.clone(),
+            sig,
+        };
+
+        assert!(verify_msg(
+            &dkg_end,
+            &config.signer_keys,
+            &config.coordinator_pub_key
+        ));
+
+        assert!(verify_msg(
+            &dkg_public_end,
+            &config.signer_keys,
+            &config.coordinator_pub_key
+        ));
+
+        //Let us sign with the wrong sec key...
+        let sig = inner.sign(&config.sec_keys[1]).unwrap();
+        let dkg_end = Message {
+            msg,
+            sig: sig.clone(),
+        };
+        let msg = MessageTypes::DkgPublicEnd(inner);
+        let dkg_public_end = Message { msg, sig };
+
+        assert!(!verify_msg(
+            &dkg_end,
+            &config.signer_keys,
+            &config.coordinator_pub_key
+        ));
+
+        assert!(!verify_msg(
+            &dkg_public_end,
+            &config.signer_keys,
+            &config.coordinator_pub_key
+        ));
+    }
+
+    #[test]
+    fn verify_msg_dkg_end_invalid_signer_id() {
+        let config = TestConfig::new();
+        //Test DkgEnd and DkgPublicEnd
+        let invalid_inner = DkgEnd {
+            dkg_id: 0,
+            signer_id: 3, // We have a signer_id that does not match any known signers...
+            status: DkgStatus::Success,
+        };
+        let sig = invalid_inner.sign(&config.sec_keys[0]).unwrap();
+
+        let msg = MessageTypes::DkgEnd(invalid_inner.clone());
+        let dkg_end = Message {
+            msg,
+            sig: sig.clone(),
+        };
+        let msg = MessageTypes::DkgPublicEnd(invalid_inner.clone());
+        let dkg_public_end = Message { msg, sig: sig };
+
+        assert!(!verify_msg(
+            &dkg_end,
+            &config.signer_keys,
+            &config.coordinator_pub_key
+        ));
+        assert!(!verify_msg(
+            &dkg_public_end,
+            &config.signer_keys,
+            &config.coordinator_pub_key
+        ));
+    }
+
+    #[test]
+    fn verify_msg_dkg_public_share_valid_party_id() {
+        let config = TestConfig::new();
+        let mut rng = OsRng::default();
+        let inner = DkgPublicShare {
+            dkg_id: 0,
+            dkg_public_id: 0,
+            party_id: 1,
+            public_share: PolyCommitment {
+                id: ID::new(&Scalar::new(), &Scalar::new(), &mut rng),
+                A: vec![],
+            },
+        };
+
+        let msg = MessageTypes::DkgPublicShare(inner.clone());
+        let sig = inner.sign(&config.sec_keys[0]).unwrap();
+
+        let message = Message {
+            msg: msg.clone(),
+            sig,
+        };
+        assert!(verify_msg(
+            &message,
+            &config.signer_keys,
+            &config.coordinator_pub_key
+        ));
+
+        // Let's sign with the wrong sec key...
+        let sig = inner.sign(&config.sec_keys[1]).unwrap();
+        let msg = MessageTypes::DkgPublicShare(inner);
+
+        let message = Message { msg, sig };
+        assert!(!verify_msg(
+            &message,
+            &config.signer_keys,
+            &config.coordinator_pub_key
+        ));
+    }
+
+    #[test]
+    fn verify_msg_dkg_public_share_invalid_party_id() {
+        let config = TestConfig::new();
+        let mut rng = OsRng::default();
+        let inner = DkgPublicShare {
+            dkg_id: 0,
+            dkg_public_id: 0,
+            party_id: 10, // We don't know this part id..
+            public_share: PolyCommitment {
+                id: ID::new(&Scalar::new(), &Scalar::new(), &mut rng),
+                A: vec![],
+            },
+        };
+
+        let msg = MessageTypes::DkgPublicShare(inner.clone());
+        let sig = inner.sign(&config.sec_keys[0]).unwrap();
+
+        let message = Message { msg, sig };
+        assert!(!verify_msg(
+            &message,
+            &config.signer_keys,
+            &config.coordinator_pub_key
+        ));
+    }
+
+    #[test]
+    fn verify_msg_dkg_private_share_valid_key_id() {
+        let config = TestConfig::new();
+        let inner = DkgPrivateShares {
+            dkg_id: 0,
+            key_id: 1,
+            private_shares: HashMap::new(),
+        };
+        let sig = inner.sign(&config.sec_keys[0]).unwrap();
+        let msg = MessageTypes::DkgPrivateShares(inner.clone());
+
+        let message = Message {
+            msg: msg.clone(),
+            sig,
+        };
+        assert!(verify_msg(
+            &message,
+            &config.signer_keys,
+            &config.coordinator_pub_key
+        ));
+
+        // Let us sign with the wrong sec key...
+        let sig = inner.sign(&config.sec_keys[1]).unwrap();
+        let message = Message { msg, sig };
+
+        assert!(!verify_msg(
+            &message,
+            &config.signer_keys,
+            &config.coordinator_pub_key
+        ));
+    }
+
+    #[test]
+    fn verify_msg_dkg_private_share_invalid_key_id() {
+        let config = TestConfig::new();
+        let inner = DkgPrivateShares {
+            dkg_id: 0,
+            key_id: 10, // we don't know this key id...
+            private_shares: HashMap::new(),
+        };
+        let sig = inner.sign(&config.sec_keys[0]).unwrap();
+        let msg = MessageTypes::DkgPrivateShares(inner);
+
+        let message = Message { msg, sig };
+        assert!(!verify_msg(
+            &message,
+            &config.signer_keys,
+            &config.coordinator_pub_key
+        ));
+    }
+
+    #[test]
+    fn verify_msg_nonce_request() {
+        let config = TestConfig::new();
+
+        let inner = NonceRequest {
+            dkg_id: 0,
+            sign_id: 0,
+            sign_nonce_id: 0,
+        };
+
+        let sig = inner.sign(&config.coordinator_sec_key).unwrap();
+        let msg = MessageTypes::NonceRequest(inner);
+
+        let message = Message { msg, sig };
+        assert!(verify_msg(
+            &message,
+            &config.signer_keys,
+            &config.coordinator_pub_key
+        ));
+        // Let's check with the wrong pub key
+        assert!(!verify_msg(
+            &message,
+            &config.signer_keys,
+            &config.signer_keys.key_ids.get(&1).unwrap(),
+        ));
+    }
+
+    #[test]
+    fn verify_msg_nonce_response_valid_signer_id() {
+        let config = TestConfig::new();
+        let inner = NonceResponse {
+            dkg_id: 0,
+            sign_id: 0,
+            sign_nonce_id: 0,
+            signer_id: 1,
+            key_ids: vec![],
+            nonces: vec![],
+        };
+        let sig = inner.sign(&config.sec_keys[0]).unwrap();
+        let msg = MessageTypes::NonceResponse(inner.clone());
+
+        let message = Message {
+            msg: msg.clone(),
+            sig,
+        };
+        assert!(verify_msg(
+            &message,
+            &config.signer_keys,
+            &config.coordinator_pub_key
+        ));
+
+        // Let's sign with the wrong sec key...
+        let sig = inner.sign(&config.sec_keys[1]).unwrap();
+
+        let message = Message { msg, sig };
+        assert!(!verify_msg(
+            &message,
+            &config.signer_keys,
+            &config.coordinator_pub_key
+        ));
+    }
+
+    #[test]
+    fn verify_msg_nonce_response_invalid_signer_id() {
+        let config = TestConfig::new();
+        let inner = NonceResponse {
+            dkg_id: 0,
+            sign_id: 0,
+            sign_nonce_id: 0,
+            signer_id: 10, // We don't have 10 signers...
+            key_ids: vec![],
+            nonces: vec![],
+        };
+        let sig = inner.sign(&config.sec_keys[0]).unwrap();
+        let msg = MessageTypes::NonceResponse(inner);
+
+        let message = Message { msg, sig };
+        assert!(!verify_msg(
+            &message,
+            &config.signer_keys,
+            &config.coordinator_pub_key
+        ));
+    }
+
+    #[test]
+    fn verify_msg_sign_share_request() {
+        let config = TestConfig::new();
+        let inner = SignatureShareRequest {
+            dkg_id: 0,
+            sign_id: 0,
+            correlation_id: 0,
+            nonce_responses: vec![NonceResponse {
+                dkg_id: 0,
+                sign_id: 0,
+                sign_nonce_id: 0,
+                signer_id: 1,
+                key_ids: vec![0],
+                nonces: vec![PublicNonce {
+                    D: Default::default(),
+                    E: Default::default(),
+                }],
+            }],
+            message: vec![],
+        };
+        let sig = inner.sign(&config.coordinator_sec_key).unwrap();
+        let msg = MessageTypes::SignShareRequest(inner);
+
+        let message = Message { msg, sig };
+        assert!(verify_msg(
+            &message,
+            &config.signer_keys,
+            &config.coordinator_pub_key
+        ));
+
+        // Let's check the wrong pub key...
+        assert!(!verify_msg(
+            &message,
+            &config.signer_keys,
+            &config.signer_keys.key_ids.get(&1).unwrap()
+        ));
+    }
+
+    #[test]
+    fn verify_msg_sign_share_response_valid_signer_id() {
+        // SignShareResponse(SignatureShareResponse),
+        let config = TestConfig::new();
+        let inner = SignatureShareResponse {
+            dkg_id: 0,
+            sign_id: 0,
+            correlation_id: 0,
+            signer_id: 1,
+            signature_shares: vec![],
+        };
+        let sig = inner.sign(&config.sec_keys[0]).unwrap();
+        let msg = MessageTypes::SignShareResponse(inner.clone());
+
+        let message = Message {
+            msg: msg.clone(),
+            sig,
+        };
+        assert!(verify_msg(
+            &message,
+            &config.signer_keys,
+            &config.coordinator_pub_key
+        ));
+
+        // Let's sign with the wrong sec key...
+        let sig = inner.sign(&config.sec_keys[1]).unwrap();
+        let message = Message { msg, sig };
+        assert!(!verify_msg(
+            &message,
+            &config.signer_keys,
+            &config.coordinator_pub_key
+        ));
+    }
+
+    #[test]
+    fn verify_msg_sign_share_response_invalid_signer_id() {
+        let config = TestConfig::new();
+        let inner = SignatureShareResponse {
+            dkg_id: 0,
+            sign_id: 0,
+            correlation_id: 0,
+            signer_id: 10,
+            signature_shares: vec![],
+        };
+        let sig = inner.sign(&config.sec_keys[0]).unwrap();
+        let msg = MessageTypes::SignShareResponse(inner);
+
+        let sign_share_response = Message { msg, sig };
+        assert!(!verify_msg(
+            &sign_share_response,
+            &config.signer_keys,
+            &config.coordinator_pub_key
+        ));
+    }
 }

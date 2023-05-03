@@ -126,8 +126,6 @@ pub enum MessageTypes {
     DkgPrivateBegin(DkgBegin),
     DkgEnd(DkgEnd),
     DkgPublicEnd(DkgEnd),
-    DkgQuery(DkgQuery),
-    DkgQueryResponse(DkgQueryResponse),
     DkgPublicShare(DkgPublicShare),
     DkgPrivateShares(DkgPrivateShares),
     NonceRequest(NonceRequest),
@@ -199,32 +197,6 @@ impl Signable for DkgEnd {
         hasher.update("DKG_END".as_bytes());
         hasher.update(self.dkg_id.to_be_bytes());
         hasher.update(self.signer_id.to_be_bytes());
-    }
-}
-
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct DkgQuery {}
-
-impl Signable for DkgQuery {
-    fn hash(&self, hasher: &mut Sha256) {
-        hasher.update("DKG_QUERY".as_bytes());
-    }
-}
-
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct DkgQueryResponse {
-    pub dkg_id: u64,
-    pub public_share: PolyCommitment,
-}
-
-impl Signable for DkgQueryResponse {
-    fn hash(&self, hasher: &mut Sha256) {
-        hasher.update("DKG_QUERY_RESPONSE".as_bytes());
-        hasher.update(self.dkg_id.to_be_bytes());
-        hasher.update(self.public_share.id.id.to_bytes());
-        for a in &self.public_share.A {
-            hasher.update(a.compress().as_bytes());
-        }
     }
 }
 
