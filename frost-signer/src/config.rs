@@ -16,8 +16,6 @@ pub enum Error {
     Toml(#[from] toml::de::Error),
     #[error("Invalid Public Key: {0}")]
     InvalidPublicKey(String),
-    #[error("Invalid Key ID. All key IDs must be greater than 0.")]
-    InvalidKeyId,
     #[error("Invalid Private Key: {0}")]
     InvalidPrivateKey(String),
 }
@@ -73,15 +71,12 @@ impl RawConfig {
                     s.public_key
                 ))
             })?;
-            for key_id in &s.key_ids {
-                if *key_id == 0 {
-                    return Err(Error::InvalidKeyId);
-                }
+            s.key_ids.iter().for_each(|key_id| {
                 signer_keys.key_ids.insert(*key_id, signer_public_key);
-            }
-            // We start our signer ids from 1 not 0, hence i + 1
-            let k = (i + 1).try_into().unwrap();
-            signer_keys.signers.insert(k, signer_public_key);
+            });
+            signer_keys
+                .signers
+                .insert(i.try_into().unwrap(), signer_public_key);
         }
         Ok(signer_keys)
     }
@@ -183,14 +178,6 @@ mod test {
         let raw_signer_keys = RawSignerKeys {
             key_ids: [1, 2].to_vec(),
             public_key: "Invalid public key".to_string(),
-        };
-        config.signers = vec![raw_signer_keys];
-        assert!(config.signer_keys().is_err());
-
-        // Should fail with an invalid key id
-        let raw_signer_keys = RawSignerKeys {
-            key_ids: [0, 2].to_vec(),
-            public_key: public_key.clone(),
         };
         config.signers = vec![raw_signer_keys];
         assert!(config.signer_keys().is_err());
