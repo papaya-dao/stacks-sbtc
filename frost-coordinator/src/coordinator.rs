@@ -69,11 +69,11 @@ pub struct Coordinator<Network: NetListen> {
 }
 
 impl<Network: NetListen> Coordinator<Network> {
-    pub fn new(id: u32, dkg_id: u64, config: &Config, network: Network) -> Result<Self, Error> {
+    pub fn new(id: u32, config: &Config, network: Network) -> Result<Self, Error> {
         Ok(Self {
             id,
-            current_dkg_id: dkg_id,
-            current_dkg_public_id: 1,
+            current_dkg_id: 0,
+            current_dkg_public_id: 0,
             current_sign_id: 1,
             current_sign_nonce_id: 1,
             total_signers: config.total_signers,
