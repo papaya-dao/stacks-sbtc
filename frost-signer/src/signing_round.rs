@@ -309,8 +309,8 @@ impl SigningRound {
         };
 
         SigningRound {
-            dkg_id: 1,
-            dkg_public_id: 1,
+            dkg_id: 0,
+            dkg_public_id: 0,
             sign_id: 1,
             sign_nonce_id: 1,
             threshold,
@@ -325,7 +325,7 @@ impl SigningRound {
 
     fn reset<T: RngCore + CryptoRng>(&mut self, dkg_id: u64, rng: &mut T) {
         self.dkg_id = dkg_id;
-        self.dkg_public_id = 1;
+        self.dkg_public_id = 0;
         self.commitments.clear();
         self.shares.clear();
         self.public_nonces.clear();

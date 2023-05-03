@@ -118,6 +118,8 @@ where
     }
 
     pub fn run_distributed_key_generation(&mut self) -> Result<Point, Error> {
+        self.current_dkg_id = self.current_dkg_id.wrapping_add(1);
+        info!("Starting DKG round #{}", self.current_dkg_id);
         self.start_public_shares()?;
         let public_key = self.wait_for_public_shares()?;
         self.start_private_shares()?;
@@ -127,14 +129,12 @@ where
 
     fn start_public_shares(&mut self) -> Result<(), Error> {
         self.dkg_public_shares.clear();
-        self.current_dkg_public_id = self.current_dkg_public_id.wrapping_add(1);
-        info!("Starting DKG round #{}", self.current_dkg_public_id);
         info!(
-            "DKG Round #{}: Starting Public Share Distribution",
-            self.current_dkg_public_id
+            "DKG Round #{}: Starting Public Share Distribution Round #{}",
+            self.current_dkg_id, self.current_dkg_public_id
         );
         let dkg_begin = DkgBegin {
-            dkg_id: self.current_dkg_public_id,
+            dkg_id: self.current_dkg_id,
         };
 
         let dkg_begin_message = Message {
@@ -146,7 +146,6 @@ where
     }
 
     fn start_private_shares(&mut self) -> Result<(), Error> {
-        self.current_dkg_id = self.current_dkg_id.wrapping_add(1);
         info!(
             "DKG Round #{}: Starting Private Share Distribution",
             self.current_dkg_id
