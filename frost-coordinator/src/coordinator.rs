@@ -54,6 +54,7 @@ pub enum Command {
 pub struct Coordinator<Network: NetListen> {
     id: u32, // Used for relay coordination
     current_dkg_id: u64,
+    current_dkg_public_id: u64,
     current_sign_id: u64,
     current_sign_nonce_id: u64,
     total_signers: u32, // Assuming the signers cover all id:s in {1, 2, ..., total_signers}
@@ -72,6 +73,7 @@ impl<Network: NetListen> Coordinator<Network> {
         Ok(Self {
             id,
             current_dkg_id: dkg_id,
+            current_dkg_public_id: 1,
             current_sign_id: 1,
             current_sign_nonce_id: 1,
             total_signers: config.total_signers,
@@ -125,14 +127,14 @@ where
 
     fn start_public_shares(&mut self) -> Result<(), Error> {
         self.dkg_public_shares.clear();
-        self.current_dkg_id += 1;
-        info!("Starting DKG round #{}", self.current_dkg_id);
+        self.current_dkg_public_id = self.current_dkg_public_id.wrapping_add(1);
+        info!("Starting DKG round #{}", self.current_dkg_public_id);
         info!(
             "DKG Round #{}: Starting Public Share Distribution",
-            self.current_dkg_id
+            self.current_dkg_public_id
         );
         let dkg_begin = DkgBegin {
-            dkg_id: self.current_dkg_id,
+            dkg_id: self.current_dkg_public_id,
         };
 
         let dkg_begin_message = Message {
@@ -144,6 +146,7 @@ where
     }
 
     fn start_private_shares(&mut self) -> Result<(), Error> {
+        self.current_dkg_id = self.current_dkg_id.wrapping_add(1);
         info!(
             "DKG Round #{}: Starting Private Share Distribution",
             self.current_dkg_id
