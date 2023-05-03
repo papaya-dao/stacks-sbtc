@@ -106,10 +106,10 @@ fn generate_and_print_peg_out_request_test_vector() {
         .into_script();
 
     let script_sig = Builder::new()
-        .push_slice(redeem_script.as_bytes())
+        .push_slice(witness_script.as_bytes())
         .into_script();
 
-    let witness = vec![witness_script.as_bytes().to_vec()];
+    let witness = vec![];
 
     tx.input[0].script_sig = script_sig;
     tx.input[0].witness = witness;
