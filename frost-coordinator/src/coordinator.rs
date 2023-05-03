@@ -69,9 +69,6 @@ pub struct Coordinator<Network: NetListen> {
 
 impl<Network: NetListen> Coordinator<Network> {
     pub fn new(id: u32, dkg_id: u64, config: &Config, network: Network) -> Result<Self, Error> {
-        let network_private_key = Scalar::try_from(config.network_private_key.as_str())
-            .expect("failed to parse network_private_key from config");
-
         Ok(Self {
             id,
             current_dkg_id: dkg_id,
@@ -85,7 +82,7 @@ impl<Network: NetListen> Coordinator<Network> {
             public_nonces: Default::default(),
             aggregate_public_key: Point::default(),
             signature_shares: Default::default(),
-            network_private_key,
+            network_private_key: config.network_private_key,
         })
     }
 }

@@ -1,6 +1,4 @@
-http_relay_url = "http://localhost:9776"
-total_signers = 3
-total_keys = 6
+http_relay_url = "http://localhost:9776
 keys_threshold = 4
 frost_state_file = "frost.state.bin"
 network_private_key = "9aSCCR6eirt1NAHwJtSz4HMwBHTyMo62SyPMvVDt5DQn"

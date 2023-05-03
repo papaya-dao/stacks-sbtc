@@ -1,17 +1,15 @@
-use crate::config::{Config, Error as ConfigError, SignerKeys};
+use crate::config::{Config, SignerKeys};
 use crate::net::{Error as HttpNetError, HttpNet, HttpNetListen, Message, Net, NetListen};
 use crate::signing_round::{Error as SigningRoundError, MessageTypes, Signable, SigningRound};
 use p256k1::ecdsa;
-use serde::Deserialize;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread::spawn;
 use std::{thread, time};
 use tracing::warn;
-use wtfrost::Scalar;
 
 // on-disk format for frost save data
-#[derive(Clone, Deserialize, Default, Debug)]
+#[derive(Clone)]
 pub struct Signer {
     pub config: Config,
     pub signer_id: u32,
@@ -23,8 +21,8 @@ impl Signer {
     }
 
     pub fn start_p2p_sync(&mut self) -> Result<(), Error> {
-        let signer_keys = self.config.signers()?;
-        let coordinator_public_key = self.config.coordinator_public_key()?;
+        let signer_keys = self.config.signer_keys.clone();
+        let coordinator_public_key = self.config.coordinator_public_key;
 
         //Create http relay
         let net: HttpNet = HttpNet::new(self.config.http_relay_url.clone());
@@ -41,8 +39,7 @@ impl Signer {
     }
 
     fn start_signing_round(&self, net: &HttpNet, rx: Receiver<Message>) -> Result<(), Error> {
-        let network_private_key = Scalar::try_from(self.config.network_private_key.as_str())
-            .expect("failed to parse network_private_key from config");
+        let network_private_key = self.config.network_private_key;
         let mut round = SigningRound::from(self);
         loop {
             // Retreive a message from coordinator
@@ -97,9 +94,6 @@ pub enum Error {
 
     #[error("Failed to send message")]
     SendError,
-
-    #[error("Config Error: {0}")]
-    ConfigError(#[from] ConfigError),
 }
 
 impl From<mpsc::SendError<Message>> for Error {
