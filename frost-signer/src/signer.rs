@@ -7,6 +7,7 @@ use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread::spawn;
 use std::{thread, time};
+use tracing::warn;
 use wtfrost::Scalar;
 
 // on-disk format for frost save data
@@ -149,7 +150,7 @@ fn verify_msg(
     match &m.msg {
         MessageTypes::DkgBegin(msg) | MessageTypes::DkgPrivateBegin(msg) => {
             if !msg.verify(&m.sig, coordinator_public_key) {
-                tracing::warn!("Received a DkgPrivateBegin message with an invalid signature.");
+                warn!("Received a DkgPrivateBegin message with an invalid signature.");
                 return false;
             }
         }
@@ -159,11 +160,11 @@ fn verify_msg(
                 println!("{:?}", public_key.to_bytes());
 
                 if !msg.verify(&m.sig, public_key) {
-                    tracing::warn!("Received a DkgPublicEnd message with an invalid signature.");
+                    warn!("Received a DkgPublicEnd message with an invalid signature.");
                     return false;
                 }
             } else {
-                tracing::warn!(
+                warn!(
                     "Received a DkgPublicEnd message with an unknown id: {}",
                     msg.signer_id
                 );
@@ -173,11 +174,11 @@ fn verify_msg(
         MessageTypes::DkgPublicShare(msg) => {
             if let Some(public_key) = signer_keys.key_ids.get(&msg.party_id) {
                 if !msg.verify(&m.sig, public_key) {
-                    tracing::warn!("Received a DkgPublicShare message with an invalid signature.");
+                    warn!("Received a DkgPublicShare message with an invalid signature.");
                     return false;
                 }
             } else {
-                tracing::warn!(
+                warn!(
                     "Received a DkgPublicShare message with an unknown id: {}",
                     msg.party_id
                 );
@@ -187,13 +188,11 @@ fn verify_msg(
         MessageTypes::DkgPrivateShares(msg) => {
             if let Some(public_key) = signer_keys.key_ids.get(&msg.key_id) {
                 if !msg.verify(&m.sig, public_key) {
-                    tracing::warn!(
-                        "Received a DkgPrivateShares message with an invalid signature."
-                    );
+                    warn!("Received a DkgPrivateShares message with an invalid signature.");
                     return false;
                 }
             } else {
-                tracing::warn!(
+                warn!(
                     "Received a DkgPrivateShares message with an unknown id: {}",
                     msg.key_id
                 );
@@ -202,18 +201,18 @@ fn verify_msg(
         }
         MessageTypes::NonceRequest(msg) => {
             if !msg.verify(&m.sig, coordinator_public_key) {
-                tracing::warn!("Received a NonceRequest message with an invalid signature.");
+                warn!("Received a NonceRequest message with an invalid signature.");
                 return false;
             }
         }
         MessageTypes::NonceResponse(msg) => {
             if let Some(public_key) = signer_keys.signers.get(&msg.signer_id) {
                 if !msg.verify(&m.sig, public_key) {
-                    tracing::warn!("Received a NonceResponse message with an invalid signature.");
+                    warn!("Received a NonceResponse message with an invalid signature.");
                     return false;
                 }
             } else {
-                tracing::warn!(
+                warn!(
                     "Received a NonceResponse message with an unknown id: {}",
                     msg.signer_id
                 );
@@ -222,20 +221,18 @@ fn verify_msg(
         }
         MessageTypes::SignShareRequest(msg) => {
             if !msg.verify(&m.sig, coordinator_public_key) {
-                tracing::warn!("Received a SignShareRequest message with an invalid signature.");
+                warn!("Received a SignShareRequest message with an invalid signature.");
                 return false;
             }
         }
         MessageTypes::SignShareResponse(msg) => {
             if let Some(public_key) = signer_keys.signers.get(&msg.signer_id) {
                 if !msg.verify(&m.sig, public_key) {
-                    tracing::warn!(
-                        "Received a SignShareResponse message with an invalid signature."
-                    );
+                    warn!("Received a SignShareResponse message with an invalid signature.");
                     return false;
                 }
             } else {
-                tracing::warn!(
+                warn!(
                     "Received a SignShareResponse message with an unknown id: {}",
                     msg.signer_id
                 );

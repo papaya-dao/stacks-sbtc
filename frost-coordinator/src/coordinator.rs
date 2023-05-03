@@ -453,7 +453,7 @@ where
     fn wait_for_next_message(&mut self) -> Result<Message, Error> {
         let get_next_message = || {
             self.network.poll(self.id);
-            // We only ever received already verified messages. No need to check result.
+            // We only ever receive already verified messages. No need to check result.
             self.network
                 .next_message()
                 .ok_or_else(|| "No message yet".to_owned())
