@@ -168,7 +168,7 @@ mod test {
 
         // Should fail with an empty public key
         let raw_signer_keys = RawSignerKeys {
-            key_ids: [1, 2].to_vec(),
+            key_ids: vec![1, 2],
             public_key: "".to_string(),
         };
         config.signers = vec![raw_signer_keys];
@@ -176,7 +176,7 @@ mod test {
 
         // Should fail with an invalid public key
         let raw_signer_keys = RawSignerKeys {
-            key_ids: [1, 2].to_vec(),
+            key_ids: vec![1, 2],
             public_key: "Invalid public key".to_string(),
         };
         config.signers = vec![raw_signer_keys];
@@ -184,11 +184,11 @@ mod test {
 
         // Should succeed with a valid public keys
         let raw_signer_keys1 = RawSignerKeys {
-            key_ids: [1, 2].to_vec(),
+            key_ids: vec![1, 2],
             public_key: public_key.clone(),
         };
         let raw_signer_keys2 = RawSignerKeys {
-            key_ids: [3, 4].to_vec(),
+            key_ids: vec![3, 4],
             public_key,
         };
         config.signers = vec![raw_signer_keys1, raw_signer_keys2];
