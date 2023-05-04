@@ -18,6 +18,8 @@ pub enum Error {
     InvalidPublicKey(String),
     #[error("Invalid Private Key: {0}")]
     InvalidPrivateKey(String),
+    #[error("Invalid Key ID. Must specify Key IDs greater than 0.")]
+    InvalidKeyID,
 }
 
 #[derive(Parser)]
@@ -71,12 +73,16 @@ impl RawConfig {
                     s.public_key
                 ))
             })?;
-            s.key_ids.iter().for_each(|key_id| {
+            for key_id in &s.key_ids {
+                //We do not allow a key id of 0.
+                if *key_id == 0 {
+                    return Err(Error::InvalidKeyID);
+                }
                 signer_keys.key_ids.insert(*key_id, signer_public_key);
-            });
-            signer_keys
-                .signers
-                .insert(i.try_into().unwrap(), signer_public_key);
+            }
+            //We start our signer and key IDs from 1 hence the + 1;
+            let signer_key = u32::try_from(i).unwrap() + 1;
+            signer_keys.signers.insert(signer_key, signer_public_key);
         }
         Ok(signer_keys)
     }
@@ -193,6 +199,14 @@ mod test {
             config.signer_keys(),
             Err(Error::InvalidPublicKey(_))
         ));
+
+        // Should fail with an invalid key ID
+        let raw_signer_keys = RawSignerKeys {
+            key_ids: vec![0, 1],
+            public_key: public_key.clone(),
+        };
+        config.signers = vec![raw_signer_keys];
+        assert!(matches!(config.signer_keys(), Err(Error::InvalidKeyID)));
 
         // Should succeed with a valid public keys
         let raw_signer_keys1 = RawSignerKeys {
