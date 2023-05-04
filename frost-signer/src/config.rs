@@ -143,15 +143,21 @@ impl Config {
 
 #[cfg(test)]
 mod test {
-    use crate::config::{RawConfig, RawSignerKeys};
+    use super::{Error, RawConfig, RawSignerKeys};
     #[test]
     fn coordinator_public_key_test() {
         let mut config = RawConfig::default();
         // Should fail with an empty public key
-        assert!(config.coordinator_public_key().is_err());
+        assert!(matches!(
+            config.coordinator_public_key(),
+            Err(Error::InvalidPublicKey(_))
+        ));
         // Should fail with an invalid public key
         config.coordinator_public_key = "Invalid Public Key".to_string();
-        assert!(config.coordinator_public_key().is_err());
+        assert!(matches!(
+            config.coordinator_public_key(),
+            Err(Error::InvalidPublicKey(_))
+        ));
         // Should succeed with a valid public key
         config.coordinator_public_key = "22Rm48xUdpuTuva5gz9S7yDaaw9f8sjMcPSTHYVzPLNcj".to_string();
         assert!(config.coordinator_public_key().is_ok());
@@ -172,7 +178,10 @@ mod test {
             public_key: "".to_string(),
         };
         config.signers = vec![raw_signer_keys];
-        assert!(config.signer_keys().is_err());
+        assert!(matches!(
+            config.signer_keys(),
+            Err(Error::InvalidPublicKey(_))
+        ));
 
         // Should fail with an invalid public key
         let raw_signer_keys = RawSignerKeys {
@@ -180,7 +189,10 @@ mod test {
             public_key: "Invalid public key".to_string(),
         };
         config.signers = vec![raw_signer_keys];
-        assert!(config.signer_keys().is_err());
+        assert!(matches!(
+            config.signer_keys(),
+            Err(Error::InvalidPublicKey(_))
+        ));
 
         // Should succeed with a valid public keys
         let raw_signer_keys1 = RawSignerKeys {

@@ -251,12 +251,13 @@ mod test {
     use crate::{
         config::SignerKeys,
         net::Message,
-        signer::verify_msg,
         signing_round::{
             DkgBegin, DkgEnd, DkgPrivateShares, DkgPublicShare, DkgStatus, MessageTypes,
             NonceRequest, NonceResponse, Signable, SignatureShareRequest, SignatureShareResponse,
         },
     };
+
+    use super::verify_msg;
 
     fn generate_key_pair() -> (Scalar, PublicKey) {
         // Generate a secret and public key
