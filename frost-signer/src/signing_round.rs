@@ -596,7 +596,7 @@ impl SigningRound {
         self.commitments
             .insert(dkg_public_share.party_id, dkg_public_share.public_share);
         info!(
-            "received party #{} PUBLIC commitments {}/{}",
+            "received key #{} PUBLIC commitments {}/{}",
             dkg_public_share.party_id,
             self.commitments.len(),
             self.total
@@ -614,7 +614,7 @@ impl SigningRound {
             dkg_private_shares.private_shares,
         );
         info!(
-            "received party #{} PRIVATE shares {}/{} {:?}",
+            "received key #{} PRIVATE shares {}/{} {:?}",
             dkg_private_shares.key_id,
             self.shares.len(),
             self.total,

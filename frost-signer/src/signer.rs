@@ -180,7 +180,8 @@ fn verify_msg(
             }
         }
         MessageTypes::DkgPrivateShares(msg) => {
-            if let Some(public_key) = signer_keys.key_ids.get(&msg.key_id) {
+            let key_id = msg.key_id + 1;
+            if let Some(public_key) = signer_keys.key_ids.get(&key_id) {
                 if !msg.verify(&m.sig, public_key) {
                     warn!("Received a DkgPrivateShares message with an invalid signature.");
                     return false;
@@ -188,7 +189,7 @@ fn verify_msg(
             } else {
                 warn!(
                     "Received a DkgPrivateShares message with an unknown id: {}",
-                    msg.key_id
+                    key_id
                 );
                 return false;
             }
