@@ -7,7 +7,7 @@ use bitcoin::{
     XOnlyPublicKey,
 };
 use rand_core::OsRng;
-use test_utils::BitcoinProcess;
+use test_utils::bitcoind::BitcoinProcess;
 use ureq::serde_json::Value;
 use wtfrost::common::PolyCommitment;
 use wtfrost::{
