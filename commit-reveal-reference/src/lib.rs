@@ -1,4 +1,4 @@
-use bitcoin::{Address as BitcoinAddress, ScriptBuf, Transaction, Witness};
+use bitcoin::{Address as BitcoinAddress, OutPoint, ScriptBuf, Transaction, Witness};
 use blockstack_lib::types::chainstate::StacksAddress;
 use secp256k1::{ecdsa::RecoverableSignature, XOnlyPublicKey};
 
@@ -14,12 +14,11 @@ pub struct PegInCommitOutput {
 }
 
 pub struct PegInRevealInput {
-    // TODO
+    pub witness_script: Witness,
+    pub commit_output: OutPoint,
 }
 
-pub struct PegInRevealOutput {
-    tx: Transaction,
-}
+pub struct PegInRevealOutput(Transaction);
 
 pub struct PegOutRequestCommitInput {
     pub recipient_script_pub_key: ScriptBuf,
@@ -37,18 +36,19 @@ pub struct PegOutRequestCommitOutput {
 }
 
 pub struct PegOutRequestRevealInput {
-    // TODO
+    pub witness_script: Witness,
+    pub commit_output: OutPoint,
+    pub recipient_script_pub_key: ScriptBuf,
+    pub fulfillment_fee: u64,
 }
 
-pub struct PegOutRequestRevealOutput {
-    tx: Transaction,
-}
+pub struct PegOutRequestRevealOutput(Transaction);
 
 pub fn peg_in_commit_tx(_input: PegInCommitInput) -> PegInCommitOutput {
     todo!();
 }
 
-pub fn peg_in_reveal_tx() -> Transaction {
+pub fn peg_in_reveal_tx(_input: PegInRevealInput) -> Transaction {
     todo!();
 }
 
@@ -56,7 +56,7 @@ pub fn peg_out_request_commit_tx(_input: PegOutRequestCommitInput) -> PegOutRequ
     todo!();
 }
 
-pub fn peg_out_request_reveal_tx() -> Transaction {
+pub fn peg_out_request_reveal_tx(_input: PegOutRequestRevealInput) -> Transaction {
     todo!();
 }
 
