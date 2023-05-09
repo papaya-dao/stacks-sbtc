@@ -4,8 +4,8 @@ use bitcoin::{
     opcodes::all::{OP_CHECKSIG, OP_DROP},
     script::{Builder, PushBytes},
     taproot::{Signature, TaprootBuilder, TaprootSpendInfo},
-    Address as BitcoinAddress, OutPoint, Script, ScriptBuf, Sequence, Transaction, TxIn, TxOut,
-    Witness,
+    Address as BitcoinAddress, Network, OutPoint, Script, ScriptBuf, Sequence, Transaction, TxIn,
+    TxOut, Witness,
 };
 use blockstack_lib::types::chainstate::StacksAddress;
 use secp256k1::{ecdsa::RecoverableSignature, XOnlyPublicKey};
@@ -79,18 +79,39 @@ fn op_drop_script(data: &[u8], revealer_key: &XOnlyPublicKey) -> ScriptBuf {
         .into_script()
 }
 
+fn reclaim_script(reclaim_key: &XOnlyPublicKey) -> ScriptBuf {
+    Builder::new()
+        .push_x_only_key(reclaim_key)
+        .push_opcode(OP_CHECKSIG)
+        .into_script()
+}
+
+fn address_from_taproot_spend_info(spend_info: TaprootSpendInfo) -> BitcoinAddress {
+    let secp = secp256k1::Secp256k1::new(); // Impure call
+
+    BitcoinAddress::p2tr(
+        &secp,
+        spend_info.internal_key(),
+        spend_info.merkle_root(),
+        Network::Testnet, // TODO: Make sure to make this configurable
+    )
+}
+
 fn build_taproot_output(
     data: &[u8],
     revealer_key: &XOnlyPublicKey,
     reclaim_key: &XOnlyPublicKey,
 ) -> TaprootSpendInfo {
     let reveal_script = op_drop_script(data, revealer_key);
+    let reclaim_script = reclaim_script(reclaim_key);
 
     let secp = secp256k1::Secp256k1::new(); // Impure call
     let internal_key = internal_key();
 
     TaprootBuilder::new()
         .add_leaf(1, reveal_script)
+        .unwrap() // TODO: Handle error
+        .add_leaf(1, reclaim_script)
         .unwrap() // TODO: Handle error
         .finalize(&secp, internal_key)
         .unwrap() // TODO: Handle error
