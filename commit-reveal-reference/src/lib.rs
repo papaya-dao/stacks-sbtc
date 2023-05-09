@@ -67,4 +67,11 @@ mod tests {
         let result = 2 + 2;
         assert_eq!(result, 4);
     }
+
+    // #[test]
+    // fn should_create_peg_in_commit_tx() {
+    //     let protocol: CommitRevealProtocol<Revealer> =
+    //         CommitRevealProtocol::new(peg_wallet, revealer_pub_key);
+    //     let commit_output = protocol.peg_in_commit_tx();
+    // }
 }
