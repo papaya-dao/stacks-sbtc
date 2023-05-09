@@ -1,6 +1,9 @@
 use bitcoin::{
-    absolute::LockTime, opcodes::all::OP_DROP, script::Builder, Address as BitcoinAddress,
-    OutPoint, ScriptBuf, Sequence, Transaction, TxIn, TxOut, Witness,
+    absolute::LockTime,
+    opcodes::all::OP_DROP,
+    script::{Builder, PushBytes},
+    Address as BitcoinAddress, OutPoint, Script, ScriptBuf, Sequence, Transaction, TxIn, TxOut,
+    Witness,
 };
 use blockstack_lib::types::chainstate::StacksAddress;
 use secp256k1::{ecdsa::RecoverableSignature, XOnlyPublicKey};
@@ -63,6 +66,12 @@ pub fn peg_out_request_reveal_tx(_input: PegOutRequestRevealInput) -> Transactio
     todo!();
 }
 
+fn op_drop_script(data: &[u8]) -> ScriptBuf {
+    let push_bytes: &PushBytes = data.try_into().unwrap();
+    let script = Builder::new().push_slice(push_bytes).into_script();
+    todo!();
+}
+
 pub trait Reveal {
     type AssociatedData;
 
@@ -73,7 +82,7 @@ pub trait Reveal {
     fn reveal_tx(
         &self,
         commit_output: OutPoint,
-        witness: Witness,
+        witness_script: &Script,
         associated_data: Self::AssociatedData,
     ) -> Transaction {
         // TODO Figure out the correct way to produce a script
@@ -82,6 +91,10 @@ pub trait Reveal {
             .push_opcode(OP_DROP)
             .push_slice(&[0x00, 0x00, 0x00, 0x00]) // lock script
             .into_script();
+
+        let merkle_path = Vec::new(); // TODO: Fill in
+
+        let witness = Witness::from_slice(&[witness_script.as_bytes().to_vec(), merkle_path]);
 
         let mut tx = Transaction {
             version: 2,
