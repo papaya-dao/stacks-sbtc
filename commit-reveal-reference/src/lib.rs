@@ -1,9 +1,11 @@
 use bitcoin::{Address as BitcoinAddress, ScriptBuf, Transaction, Witness};
 use blockstack_lib::types::chainstate::StacksAddress;
+use secp256k1::{ecdsa::RecoverableSignature, XOnlyPublicKey};
 
 pub struct PegInCommitInput {
     pub address: StacksAddress,
     pub amount: u64,
+    pub revealer_pub_key: XOnlyPublicKey,
 }
 
 pub struct PegInCommitOutput {
@@ -11,10 +13,20 @@ pub struct PegInCommitOutput {
     pub witness_script: Witness,
 }
 
+pub struct PegInRevealInput {
+    // TODO
+}
+
+pub struct PegInRevealOutput {
+    tx: Transaction,
+}
+
 pub struct PegOutRequestCommitInput {
     pub recipient_script_pub_key: ScriptBuf,
     pub amount: u64,
     pub fulfillment_fee: u64,
+    pub signature: RecoverableSignature,
+    pub revealer_pub_key: XOnlyPublicKey,
 }
 
 pub struct PegOutRequestCommitOutput {
@@ -22,6 +34,14 @@ pub struct PegOutRequestCommitOutput {
     pub witness_script: Witness,
     pub recipient_script_pub_key: ScriptBuf,
     pub fulfillment_fee: u64,
+}
+
+pub struct PegOutRequestRevealInput {
+    // TODO
+}
+
+pub struct PegOutRequestRevealOutput {
+    tx: Transaction,
 }
 
 pub fn peg_in_commit_tx(_input: PegInCommitInput) -> PegInCommitOutput {
