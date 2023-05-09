@@ -86,7 +86,7 @@ fn build_taproot_output(
 ) -> TaprootSpendInfo {
     let reveal_script = op_drop_script(data, revealer_key);
 
-    let secp = secp256k1::Secp256k1::new();
+    let secp = secp256k1::Secp256k1::new(); // Impure call
     let internal_key = internal_key();
 
     TaprootBuilder::new()
@@ -99,10 +99,14 @@ fn build_taproot_output(
 // Just a point with unknown discrete logarithm.
 // We use the hash of the data bytes to compute it.
 fn internal_key() -> UntweakedPublicKey {
-    let internal_key_vec = array_bytes::hex2bytes(
-        "0250929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0",
-    )
-    .unwrap();
+    // Copied from BIP-0341 at https://github.com/bitcoin/bips/blob/master/bip-0341.mediawiki#constructing-and-spending-taproot-outputs
+    // The BIP recommends a point lift_x(0x0250929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0).
+    // This hex string is copied from the lift_x argument with the first byte stripped.
+
+    // TODO: Verify that this point is secure
+    let internal_key_vec =
+        array_bytes::hex2bytes("50929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0")
+            .unwrap();
     XOnlyPublicKey::from_slice(&internal_key_vec).unwrap() // TODO: Error handling
 }
 
