@@ -9,7 +9,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bs58 = { workspace = true }
 blockstack-core = { workspace = true }
 clap = { workspace = true }
 frost-coordinator = { path = "../frost-coordinator" }
