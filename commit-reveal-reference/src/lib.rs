@@ -1,5 +1,6 @@
 use bitcoin::{
     absolute::LockTime,
+    key::UntweakedPublicKey,
     opcodes::all::{OP_CHECKSIG, OP_DROP},
     script::{Builder, PushBytes},
     taproot::{Signature, TaprootBuilder, TaprootSpendInfo},
@@ -86,13 +87,23 @@ fn build_taproot_output(
     let reveal_script = op_drop_script(data, revealer_key);
 
     let secp = secp256k1::Secp256k1::new();
-    let internal_key = todo!();
+    let internal_key = internal_key();
 
     TaprootBuilder::new()
         .add_leaf(1, reveal_script)
         .unwrap() // TODO: Handle error
         .finalize(&secp, internal_key)
         .unwrap() // TODO: Handle error
+}
+
+// Just a point with unknown discrete logarithm.
+// We use the hash of the data bytes to compute it.
+fn internal_key() -> UntweakedPublicKey {
+    let internal_key_vec = array_bytes::hex2bytes(
+        "0250929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0",
+    )
+    .unwrap();
+    XOnlyPublicKey::from_slice(&internal_key_vec).unwrap() // TODO: Error handling
 }
 
 pub trait Reveal {
@@ -131,6 +142,8 @@ pub trait Reveal {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
     fn it_works() {
         let result = 2 + 2;
@@ -139,4 +152,10 @@ mod tests {
 
     #[test]
     fn should_create_peg_in_commit_tx() {}
+
+    #[test]
+    fn internal_key_works() {
+        let key = internal_key();
+        println!("Key: {:?}", key);
+    }
 }
