@@ -1,7 +1,8 @@
 use bitcoin::{
     absolute::LockTime,
-    opcodes::all::OP_DROP,
+    opcodes::all::{OP_CHECKSIG, OP_DROP},
     script::{Builder, PushBytes},
+    taproot::Signature,
     Address as BitcoinAddress, OutPoint, Script, ScriptBuf, Sequence, Transaction, TxIn, TxOut,
     Witness,
 };
@@ -66,10 +67,15 @@ pub fn peg_out_request_reveal_tx(_input: PegOutRequestRevealInput) -> Transactio
     todo!();
 }
 
-fn op_drop_script(data: &[u8]) -> ScriptBuf {
+fn op_drop_script(data: &[u8], revealer_key: &XOnlyPublicKey) -> ScriptBuf {
     let push_bytes: &PushBytes = data.try_into().unwrap();
-    let script = Builder::new().push_slice(push_bytes).into_script();
-    todo!();
+
+    Builder::new()
+        .push_slice(push_bytes)
+        .push_opcode(OP_DROP)
+        .push_x_only_key(revealer_key)
+        .push_opcode(OP_CHECKSIG)
+        .into_script()
 }
 
 pub trait Reveal {
@@ -77,7 +83,7 @@ pub trait Reveal {
 
     fn extra_outputs(&self, associated_data: Self::AssociatedData) -> Vec<TxOut>;
 
-    fn sign(&self, tx: &mut Transaction);
+    fn sign(&self, tx: &Transaction) -> Signature;
 
     fn reveal_tx(
         &self,
@@ -85,31 +91,22 @@ pub trait Reveal {
         witness_script: &Script,
         associated_data: Self::AssociatedData,
     ) -> Transaction {
-        // TODO Figure out the correct way to produce a script
-        let script_sig = Builder::new()
-            .push_slice(&[0x00, 0x00, 0x00, 0x00]) // data
-            .push_opcode(OP_DROP)
-            .push_slice(&[0x00, 0x00, 0x00, 0x00]) // lock script
-            .into_script();
-
         let merkle_path = Vec::new(); // TODO: Fill in
-
         let witness = Witness::from_slice(&[witness_script.as_bytes().to_vec(), merkle_path]);
 
-        let mut tx = Transaction {
+        let tx = Transaction {
             version: 2,
             lock_time: LockTime::ZERO,
             input: vec![TxIn {
                 previous_output: commit_output,
-                script_sig,
+                script_sig: witness_script.to_owned(),
                 sequence: Sequence::MAX,
                 witness,
             }],
-            output: vec![],
+            output: self.extra_outputs(associated_data),
         };
 
-        tx.output.extend(self.extra_outputs(associated_data));
-        self.sign(&mut tx);
+        let signature = self.sign(&tx); // TODO: Where to put it
 
         tx
     }
