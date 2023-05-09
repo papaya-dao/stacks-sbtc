@@ -1,5 +1,6 @@
 [workspace]
 members = [
+  "commit-reveal-reference",
   "relay-server",
   "frost-test",
   "frost-signer",
@@ -12,6 +13,7 @@ members = [
 
 [workspace.dependencies]
 base58 = "0.2"
+bitcoin = "0.30.0"
 blockstack-core = { git = "https://github.com/stacks-network/stacks-blockchain/", branch = "next" }
 clap = { version = "4.1.1", features = ["derive", "env"] }
 p256k1 = "4"
