@@ -1,4 +1,4 @@
-use bitcoin::{Address as BitcoinAddress, OutPoint, ScriptBuf, Transaction, Witness};
+use bitcoin::{Address as BitcoinAddress, OutPoint, ScriptBuf, Transaction, TxOut, Witness};
 use blockstack_lib::types::chainstate::StacksAddress;
 use secp256k1::{ecdsa::RecoverableSignature, XOnlyPublicKey};
 
@@ -29,7 +29,7 @@ pub struct PegOutRequestCommitInput {
 }
 
 pub struct PegOutRequestCommitOutput {
-    pub commit_tx: Transaction,
+    pub address: BitcoinAddress,
     pub witness_script: Witness,
     pub recipient_script_pub_key: ScriptBuf,
     pub fulfillment_fee: u64,
@@ -60,6 +60,19 @@ pub fn peg_out_request_reveal_tx(_input: PegOutRequestRevealInput) -> Transactio
     todo!();
 }
 
+pub trait Revealer {
+    type ExtraData;
+
+    fn extra_outputs(&self, extra_data: Self::ExtraData) -> Vec<TxOut>;
+
+    fn sign(&self, tx: &mut Transaction);
+
+    fn reveal_tx(commit_output: OutPoint, witness: Witness) -> Transaction {
+        // Provided method
+        todo!();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
@@ -68,10 +81,6 @@ mod tests {
         assert_eq!(result, 4);
     }
 
-    // #[test]
-    // fn should_create_peg_in_commit_tx() {
-    //     let protocol: CommitRevealProtocol<Revealer> =
-    //         CommitRevealProtocol::new(peg_wallet, revealer_pub_key);
-    //     let commit_output = protocol.peg_in_commit_tx();
-    // }
+    #[test]
+    fn should_create_peg_in_commit_tx() {}
 }
