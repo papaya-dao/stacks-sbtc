@@ -1,4 +1,7 @@
-use bitcoin::{Address as BitcoinAddress, OutPoint, ScriptBuf, Transaction, TxOut, Witness};
+use bitcoin::{
+    absolute::LockTime, opcodes::all::OP_DROP, script::Builder, Address as BitcoinAddress,
+    OutPoint, ScriptBuf, Sequence, Transaction, TxIn, TxOut, Witness,
+};
 use blockstack_lib::types::chainstate::StacksAddress;
 use secp256k1::{ecdsa::RecoverableSignature, XOnlyPublicKey};
 
@@ -60,16 +63,42 @@ pub fn peg_out_request_reveal_tx(_input: PegOutRequestRevealInput) -> Transactio
     todo!();
 }
 
-pub trait Revealer {
-    type ExtraData;
+pub trait Reveal {
+    type AssociatedData;
 
-    fn extra_outputs(&self, extra_data: Self::ExtraData) -> Vec<TxOut>;
+    fn extra_outputs(&self, associated_data: Self::AssociatedData) -> Vec<TxOut>;
 
     fn sign(&self, tx: &mut Transaction);
 
-    fn reveal_tx(commit_output: OutPoint, witness: Witness) -> Transaction {
-        // Provided method
-        todo!();
+    fn reveal_tx(
+        &self,
+        commit_output: OutPoint,
+        witness: Witness,
+        associated_data: Self::AssociatedData,
+    ) -> Transaction {
+        // TODO Figure out the correct way to produce a script
+        let script_sig = Builder::new()
+            .push_slice(&[0x00, 0x00, 0x00, 0x00]) // data
+            .push_opcode(OP_DROP)
+            .push_slice(&[0x00, 0x00, 0x00, 0x00]) // lock script
+            .into_script();
+
+        let mut tx = Transaction {
+            version: 2,
+            lock_time: LockTime::ZERO,
+            input: vec![TxIn {
+                previous_output: commit_output,
+                script_sig,
+                sequence: Sequence::MAX,
+                witness,
+            }],
+            output: vec![],
+        };
+
+        tx.output.extend(self.extra_outputs(associated_data));
+        self.sign(&mut tx);
+
+        tx
     }
 }
 
