@@ -2,7 +2,7 @@ use bitcoin::{
     absolute::LockTime,
     opcodes::all::{OP_CHECKSIG, OP_DROP},
     script::{Builder, PushBytes},
-    taproot::Signature,
+    taproot::{Signature, TaprootBuilder, TaprootSpendInfo},
     Address as BitcoinAddress, OutPoint, Script, ScriptBuf, Sequence, Transaction, TxIn, TxOut,
     Witness,
 };
@@ -76,6 +76,23 @@ fn op_drop_script(data: &[u8], revealer_key: &XOnlyPublicKey) -> ScriptBuf {
         .push_x_only_key(revealer_key)
         .push_opcode(OP_CHECKSIG)
         .into_script()
+}
+
+fn build_taproot_output(
+    data: &[u8],
+    revealer_key: &XOnlyPublicKey,
+    reclaim_key: &XOnlyPublicKey,
+) -> TaprootSpendInfo {
+    let reveal_script = op_drop_script(data, revealer_key);
+
+    let secp = secp256k1::Secp256k1::new();
+    let internal_key = todo!();
+
+    TaprootBuilder::new()
+        .add_leaf(1, reveal_script)
+        .unwrap() // TODO: Handle error
+        .finalize(&secp, internal_key)
+        .unwrap() // TODO: Handle error
 }
 
 pub trait Reveal {
