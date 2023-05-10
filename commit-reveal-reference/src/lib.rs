@@ -1,3 +1,5 @@
+use std::iter::{empty, repeat};
+
 use bitcoin::{
     absolute::LockTime,
     key::UntweakedPublicKey,
@@ -7,7 +9,7 @@ use bitcoin::{
     Address as BitcoinAddress, Network, OutPoint, Script, ScriptBuf, Sequence, Transaction, TxIn,
     TxOut, Witness,
 };
-use blockstack_lib::types::chainstate::StacksAddress;
+use blockstack_lib::{codec::StacksMessageCodec, types::chainstate::StacksAddress};
 use secp256k1::{ecdsa::RecoverableSignature, XOnlyPublicKey};
 
 pub struct PegInCommitInput {
@@ -69,11 +71,28 @@ pub fn peg_out_request_reveal_tx(_input: PegOutRequestRevealInput) -> Transactio
 }
 
 pub fn peg_in_commit(
-    stuff: String,
+    address: StacksAddress,
+    contract_name: Option<String>,
+    reveal_fee: u64,
     revealer_key: &XOnlyPublicKey,
     reclaim_key: &XOnlyPublicKey,
 ) -> BitcoinAddress {
-    let data = todo!();
+    let mut data: Vec<u8> = Vec::with_capacity(86);
+
+    data.push('<' as u8);
+    data.extend_from_slice(address.bytes.as_bytes());
+
+    let contract_name_bytes = contract_name
+        .map(|contract_name| contract_name.as_bytes())
+        .unwrap_or_default()
+        .into_iter()
+        .chain(repeat(&0))
+        .take(40);
+
+    data.extend(contract_name_bytes);
+    data.extend(repeat(&0).take(16)); // memo
+    data.extend(reveal_fee.to_be_bytes());
+
     commit(data, revealer_key, reclaim_key)
 }
 
