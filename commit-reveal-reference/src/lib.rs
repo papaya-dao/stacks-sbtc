@@ -68,22 +68,21 @@ pub fn peg_out_request_reveal_tx(_input: PegOutRequestRevealInput) -> Transactio
     todo!();
 }
 
-fn op_drop_script(data: &[u8], revealer_key: &XOnlyPublicKey) -> ScriptBuf {
-    let push_bytes: &PushBytes = data.try_into().unwrap();
-
-    Builder::new()
-        .push_slice(push_bytes)
-        .push_opcode(OP_DROP)
-        .push_x_only_key(revealer_key)
-        .push_opcode(OP_CHECKSIG)
-        .into_script()
+pub fn peg_in_commit(
+    stuff: String,
+    revealer_key: &XOnlyPublicKey,
+    reclaim_key: &XOnlyPublicKey,
+) -> BitcoinAddress {
+    let data = todo!();
+    commit(data, revealer_key, reclaim_key)
 }
 
-fn reclaim_script(reclaim_key: &XOnlyPublicKey) -> ScriptBuf {
-    Builder::new()
-        .push_x_only_key(reclaim_key)
-        .push_opcode(OP_CHECKSIG)
-        .into_script()
+pub fn commit(
+    data: &[u8],
+    revealer_key: &XOnlyPublicKey,
+    reclaim_key: &XOnlyPublicKey,
+) -> BitcoinAddress {
+    address_from_taproot_spend_info(taproot_spend_info(data, revealer_key, reclaim_key))
 }
 
 fn address_from_taproot_spend_info(spend_info: TaprootSpendInfo) -> BitcoinAddress {
@@ -97,7 +96,7 @@ fn address_from_taproot_spend_info(spend_info: TaprootSpendInfo) -> BitcoinAddre
     )
 }
 
-fn build_taproot_output(
+pub fn taproot_spend_info(
     data: &[u8],
     revealer_key: &XOnlyPublicKey,
     reclaim_key: &XOnlyPublicKey,
@@ -115,6 +114,24 @@ fn build_taproot_output(
         .unwrap() // TODO: Handle error
         .finalize(&secp, internal_key)
         .unwrap() // TODO: Handle error
+}
+
+fn op_drop_script(data: &[u8], revealer_key: &XOnlyPublicKey) -> ScriptBuf {
+    let push_bytes: &PushBytes = data.try_into().unwrap();
+
+    Builder::new()
+        .push_slice(push_bytes)
+        .push_opcode(OP_DROP)
+        .push_x_only_key(revealer_key)
+        .push_opcode(OP_CHECKSIG)
+        .into_script()
+}
+
+fn reclaim_script(reclaim_key: &XOnlyPublicKey) -> ScriptBuf {
+    Builder::new()
+        .push_x_only_key(reclaim_key)
+        .push_opcode(OP_CHECKSIG)
+        .into_script()
 }
 
 // Just a point with unknown discrete logarithm.
