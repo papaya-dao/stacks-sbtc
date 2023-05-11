@@ -1,77 +1,16 @@
-use std::{
-    convert::TryInto,
-    iter::{empty, repeat},
-};
+use std::{convert::TryInto, iter::repeat};
 
 use bitcoin::{
     absolute::LockTime,
     key::UntweakedPublicKey,
     opcodes::all::{OP_CHECKSIG, OP_DROP, OP_RETURN},
     script::{Builder, PushBytes},
-    taproot::{LeafVersion, Signature, TaprootBuilder, TaprootSpendInfo},
-    Address as BitcoinAddress, Network, OutPoint, Script, ScriptBuf, Sequence, Transaction, TxIn,
-    TxOut, Witness,
+    taproot::{LeafVersion, TaprootBuilder, TaprootSpendInfo},
+    Address as BitcoinAddress, Network, OutPoint, ScriptBuf, Sequence, Transaction, TxIn, TxOut,
+    Witness,
 };
-use blockstack_lib::{codec::StacksMessageCodec, types::chainstate::StacksAddress};
+use blockstack_lib::types::chainstate::StacksAddress;
 use secp256k1::{ecdsa::RecoverableSignature, XOnlyPublicKey};
-
-pub struct PegInCommitInput {
-    pub address: StacksAddress,
-    pub amount: u64,
-    pub revealer_pub_key: XOnlyPublicKey,
-}
-
-pub struct PegInCommitOutput {
-    pub address: BitcoinAddress,
-    pub witness_script: Witness,
-}
-
-pub struct PegInRevealInput {
-    pub witness_script: Witness,
-    pub commit_output: OutPoint,
-}
-
-pub struct PegInRevealOutput(Transaction);
-
-pub struct PegOutRequestCommitInput {
-    pub recipient_script_pub_key: ScriptBuf,
-    pub amount: u64,
-    pub fulfillment_fee: u64,
-    pub signature: RecoverableSignature,
-    pub revealer_pub_key: XOnlyPublicKey,
-}
-
-pub struct PegOutRequestCommitOutput {
-    pub address: BitcoinAddress,
-    pub witness_script: Witness,
-    pub recipient_script_pub_key: ScriptBuf,
-    pub fulfillment_fee: u64,
-}
-
-pub struct PegOutRequestRevealInput {
-    pub witness_script: Witness,
-    pub commit_output: OutPoint,
-    pub recipient_script_pub_key: ScriptBuf,
-    pub fulfillment_fee: u64,
-}
-
-pub struct PegOutRequestRevealOutput(Transaction);
-
-pub fn peg_in_commit_tx(_input: PegInCommitInput) -> PegInCommitOutput {
-    todo!();
-}
-
-pub fn peg_in_reveal_tx(_input: PegInRevealInput) -> Transaction {
-    todo!();
-}
-
-pub fn peg_out_request_commit_tx(_input: PegOutRequestCommitInput) -> PegOutRequestCommitOutput {
-    todo!();
-}
-
-pub fn peg_out_request_reveal_tx(_input: PegOutRequestRevealInput) -> Transaction {
-    todo!();
-}
 
 fn peg_in_data(address: StacksAddress, contract_name: Option<String>, reveal_fee: u64) -> Vec<u8> {
     let mut data: Vec<u8> = Vec::with_capacity(86);
@@ -89,6 +28,22 @@ fn peg_in_data(address: StacksAddress, contract_name: Option<String>, reveal_fee
     data.extend(contract_name_bytes);
     data.extend(repeat(&0).take(16)); // memo
     data.extend(reveal_fee.to_be_bytes());
+
+    data
+}
+
+fn peg_out_data(amount: u64, signature: RecoverableSignature, reveal_fee: u64) -> Vec<u8> {
+    let mut data: Vec<u8> = Vec::with_capacity(86);
+    let empty_memo = [0; 4];
+
+    data.push('>' as u8);
+    data.extend(amount.to_be_bytes());
+
+    let (recovery_id, signature_bytes) = signature.serialize_compact();
+    data.push(recovery_id.to_i32().try_into().unwrap()); // TODO: Handle errors, though this is infallible
+    data.extend_from_slice(&signature_bytes);
+    data.extend_from_slice(&empty_memo);
+    data.extend_from_slice(&reveal_fee.to_be_bytes());
 
     data
 }
@@ -114,19 +69,11 @@ pub fn peg_out_request_commit(
     revealer_key: &XOnlyPublicKey,
     reclaim_key: &XOnlyPublicKey,
 ) -> BitcoinAddress {
-    let mut data: Vec<u8> = Vec::with_capacity(86);
-    let empty_memo = [0; 4];
-
-    data.push('>' as u8);
-    data.extend(amount.to_be_bytes());
-
-    let (recovery_id, signature_bytes) = signature.serialize_compact();
-    data.push(recovery_id.to_i32().try_into().unwrap()); // TODO: Handle errors, though this is infallible
-    data.extend_from_slice(&signature_bytes);
-    data.extend_from_slice(&empty_memo);
-    data.extend_from_slice(&reveal_fee.to_be_bytes());
-
-    commit(&data, revealer_key, reclaim_key)
+    commit(
+        &peg_out_data(amount, signature, reveal_fee),
+        revealer_key,
+        reclaim_key,
+    )
 }
 
 pub fn commit(
@@ -158,6 +105,39 @@ pub fn peg_in_reveal_unsigned(
 
     tx.output.push(TxOut {
         value: commit_amount - reveal_fee,
+        script_pubkey: peg_wallet_address.script_pubkey(),
+    });
+
+    tx
+}
+
+pub fn peg_out_request_reveal_unsigned(
+    amount: u64,
+    signature: RecoverableSignature,
+    reveal_fee: u64,
+    fulfillment_fee: u64,
+    commit_output: OutPoint,
+    commit_amount: u64,
+    stacks_magic_bytes: &[u8; 2],
+    peg_wallet_address: BitcoinAddress,
+    recipient_wallet_address: BitcoinAddress,
+    revealer_key: &XOnlyPublicKey,
+    reclaim_key: &XOnlyPublicKey,
+) -> Transaction {
+    let mut tx = reveal(
+        commit_output,
+        stacks_magic_bytes,
+        &peg_out_data(amount, signature, reveal_fee),
+        revealer_key,
+        reclaim_key,
+    );
+
+    tx.output.push(TxOut {
+        value: commit_amount - reveal_fee - fulfillment_fee,
+        script_pubkey: recipient_wallet_address.script_pubkey(),
+    });
+    tx.output.push(TxOut {
+        value: fulfillment_fee,
         script_pubkey: peg_wallet_address.script_pubkey(),
     });
 
@@ -272,40 +252,6 @@ fn internal_key() -> UntweakedPublicKey {
         array_bytes::hex2bytes("50929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0")
             .unwrap();
     XOnlyPublicKey::from_slice(&internal_key_vec).unwrap() // TODO: Error handling
-}
-
-pub trait Reveal {
-    type AssociatedData;
-
-    fn extra_outputs(&self, associated_data: Self::AssociatedData) -> Vec<TxOut>;
-
-    fn sign(&self, tx: &Transaction) -> Signature;
-
-    fn reveal_tx(
-        &self,
-        commit_output: OutPoint,
-        witness_script: &Script,
-        associated_data: Self::AssociatedData,
-    ) -> Transaction {
-        let merkle_path = Vec::new(); // TODO: Fill in
-        let witness = Witness::from_slice(&[witness_script.as_bytes().to_vec(), merkle_path]);
-
-        let tx = Transaction {
-            version: 2,
-            lock_time: LockTime::ZERO,
-            input: vec![TxIn {
-                previous_output: commit_output,
-                script_sig: witness_script.to_owned(),
-                sequence: Sequence::MAX,
-                witness,
-            }],
-            output: self.extra_outputs(associated_data),
-        };
-
-        let signature = self.sign(&tx); // TODO: Where to put it
-
-        tx
-    }
 }
 
 #[cfg(test)]
