@@ -136,9 +136,12 @@ pub fn reveal(
     revealer_key: &XOnlyPublicKey,
     reclaim_key: &XOnlyPublicKey,
 ) -> Transaction {
-    let merkle_path = Vec::new(); // TODO: Fill in
+    let spend_info = taproot_spend_info(data, revealer_key, reclaim_key);
+
+    let control_block = Vec::new(); // TODO: Fill in
+
     let witness_script = Builder::new().into_script(); // TODO: Figure it out
-    let witness = Witness::from_slice(&[witness_script.as_bytes().to_vec(), merkle_path]);
+    let witness = Witness::from_slice(&[witness_script.as_bytes().to_vec(), control_block]);
 
     let reveal_op_return_bytes: Vec<u8> = stacks_magic_bytes
         .iter()
