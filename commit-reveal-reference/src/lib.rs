@@ -6,7 +6,7 @@ use std::{
 use bitcoin::{
     absolute::LockTime,
     key::UntweakedPublicKey,
-    opcodes::all::{OP_CHECKSIG, OP_DROP},
+    opcodes::all::{OP_CHECKSIG, OP_DROP, OP_RETURN},
     script::{Builder, PushBytes},
     taproot::{Signature, TaprootBuilder, TaprootSpendInfo},
     Address as BitcoinAddress, Network, OutPoint, Script, ScriptBuf, Sequence, Transaction, TxIn,
@@ -127,6 +127,34 @@ pub fn commit(
     reclaim_key: &XOnlyPublicKey,
 ) -> BitcoinAddress {
     address_from_taproot_spend_info(taproot_spend_info(data, revealer_key, reclaim_key))
+}
+
+pub fn reveal(
+    commit_output: OutPoint,
+    data: &[u8],
+    revealer_key: &XOnlyPublicKey,
+    reclaim_key: &XOnlyPublicKey,
+) -> Transaction {
+    let merkle_path = Vec::new(); // TODO: Fill in
+    let witness_script = Builder::new().into_script(); // TODO: Figure it out
+    let witness = Witness::from_slice(&[witness_script.as_bytes().to_vec(), merkle_path]);
+
+    let tx = Transaction {
+        version: 2,
+        lock_time: LockTime::ZERO,
+        input: vec![TxIn {
+            previous_output: commit_output,
+            script_sig: witness_script.to_owned(),
+            sequence: Sequence::MAX,
+            witness,
+        }],
+        output: vec![TxOut {
+            value: 0,
+            script_pubkey: Builder::new().push_opcode(OP_RETURN).into_script(),
+        }],
+    };
+
+    tx
 }
 
 fn address_from_taproot_spend_info(spend_info: TaprootSpendInfo) -> BitcoinAddress {
