@@ -131,6 +131,7 @@ pub fn commit(
 
 pub fn reveal(
     commit_output: OutPoint,
+    stacks_magic_bytes: &[u8; 2],
     data: &[u8],
     revealer_key: &XOnlyPublicKey,
     reclaim_key: &XOnlyPublicKey,
@@ -138,6 +139,15 @@ pub fn reveal(
     let merkle_path = Vec::new(); // TODO: Fill in
     let witness_script = Builder::new().into_script(); // TODO: Figure it out
     let witness = Witness::from_slice(&[witness_script.as_bytes().to_vec(), merkle_path]);
+
+    let reveal_op_return_bytes: Vec<u8> = stacks_magic_bytes
+        .iter()
+        .chain(&['w' as u8])
+        .cloned()
+        .collect();
+
+    let reveal_op_return_pushbytes: &PushBytes =
+        reveal_op_return_bytes.as_slice().try_into().unwrap(); // TODO: Error handling
 
     let tx = Transaction {
         version: 2,
@@ -150,7 +160,10 @@ pub fn reveal(
         }],
         output: vec![TxOut {
             value: 0,
-            script_pubkey: Builder::new().push_opcode(OP_RETURN).into_script(),
+            script_pubkey: Builder::new()
+                .push_opcode(OP_RETURN)
+                .push_slice(reveal_op_return_pushbytes)
+                .into_script(),
         }],
     };
 
