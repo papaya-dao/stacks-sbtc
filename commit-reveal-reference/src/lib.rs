@@ -73,13 +73,7 @@ pub fn peg_out_request_reveal_tx(_input: PegOutRequestRevealInput) -> Transactio
     todo!();
 }
 
-pub fn peg_in_commit(
-    address: StacksAddress,
-    contract_name: Option<String>,
-    reveal_fee: u64,
-    revealer_key: &XOnlyPublicKey,
-    reclaim_key: &XOnlyPublicKey,
-) -> BitcoinAddress {
+fn peg_in_data(address: StacksAddress, contract_name: Option<String>, reveal_fee: u64) -> Vec<u8> {
     let mut data: Vec<u8> = Vec::with_capacity(86);
 
     data.push('<' as u8);
@@ -96,7 +90,21 @@ pub fn peg_in_commit(
     data.extend(repeat(&0).take(16)); // memo
     data.extend(reveal_fee.to_be_bytes());
 
-    commit(&data, revealer_key, reclaim_key)
+    data
+}
+
+pub fn peg_in_commit(
+    address: StacksAddress,
+    contract_name: Option<String>,
+    reveal_fee: u64,
+    revealer_key: &XOnlyPublicKey,
+    reclaim_key: &XOnlyPublicKey,
+) -> BitcoinAddress {
+    commit(
+        &peg_in_data(address, contract_name, reveal_fee),
+        revealer_key,
+        reclaim_key,
+    )
 }
 
 pub fn peg_out_request_commit(
@@ -127,6 +135,33 @@ pub fn commit(
     reclaim_key: &XOnlyPublicKey,
 ) -> BitcoinAddress {
     address_from_taproot_spend_info(taproot_spend_info(data, revealer_key, reclaim_key))
+}
+
+pub fn peg_in_reveal_unsigned(
+    address: StacksAddress,
+    contract_name: Option<String>,
+    reveal_fee: u64,
+    commit_output: OutPoint,
+    commit_amount: u64,
+    stacks_magic_bytes: &[u8; 2],
+    peg_wallet_address: BitcoinAddress,
+    revealer_key: &XOnlyPublicKey,
+    reclaim_key: &XOnlyPublicKey,
+) -> Transaction {
+    let mut tx = reveal(
+        commit_output,
+        stacks_magic_bytes,
+        &peg_in_data(address, contract_name, reveal_fee),
+        revealer_key,
+        reclaim_key,
+    );
+
+    tx.output.push(TxOut {
+        value: commit_amount - reveal_fee,
+        script_pubkey: peg_wallet_address.script_pubkey(),
+    });
+
+    tx
 }
 
 pub fn reveal(
