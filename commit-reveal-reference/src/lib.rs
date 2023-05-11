@@ -1,4 +1,7 @@
-use std::iter::{empty, repeat};
+use std::{
+    convert::TryInto,
+    iter::{empty, repeat},
+};
 
 use bitcoin::{
     absolute::LockTime,
@@ -92,6 +95,28 @@ pub fn peg_in_commit(
     data.extend(contract_name_bytes);
     data.extend(repeat(&0).take(16)); // memo
     data.extend(reveal_fee.to_be_bytes());
+
+    commit(&data, revealer_key, reclaim_key)
+}
+
+pub fn peg_out_request_commit(
+    amount: u64,
+    signature: RecoverableSignature,
+    reveal_fee: u64,
+    revealer_key: &XOnlyPublicKey,
+    reclaim_key: &XOnlyPublicKey,
+) -> BitcoinAddress {
+    let mut data: Vec<u8> = Vec::with_capacity(86);
+    let empty_memo = [0; 4];
+
+    data.push('>' as u8);
+    data.extend(amount.to_be_bytes());
+
+    let (recovery_id, signature_bytes) = signature.serialize_compact();
+    data.push(recovery_id.to_i32().try_into().unwrap()); // TODO: Handle errors, though this is infallible
+    data.extend_from_slice(&signature_bytes);
+    data.extend_from_slice(&empty_memo);
+    data.extend_from_slice(&reveal_fee.to_be_bytes());
 
     commit(&data, revealer_key, reclaim_key)
 }
