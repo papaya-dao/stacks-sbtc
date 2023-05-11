@@ -8,7 +8,7 @@ use bitcoin::{
     key::UntweakedPublicKey,
     opcodes::all::{OP_CHECKSIG, OP_DROP, OP_RETURN},
     script::{Builder, PushBytes},
-    taproot::{Signature, TaprootBuilder, TaprootSpendInfo},
+    taproot::{LeafVersion, Signature, TaprootBuilder, TaprootSpendInfo},
     Address as BitcoinAddress, Network, OutPoint, Script, ScriptBuf, Sequence, Transaction, TxIn,
     TxOut, Witness,
 };
@@ -138,10 +138,13 @@ pub fn reveal(
 ) -> Transaction {
     let spend_info = taproot_spend_info(data, revealer_key, reclaim_key);
 
-    let control_block = Vec::new(); // TODO: Fill in
+    let script = op_drop_script(data, revealer_key);
+    let control_block = spend_info
+        .control_block(&(script.clone(), LeafVersion::TapScript))
+        .unwrap(); // TODO: Handle none
 
     let witness_script = Builder::new().into_script(); // TODO: Figure it out
-    let witness = Witness::from_slice(&[witness_script.as_bytes().to_vec(), control_block]);
+    let witness = Witness::from_slice(&[script.as_bytes().to_vec(), control_block.serialize()]);
 
     let reveal_op_return_bytes: Vec<u8> = stacks_magic_bytes
         .iter()
