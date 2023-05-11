@@ -83,17 +83,17 @@ pub fn peg_in_commit(
     data.extend_from_slice(address.bytes.as_bytes());
 
     let contract_name_bytes = contract_name
-        .map(|contract_name| contract_name.as_bytes())
+        .map(|contract_name| contract_name.as_bytes().to_vec())
         .unwrap_or_default()
         .into_iter()
-        .chain(repeat(&0))
+        .chain(repeat(0))
         .take(40);
 
     data.extend(contract_name_bytes);
     data.extend(repeat(&0).take(16)); // memo
     data.extend(reveal_fee.to_be_bytes());
 
-    commit(data, revealer_key, reclaim_key)
+    commit(&data, revealer_key, reclaim_key)
 }
 
 pub fn commit(
