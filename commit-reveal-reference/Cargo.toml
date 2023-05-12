@@ -10,3 +10,4 @@ array-bytes = "6.0.0"
 bitcoin.workspace = true
 blockstack-core.workspace = true
 secp256k1 = { version="0.27.0", features=["global-context", "recovery"] }
+thiserror.workspace = true
