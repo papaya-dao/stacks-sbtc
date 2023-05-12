@@ -289,6 +289,43 @@ fn internal_key() -> UntweakedPublicKey {
 mod tests {
     use super::*;
 
+    use rand::Rng;
+
+    #[test]
+    fn commit_should_return_a_valid_bitcoin_p2tr_over_p2sh_address() {
+        let mut rng = helpers::seeded_rng();
+        let data = [rng.gen(); 86];
+        let revealer_key = helpers::random_key(&mut rng);
+        let reclaim_key = helpers::random_key(&mut rng);
+
+        let commit_address = commit(&data, &revealer_key, &reclaim_key).unwrap();
+
+        // TODO: This is failing. We are dependent on https://github.com/rust-bitcoin/rust-bitcoin/issues/1851 for the fix
+        // let bitcoin::address::Payload::ScriptHash(_) = commit_address.payload else {
+        //     panic!("Not a p2sh address")
+        // };
+    }
+
+    //#[test]
+    //fn peg_in_commit_should_return_a_valid_bitcoin_p2tr_over_p2sh_address() {
+    //    assert!(false);
+    //}
+
+    //#[test]
+    //fn peg_out_request_commit_should_return_a_valid_bitcoin_p2tr_over_p2sh_address() {
+    //    assert!(false);
+    //}
+
+    //#[test]
+    //fn peg_in_reveal_unsigned_should_return_a_valid_unsigned_transaction() {
+    //    assert!(false);
+    //}
+
+    //#[test]
+    //fn peg_out_request_reveal_unsigned_should_return_a_valid_unsigned_transaction() {
+    //    assert!(false);
+    //}
+
     #[test]
     fn it_works() {
         let result = 2 + 2;
@@ -302,5 +339,22 @@ mod tests {
     fn internal_key_works() {
         let key = internal_key();
         println!("Key: {:?}", key);
+    }
+
+    mod helpers {
+        use secp256k1::KeyPair;
+
+        use super::*;
+
+        pub(super) fn seeded_rng() -> rand::rngs::StdRng {
+            rand::SeedableRng::from_seed([0; 32])
+        }
+
+        // May panic if the randomly generated key is invalid. This should be unlikely but possible.
+        pub(super) fn random_key<Rng: rand::Rng>(rng: &mut Rng) -> XOnlyPublicKey {
+            let secp = secp256k1::Secp256k1::new();
+            let keypair = KeyPair::new(&secp, rng);
+            keypair.x_only_public_key().0
+        }
     }
 }
