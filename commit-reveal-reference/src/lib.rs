@@ -1,3 +1,12 @@
+// TODO: Before PR
+// - Error handling
+// - Unit testing
+// - Rustdoc for functions and library
+
+// Follow-up
+// - Bitcoind integration tests
+//  - Run bitcoin node, submit commit transaction
+
 use std::{convert::TryInto, iter::repeat};
 
 use bitcoin::{
