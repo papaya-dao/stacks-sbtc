@@ -19,12 +19,12 @@ cargo install relay-server --git https://github.com/Trust-Machines/core-eng
 
 ## Start the `relay-server` server
 
-To start the server, you can run `cargo run relay-server` from the root of the repository,
+To start the server, you can run `cargo run --bin relay-server` from the root of the repository,
 or simply `relay-server` if it's installed. The default address for the server is http://127.0.0.1:9776.
 
 ## Integration Test
 
-1. Start the server `cargo run relay-server`
+1. Start the server `cargo run --bin relay-server`
 2. Run [./test.sh](./test.sh) in another terminal.
 3. Close the server using `Ctrl+C`.
 

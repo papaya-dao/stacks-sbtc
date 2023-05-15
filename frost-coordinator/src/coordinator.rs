@@ -473,33 +473,50 @@ mod test {
 
     #[test]
     fn integration_test() {
-        let bin = if cfg!(debug_assertions) {
-            "../target/debug"
+        let bin: &[&str] = if cfg!(debug_assertions) {
+            &[]
         } else {
-            "../target/release"
+            &["--release"]
+        };
+        let run = |n, a: &[&str], e| {
+            let x = ["run", "--bin", n]
+                .iter()
+                .chain(bin)
+                .chain(&["--"])
+                .chain(a)
+                .map(|x| *x)
+                .collect::<Vec<_>>();
+            Process::new("cargo", &x, e)
         };
 
         let log_info: HashMap<String, String> =
             HashMap::from([("RUST_LOG".to_string(), "info".to_string())]);
 
-        let _relay_server = Process::new(&format!("{bin}/relay-server"), &[], &HashMap::new());
-        let _signer1 = Process::new(
-            &format!("{bin}/frost-signer"),
-            &["--id", "1", "--config", "../frost-signer/conf/signer.toml"],
-            &HashMap::new(),
+        let empty = HashMap::new();
+        let _relay_server = run("relay-server", &[], &empty);
+        let _signer1 = run(
+            "frost-signer",
+            &[
+                "--",
+                "--id",
+                "1",
+                "--config",
+                "../frost-signer/conf/signer.toml",
+            ],
+            &empty,
         );
-        let _signer2 = Process::new(
-            &format!("{bin}/frost-signer"),
+        let _signer2 = run(
+            "frost-signer",
             &["--id", "2", "--config", "../frost-signer/conf/signer.toml"],
-            &HashMap::new(),
+            &empty,
         );
-        let _signer3 = Process::new(
-            &format!("{bin}/frost-signer"),
+        let _signer3 = run(
+            "frost-signer",
             &["--id", "3", "--config", "../frost-signer/conf/signer.toml"],
-            &HashMap::new(),
+            &empty,
         );
-        let mut coordinator = Process::new(
-            &format!("{bin}/frost-coordinator"),
+        let mut coordinator = run(
+            "frost-coordinator",
             &["--config", "../frost-signer/conf/signer.toml", "dkg-sign"],
             &log_info,
         );
