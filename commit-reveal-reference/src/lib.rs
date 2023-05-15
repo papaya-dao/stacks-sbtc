@@ -7,7 +7,7 @@
 // - Bitcoind integration tests
 //  - Run bitcoin node, submit commit transaction
 
-use std::{convert::TryInto, iter::repeat};
+use std::{convert::TryInto, iter::once, iter::repeat, num::TryFromIntError};
 
 use bitcoin::{
     absolute::LockTime,
@@ -24,7 +24,7 @@ use secp256k1::{ecdsa::RecoverableSignature, XOnlyPublicKey};
 #[derive(thiserror::Error, Debug)]
 pub enum CommitRevealError {
     #[error("Signature is invalid: {0}")]
-    InvalidSignature(&'static str),
+    InvalidRecoveryId(TryFromIntError),
     #[error("Control block could not be built from script")]
     NoControlBlock,
     #[error("Could not build taproot spend info: {0}: {1}")]
@@ -34,23 +34,19 @@ pub enum CommitRevealError {
 type CommitRevealResult<T> = Result<T, CommitRevealError>;
 
 fn peg_in_data(address: StacksAddress, contract_name: Option<String>, reveal_fee: u64) -> Vec<u8> {
-    let mut data: Vec<u8> = Vec::with_capacity(86);
-
-    data.push('<' as u8);
-    data.extend_from_slice(address.bytes.as_bytes());
-
-    let contract_name_bytes = contract_name
-        .map(|contract_name| contract_name.as_bytes().to_vec())
-        .unwrap_or_default()
-        .into_iter()
+    once('<' as u8)
+        .chain(once(address.version))
+        .chain(address.bytes.as_bytes().into_iter().cloned())
+        .chain(
+            contract_name
+                .map(|contract_name| contract_name.as_bytes().to_vec())
+                .into_iter()
+                .flatten(),
+        )
         .chain(repeat(0))
-        .take(40);
-
-    data.extend(contract_name_bytes);
-    data.extend(repeat(&0).take(16)); // memo
-    data.extend(reveal_fee.to_be_bytes());
-
-    data
+        .take(78)
+        .chain(reveal_fee.to_be_bytes())
+        .collect()
 }
 
 fn peg_out_data(
@@ -58,22 +54,20 @@ fn peg_out_data(
     signature: RecoverableSignature,
     reveal_fee: u64,
 ) -> CommitRevealResult<Vec<u8>> {
-    let mut data: Vec<u8> = Vec::with_capacity(86);
+    let (recovery_id, signature_bytes) = signature.serialize_compact();
+    let recovery_id: u8 = recovery_id
+        .to_i32()
+        .try_into()
+        .map_err(CommitRevealError::InvalidRecoveryId)?;
     let empty_memo = [0; 4];
 
-    data.push('>' as u8);
-    data.extend(amount.to_be_bytes());
-
-    let (recovery_id, signature_bytes) = signature.serialize_compact();
-    data.push(recovery_id.to_i32().try_into().map_err(|_| {
-        CommitRevealError::InvalidSignature("Recovery ID cannot be casted into u8")
-    })?);
-
-    data.extend_from_slice(&signature_bytes);
-    data.extend_from_slice(&empty_memo);
-    data.extend_from_slice(&reveal_fee.to_be_bytes());
-
-    Ok(data)
+    Ok(once('>' as u8)
+        .chain(amount.to_be_bytes())
+        .chain(once(recovery_id))
+        .chain(signature_bytes)
+        .chain(empty_memo)
+        .chain(reveal_fee.to_be_bytes())
+        .collect())
 }
 
 pub fn peg_in_commit(
