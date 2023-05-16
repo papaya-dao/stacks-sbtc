@@ -85,15 +85,12 @@ pub struct RevealInputs<'r> {
     pub reclaim_key: &'r XOnlyPublicKey,
 }
 
-pub fn peg_in_commit(
-    address: StacksAddress,
-    contract_name: Option<String>,
-    reveal_fee: u64,
+pub fn peg_in_commit<'p>(
+    peg_in_data: PegInData<'p>,
     revealer_key: &XOnlyPublicKey,
     reclaim_key: &XOnlyPublicKey,
 ) -> CommitRevealResult<BitcoinAddress> {
-    let data = peg_in_data(address, contract_name, reveal_fee);
-    commit(&data, revealer_key, reclaim_key)
+    commit(&peg_in_data.to_vec(), revealer_key, reclaim_key)
 }
 
 pub fn peg_out_request_commit(
@@ -104,19 +101,16 @@ pub fn peg_out_request_commit(
     commit(&peg_out_data.to_vec()?, revealer_key, reclaim_key)
 }
 
-pub fn peg_in_reveal_unsigned(
+pub fn peg_in_reveal_unsigned<'p>(
+    peg_in_data: PegInData<'p>,
     reveal_inputs: RevealInputs,
-    address: StacksAddress,
-    contract_name: Option<String>,
-    reveal_fee: u64,
     commit_amount: u64,
     peg_wallet_address: BitcoinAddress,
 ) -> CommitRevealResult<Transaction> {
-    let data = peg_in_data(address, contract_name, reveal_fee);
-    let mut tx = reveal(&data, reveal_inputs)?;
+    let mut tx = reveal(&peg_in_data.to_vec(), reveal_inputs)?;
 
     tx.output.push(TxOut {
-        value: commit_amount - reveal_fee,
+        value: commit_amount - peg_in_data.reveal_fee,
         script_pubkey: peg_wallet_address.script_pubkey(),
     });
 
@@ -145,20 +139,40 @@ pub fn peg_out_request_reveal_unsigned(
     Ok(tx)
 }
 
-fn peg_in_data(address: StacksAddress, contract_name: Option<String>, reveal_fee: u64) -> Vec<u8> {
-    once(b'<')
-        .chain(once(address.version))
-        .chain(address.bytes.as_bytes().iter().cloned())
-        .chain(
-            contract_name
-                .map(|contract_name| contract_name.as_bytes().to_vec())
-                .into_iter()
-                .flatten(),
-        )
-        .chain(repeat(0))
-        .take(78)
-        .chain(reveal_fee.to_be_bytes())
-        .collect()
+pub struct PegInData<'p> {
+    pub address: &'p StacksAddress,
+    pub contract_name: Option<&'p str>,
+    pub reveal_fee: u64,
+}
+
+impl<'p> PegInData<'p> {
+    pub fn new(
+        address: &'p StacksAddress,
+        contract_name: Option<&'p str>,
+        reveal_fee: u64,
+    ) -> Self {
+        Self {
+            address,
+            contract_name,
+            reveal_fee,
+        }
+    }
+
+    pub fn to_vec(&self) -> Vec<u8> {
+        once(b'<')
+            .chain(once(self.address.version))
+            .chain(self.address.bytes.as_bytes().iter().cloned())
+            .chain(
+                self.contract_name
+                    .map(|contract_name| contract_name.as_bytes().to_vec())
+                    .into_iter()
+                    .flatten(),
+            )
+            .chain(repeat(0))
+            .take(78)
+            .chain(self.reveal_fee.to_be_bytes())
+            .collect()
+    }
 }
 
 pub struct PegOutData<'r> {
