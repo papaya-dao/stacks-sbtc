@@ -164,6 +164,10 @@ impl<'p> PegInData<'p> {
         }
     }
 
+    /// Serializes this data according to the SIP-021 wire formats
+    /// Links:
+    ///  - [SIP draft](https://github.com/stacksgov/sips/blob/56b73eada5ef1b72376f4a230949297b3edcc562/sips/sip-021/sip-021-trustless-two-way-peg-for-bitcoin.md)
+    ///  - [Reference implementation](https://github.com/stacks-network/stacks-blockchain/blob/next/src/chainstate/burn/operations/peg_in.rs)
     pub fn to_vec(&self) -> Vec<u8> {
         once(b'<')
             .chain(once(self.address.version))
