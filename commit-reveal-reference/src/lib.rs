@@ -21,6 +21,8 @@ use bitcoin::{
 use blockstack_lib::types::chainstate::StacksAddress;
 use secp256k1::{ecdsa::RecoverableSignature, XOnlyPublicKey};
 
+type CommitRevealResult<T> = Result<T, CommitRevealError>;
+
 #[derive(thiserror::Error, Debug)]
 pub enum CommitRevealError {
     #[error("Signature is invalid: {0}")]
@@ -31,43 +33,61 @@ pub enum CommitRevealError {
     InvalidTaproot(&'static str, TaprootBuilderError),
 }
 
-type CommitRevealResult<T> = Result<T, CommitRevealError>;
-
-fn peg_in_data(address: StacksAddress, contract_name: Option<String>, reveal_fee: u64) -> Vec<u8> {
-    once('<' as u8)
-        .chain(once(address.version))
-        .chain(address.bytes.as_bytes().into_iter().cloned())
-        .chain(
-            contract_name
-                .map(|contract_name| contract_name.as_bytes().to_vec())
-                .into_iter()
-                .flatten(),
-        )
-        .chain(repeat(0))
-        .take(78)
-        .chain(reveal_fee.to_be_bytes())
-        .collect()
+pub fn commit(
+    data: &[u8],
+    revealer_key: &XOnlyPublicKey,
+    reclaim_key: &XOnlyPublicKey,
+) -> CommitRevealResult<BitcoinAddress> {
+    let spend_info = taproot_spend_info(data, revealer_key, reclaim_key)?;
+    Ok(address_from_taproot_spend_info(spend_info))
 }
 
-fn peg_out_data(
-    amount: u64,
-    signature: RecoverableSignature,
-    reveal_fee: u64,
-) -> CommitRevealResult<Vec<u8>> {
-    let (recovery_id, signature_bytes) = signature.serialize_compact();
-    let recovery_id: u8 = recovery_id
-        .to_i32()
-        .try_into()
-        .map_err(CommitRevealError::InvalidRecoveryId)?;
-    let empty_memo = [0; 4];
+pub fn reveal(
+    commit_output: OutPoint,
+    stacks_magic_bytes: &[u8; 2],
+    data: &[u8],
+    revealer_key: &XOnlyPublicKey,
+    reclaim_key: &XOnlyPublicKey,
+) -> CommitRevealResult<Transaction> {
+    let spend_info = taproot_spend_info(data, revealer_key, reclaim_key)?;
 
-    Ok(once('>' as u8)
-        .chain(amount.to_be_bytes())
-        .chain(once(recovery_id))
-        .chain(signature_bytes)
-        .chain(empty_memo)
-        .chain(reveal_fee.to_be_bytes())
-        .collect())
+    let script = op_drop_script(data, revealer_key);
+    let control_block = spend_info
+        .control_block(&(script.clone(), LeafVersion::TapScript))
+        .ok_or(CommitRevealError::NoControlBlock)?;
+
+    let witness_script = Builder::new().into_script(); // TODO: Figure it out
+    let witness = Witness::from_slice(&[script.as_bytes().to_vec(), control_block.serialize()]);
+
+    let reveal_op_return_bytes: Vec<u8> = stacks_magic_bytes
+        .iter()
+        .chain(&['w' as u8])
+        .cloned()
+        .collect();
+
+    // TODO: Confirm that this is infallible
+    let reveal_op_return_pushbytes: &PushBytes =
+        reveal_op_return_bytes.as_slice().try_into().unwrap();
+
+    let tx = Transaction {
+        version: 2,
+        lock_time: LockTime::ZERO,
+        input: vec![TxIn {
+            previous_output: commit_output,
+            script_sig: witness_script.to_owned(),
+            sequence: Sequence::MAX,
+            witness,
+        }],
+        output: vec![TxOut {
+            value: 0,
+            script_pubkey: Builder::new()
+                .push_opcode(OP_RETURN)
+                .push_slice(reveal_op_return_pushbytes)
+                .into_script(),
+        }],
+    };
+
+    Ok(tx)
 }
 
 pub fn peg_in_commit(
@@ -92,15 +112,6 @@ pub fn peg_out_request_commit(
     let address = commit(&data, revealer_key, reclaim_key)?;
 
     Ok(address)
-}
-
-pub fn commit(
-    data: &[u8],
-    revealer_key: &XOnlyPublicKey,
-    reclaim_key: &XOnlyPublicKey,
-) -> CommitRevealResult<BitcoinAddress> {
-    let spend_info = taproot_spend_info(data, revealer_key, reclaim_key)?;
-    Ok(address_from_taproot_spend_info(spend_info))
 }
 
 pub fn peg_in_reveal_unsigned(
@@ -165,63 +176,41 @@ pub fn peg_out_request_reveal_unsigned(
     Ok(tx)
 }
 
-pub fn reveal(
-    commit_output: OutPoint,
-    stacks_magic_bytes: &[u8; 2],
-    data: &[u8],
-    revealer_key: &XOnlyPublicKey,
-    reclaim_key: &XOnlyPublicKey,
-) -> CommitRevealResult<Transaction> {
-    let spend_info = taproot_spend_info(data, revealer_key, reclaim_key)?;
-
-    let script = op_drop_script(data, revealer_key);
-    let control_block = spend_info
-        .control_block(&(script.clone(), LeafVersion::TapScript))
-        .ok_or(CommitRevealError::NoControlBlock)?;
-
-    let witness_script = Builder::new().into_script(); // TODO: Figure it out
-    let witness = Witness::from_slice(&[script.as_bytes().to_vec(), control_block.serialize()]);
-
-    let reveal_op_return_bytes: Vec<u8> = stacks_magic_bytes
-        .iter()
-        .chain(&['w' as u8])
-        .cloned()
-        .collect();
-
-    // TODO: Confirm that this is infallible
-    let reveal_op_return_pushbytes: &PushBytes =
-        reveal_op_return_bytes.as_slice().try_into().unwrap();
-
-    let tx = Transaction {
-        version: 2,
-        lock_time: LockTime::ZERO,
-        input: vec![TxIn {
-            previous_output: commit_output,
-            script_sig: witness_script.to_owned(),
-            sequence: Sequence::MAX,
-            witness,
-        }],
-        output: vec![TxOut {
-            value: 0,
-            script_pubkey: Builder::new()
-                .push_opcode(OP_RETURN)
-                .push_slice(reveal_op_return_pushbytes)
-                .into_script(),
-        }],
-    };
-
-    Ok(tx)
+fn peg_in_data(address: StacksAddress, contract_name: Option<String>, reveal_fee: u64) -> Vec<u8> {
+    once('<' as u8)
+        .chain(once(address.version))
+        .chain(address.bytes.as_bytes().into_iter().cloned())
+        .chain(
+            contract_name
+                .map(|contract_name| contract_name.as_bytes().to_vec())
+                .into_iter()
+                .flatten(),
+        )
+        .chain(repeat(0))
+        .take(78)
+        .chain(reveal_fee.to_be_bytes())
+        .collect()
 }
 
-fn address_from_taproot_spend_info(spend_info: TaprootSpendInfo) -> BitcoinAddress {
-    let secp = secp256k1::Secp256k1::new(); // Impure call
+fn peg_out_data(
+    amount: u64,
+    signature: RecoverableSignature,
+    reveal_fee: u64,
+) -> CommitRevealResult<Vec<u8>> {
+    let (recovery_id, signature_bytes) = signature.serialize_compact();
+    let recovery_id: u8 = recovery_id
+        .to_i32()
+        .try_into()
+        .map_err(CommitRevealError::InvalidRecoveryId)?;
+    let empty_memo = [0; 4];
 
-    BitcoinAddress::p2tr(
-        &secp,
-        spend_info.internal_key(),
-        spend_info.merkle_root(),
-        Network::Testnet, // TODO: Make sure to make this configurable
-    )
+    Ok(once('>' as u8)
+        .chain(amount.to_be_bytes())
+        .chain(once(recovery_id))
+        .chain(signature_bytes)
+        .chain(empty_memo)
+        .chain(reveal_fee.to_be_bytes())
+        .collect())
 }
 
 pub fn taproot_spend_info(
@@ -243,6 +232,17 @@ pub fn taproot_spend_info(
         .finalize(&secp, internal_key)
         // TODO: Confirm that this is infallible
         .expect("Taproot builder should be able to finalize after adding the internal key"))
+}
+
+fn address_from_taproot_spend_info(spend_info: TaprootSpendInfo) -> BitcoinAddress {
+    let secp = secp256k1::Secp256k1::new(); // Impure call
+
+    BitcoinAddress::p2tr(
+        &secp,
+        spend_info.internal_key(),
+        spend_info.merkle_root(),
+        Network::Testnet, // TODO: Make sure to make this configurable
+    )
 }
 
 fn op_drop_script(data: &[u8], revealer_key: &XOnlyPublicKey) -> ScriptBuf {
@@ -301,10 +301,10 @@ mod tests {
         assert_eq!(witness_program.program().as_bytes().len(), 32);
     }
 
-    //#[test]
-    //fn peg_in_commit_should_return_a_valid_bitcoin_p2tr_over_p2sh_address() {
-    //    assert!(false);
-    //}
+    #[test]
+    fn peg_in_commit_should_return_a_valid_bitcoin_p2tr_over_p2sh_address() {
+        assert!(false);
+    }
 
     //#[test]
     //fn peg_out_request_commit_should_return_a_valid_bitcoin_p2tr_over_p2sh_address() {
