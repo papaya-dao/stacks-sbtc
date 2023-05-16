@@ -33,6 +33,7 @@ pub enum CommitRevealError {
     InvalidTaproot(&'static str, TaprootBuilderError),
 }
 
+/// Constructs a deposit address for the commit
 pub fn commit(
     data: &[u8],
     revealer_key: &XOnlyPublicKey,
@@ -42,6 +43,7 @@ pub fn commit(
     Ok(address_from_taproot_spend_info(spend_info))
 }
 
+/// Constructs a transaction that reveals the commit data
 pub fn reveal(
     data: &[u8],
     RevealInputs {
@@ -85,6 +87,7 @@ pub struct RevealInputs<'r> {
     pub reclaim_key: &'r XOnlyPublicKey,
 }
 
+/// Constructs a peg in payment address
 pub fn peg_in_commit<'p>(
     peg_in_data: PegInData<'p>,
     revealer_key: &XOnlyPublicKey,
@@ -93,6 +96,7 @@ pub fn peg_in_commit<'p>(
     commit(&peg_in_data.to_vec(), revealer_key, reclaim_key)
 }
 
+/// Constructs a peg out payment address
 pub fn peg_out_request_commit(
     peg_out_data: PegOutData,
     revealer_key: &XOnlyPublicKey,
@@ -101,6 +105,7 @@ pub fn peg_out_request_commit(
     commit(&peg_out_data.to_vec()?, revealer_key, reclaim_key)
 }
 
+/// Constructs a transaction that reveals the peg in payment address
 pub fn peg_in_reveal_unsigned<'p>(
     peg_in_data: PegInData<'p>,
     reveal_inputs: RevealInputs,
@@ -117,6 +122,7 @@ pub fn peg_in_reveal_unsigned<'p>(
     Ok(tx)
 }
 
+/// Constructs a transaction that reveals the peg out payment address
 pub fn peg_out_request_reveal_unsigned(
     reveal_inputs: RevealInputs,
     peg_out_data: PegOutData,
@@ -208,6 +214,7 @@ impl<'r> PegOutData<'r> {
     }
 }
 
+// TODO: Figure out if we want this to be public or not
 pub fn taproot_spend_info(
     data: &[u8],
     revealer_key: &XOnlyPublicKey,
