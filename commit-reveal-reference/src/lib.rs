@@ -305,7 +305,9 @@ mod tests {
         address::{Payload::WitnessProgram, WitnessVersion},
         Txid,
     };
+    use blockstack_lib::util::hash::Hash160;
     use rand::Rng;
+    use secp256k1::ecdsa::RecoveryId;
 
     #[test]
     fn commit_should_return_a_valid_bitcoin_p2tr_address() {
@@ -357,15 +359,59 @@ mod tests {
         );
     }
 
-    // #[test]
-    // fn peg_in_commit_should_return_a_valid_bitcoin_p2tr_address() {
-    //     assert!(false);
-    // }
+    #[test]
+    fn peg_in_commit_should_return_a_valid_bitcoin_p2tr_address() {
+        let mut rng = helpers::seeded_rng();
+        let revealer_key = helpers::random_key(&mut rng);
+        let reclaim_key = helpers::random_key(&mut rng);
 
-    //#[test]
-    //fn peg_out_request_commit_should_return_a_valid_bitcoin_p2tr_over_p2sh_address() {
-    //    assert!(false);
-    //}
+        let address = StacksAddress {
+            version: 1,
+            bytes: Hash160(rng.gen()),
+        };
+
+        let commit_address = peg_in_commit(
+            PegInData::new(&address, None, 0),
+            &revealer_key,
+            &reclaim_key,
+        )
+        .expect("Failed to construct commit address");
+
+        let WitnessProgram(witness_program) = commit_address.payload else {
+            panic!("Not a segwit address")
+        };
+
+        assert_eq!(witness_program.program().as_bytes().len(), 32);
+        assert_eq!(witness_program.version(), WitnessVersion::V1);
+    }
+
+    #[test]
+    fn peg_out_request_commit_should_return_a_valid_bitcoin_p2tr_address() {
+        let mut rng = helpers::seeded_rng();
+        let revealer_key = helpers::random_key(&mut rng);
+        let reclaim_key = helpers::random_key(&mut rng);
+
+        let signature_bytes: Vec<u8> = std::iter::from_fn(|| rng.gen()).take(64).collect();
+        let signature_recovery_id = RecoveryId::from_i32(1).unwrap();
+
+        // TODO: Figure out how to build a good signature
+        let signature =
+            RecoverableSignature::from_compact(&signature_bytes, signature_recovery_id).unwrap();
+
+        let commit_address = peg_out_request_commit(
+            PegOutData::new(100, &signature, 0),
+            &revealer_key,
+            &reclaim_key,
+        )
+        .expect("Failed to construct commit address");
+
+        let WitnessProgram(witness_program) = commit_address.payload else {
+            panic!("Not a segwit address")
+        };
+
+        assert_eq!(witness_program.program().as_bytes().len(), 32);
+        assert_eq!(witness_program.version(), WitnessVersion::V1);
+    }
 
     //#[test]
     //fn peg_in_reveal_unsigned_should_return_a_valid_unsigned_transaction() {
