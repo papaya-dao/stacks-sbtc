@@ -286,7 +286,7 @@ mod tests {
     use rand::Rng;
 
     #[test]
-    fn commit_should_return_a_valid_bitcoin_p2tr_over_p2sh_address() {
+    fn commit_should_return_a_valid_bitcoin_p2tr_address() {
         let mut rng = helpers::seeded_rng();
         let data = [rng.gen(); 86];
         let revealer_key = helpers::random_key(&mut rng);
@@ -294,10 +294,11 @@ mod tests {
 
         let commit_address = commit(&data, &revealer_key, &reclaim_key).unwrap();
 
-        // TODO: This is failing. We are dependent on https://github.com/rust-bitcoin/rust-bitcoin/issues/1851 for the fix
-        // let bitcoin::address::Payload::ScriptHash(_) = commit_address.payload else {
-        //     panic!("Not a p2sh address")
-        // };
+        let bitcoin::address::Payload::WitnessProgram(witness_program) = commit_address.payload else {
+            panic!("Not a segwit address")
+        };
+
+        assert_eq!(witness_program.program().as_bytes().len(), 32);
     }
 
     //#[test]
