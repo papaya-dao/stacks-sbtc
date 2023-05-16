@@ -124,8 +124,8 @@ pub fn peg_in_reveal_unsigned<'p>(
 
 /// Constructs a transaction that reveals the peg out payment address
 pub fn peg_out_request_reveal_unsigned(
-    reveal_inputs: RevealInputs,
     peg_out_data: PegOutData,
+    reveal_inputs: RevealInputs,
     fulfillment_fee: u64,
     commit_amount: u64,
     peg_wallet_address: BitcoinAddress,
@@ -299,15 +299,17 @@ fn internal_key() -> UntweakedPublicKey {
 
 #[cfg(test)]
 mod tests {
+    use self::helpers::{random_address, random_txid};
+
     use super::*;
 
     use bitcoin::{
         address::{Payload::WitnessProgram, WitnessVersion},
-        Txid,
+        Address, Txid,
     };
     use blockstack_lib::util::hash::Hash160;
     use rand::Rng;
-    use secp256k1::ecdsa::RecoveryId;
+    use secp256k1::{ecdsa::RecoveryId, hashes::Hash};
 
     #[test]
     fn commit_should_return_a_valid_bitcoin_p2tr_address() {
@@ -413,15 +415,77 @@ mod tests {
         assert_eq!(witness_program.version(), WitnessVersion::V1);
     }
 
-    //#[test]
-    //fn peg_in_reveal_unsigned_should_return_a_valid_unsigned_transaction() {
-    //    assert!(false);
-    //}
+    #[test]
+    fn peg_in_reveal_unsigned_should_return_a_valid_unsigned_transaction() {
+        let mut rng = helpers::seeded_rng();
+        let revealer_key = helpers::random_key(&mut rng);
+        let reclaim_key = helpers::random_key(&mut rng);
+        let peg_wallet_address = random_address(&mut rng);
+        let stacks_address = StacksAddress {
+            version: 1,
+            bytes: Hash160(rng.gen()),
+        };
 
-    //#[test]
-    //fn peg_out_request_reveal_unsigned_should_return_a_valid_unsigned_transaction() {
-    //    assert!(false);
-    //}
+        let commit_output = OutPoint {
+            txid: random_txid(&mut rng),
+            vout: 0,
+        };
+
+        let transaction = peg_in_reveal_unsigned(
+            PegInData::new(&stacks_address, None, 40),
+            RevealInputs {
+                commit_output,
+                stacks_magic_bytes: &[b'x', b'x'],
+                revealer_key: &revealer_key,
+                reclaim_key: &reclaim_key,
+            },
+            100,
+            peg_wallet_address,
+        )
+        .expect("Couldn't build a reveal transaction");
+
+        assert_eq!(transaction.output.len(), 2);
+        assert_eq!(transaction.output[1].value, 60);
+    }
+
+    #[test]
+    fn peg_out_request_reveal_unsigned_should_return_a_valid_unsigned_transaction() {
+        let mut rng = helpers::seeded_rng();
+        let revealer_key = helpers::random_key(&mut rng);
+        let reclaim_key = helpers::random_key(&mut rng);
+        let peg_wallet_address = random_address(&mut rng);
+        let recipient_wallet_address = random_address(&mut rng);
+
+        let commit_output = OutPoint {
+            txid: random_txid(&mut rng),
+            vout: 0,
+        };
+
+        let signature_bytes: Vec<u8> = std::iter::from_fn(|| rng.gen()).take(64).collect();
+        let signature_recovery_id = RecoveryId::from_i32(1).unwrap();
+
+        // TODO: Figure out how to build a good signature
+        let signature =
+            RecoverableSignature::from_compact(&signature_bytes, signature_recovery_id).unwrap();
+
+        let transaction = peg_out_request_reveal_unsigned(
+            PegOutData::new(100, &signature, 40),
+            RevealInputs {
+                commit_output,
+                stacks_magic_bytes: &[b'x', b'x'],
+                revealer_key: &revealer_key,
+                reclaim_key: &reclaim_key,
+            },
+            10,
+            100,
+            peg_wallet_address,
+            recipient_wallet_address,
+        )
+        .expect("Couldn't build a reveal transaction");
+
+        assert_eq!(transaction.output.len(), 2);
+        assert_eq!(transaction.output[1].value, 100);
+    }
 
     #[test]
     fn it_works() {
@@ -439,7 +503,8 @@ mod tests {
     }
 
     mod helpers {
-        use secp256k1::KeyPair;
+        use bitcoin::{Address, Network, PrivateKey, PublicKey};
+        use secp256k1::{KeyPair, Secp256k1, SecretKey};
 
         use super::*;
 
@@ -460,6 +525,16 @@ mod tests {
 
             let random_hash: sha256d::Hash = Hash::from_byte_array([rng.gen(); 32]);
             random_hash.into()
+        }
+
+        pub(super) fn random_address<Rng: rand::Rng>(rng: &mut Rng) -> Address {
+            let secp = Secp256k1::new();
+            let secret_key = SecretKey::new(&mut rand::thread_rng());
+            let private_key = PrivateKey::new(secret_key, Network::Regtest);
+            let public_key = PublicKey::from_private_key(&secp, &private_key);
+            let address = Address::p2wpkh(&public_key, Network::Regtest).unwrap();
+
+            address
         }
     }
 }
