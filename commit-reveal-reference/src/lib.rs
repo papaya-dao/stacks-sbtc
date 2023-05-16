@@ -42,13 +42,6 @@ pub fn commit(
     Ok(address_from_taproot_spend_info(spend_info))
 }
 
-pub struct RevealInputs<'r> {
-    pub commit_output: OutPoint,
-    pub stacks_magic_bytes: &'r [u8; 2],
-    pub revealer_key: &'r XOnlyPublicKey,
-    pub reclaim_key: &'r XOnlyPublicKey,
-}
-
 pub fn reveal(
     data: &[u8],
     RevealInputs {
@@ -85,6 +78,13 @@ pub fn reveal(
     Ok(tx)
 }
 
+pub struct RevealInputs<'r> {
+    pub commit_output: OutPoint,
+    pub stacks_magic_bytes: &'r [u8; 2],
+    pub revealer_key: &'r XOnlyPublicKey,
+    pub reclaim_key: &'r XOnlyPublicKey,
+}
+
 pub fn peg_in_commit(
     address: StacksAddress,
     contract_name: Option<String>,
@@ -93,20 +93,15 @@ pub fn peg_in_commit(
     reclaim_key: &XOnlyPublicKey,
 ) -> CommitRevealResult<BitcoinAddress> {
     let data = peg_in_data(address, contract_name, reveal_fee);
-    Ok(commit(&data, revealer_key, reclaim_key)?)
+    commit(&data, revealer_key, reclaim_key)
 }
 
 pub fn peg_out_request_commit(
-    amount: u64,
-    signature: RecoverableSignature,
-    reveal_fee: u64,
+    peg_out_data: PegOutData,
     revealer_key: &XOnlyPublicKey,
     reclaim_key: &XOnlyPublicKey,
 ) -> CommitRevealResult<BitcoinAddress> {
-    let data = peg_out_data(amount, signature, reveal_fee)?;
-    let address = commit(&data, revealer_key, reclaim_key)?;
-
-    Ok(address)
+    commit(&peg_out_data.to_vec()?, revealer_key, reclaim_key)
 }
 
 pub fn peg_in_reveal_unsigned(
@@ -130,19 +125,16 @@ pub fn peg_in_reveal_unsigned(
 
 pub fn peg_out_request_reveal_unsigned(
     reveal_inputs: RevealInputs,
-    amount: u64,
-    signature: RecoverableSignature,
-    reveal_fee: u64,
+    peg_out_data: PegOutData,
     fulfillment_fee: u64,
     commit_amount: u64,
     peg_wallet_address: BitcoinAddress,
     recipient_wallet_address: BitcoinAddress,
 ) -> CommitRevealResult<Transaction> {
-    let data = peg_out_data(amount, signature, reveal_fee)?;
-    let mut tx = reveal(&data, reveal_inputs)?;
+    let mut tx = reveal(&peg_out_data.to_vec()?, reveal_inputs)?;
 
     tx.output.push(TxOut {
-        value: commit_amount - reveal_fee - fulfillment_fee,
+        value: commit_amount - peg_out_data.reveal_fee - fulfillment_fee,
         script_pubkey: recipient_wallet_address.script_pubkey(),
     });
     tx.output.push(TxOut {
@@ -154,9 +146,9 @@ pub fn peg_out_request_reveal_unsigned(
 }
 
 fn peg_in_data(address: StacksAddress, contract_name: Option<String>, reveal_fee: u64) -> Vec<u8> {
-    once('<' as u8)
+    once(b'<')
         .chain(once(address.version))
-        .chain(address.bytes.as_bytes().into_iter().cloned())
+        .chain(address.bytes.as_bytes().iter().cloned())
         .chain(
             contract_name
                 .map(|contract_name| contract_name.as_bytes().to_vec())
@@ -169,25 +161,37 @@ fn peg_in_data(address: StacksAddress, contract_name: Option<String>, reveal_fee
         .collect()
 }
 
-fn peg_out_data(
-    amount: u64,
-    signature: RecoverableSignature,
-    reveal_fee: u64,
-) -> CommitRevealResult<Vec<u8>> {
-    let (recovery_id, signature_bytes) = signature.serialize_compact();
-    let recovery_id: u8 = recovery_id
-        .to_i32()
-        .try_into()
-        .map_err(CommitRevealError::InvalidRecoveryId)?;
-    let empty_memo = [0; 4];
+pub struct PegOutData<'r> {
+    pub amount: u64,
+    pub signature: &'r RecoverableSignature,
+    pub reveal_fee: u64,
+}
 
-    Ok(once('>' as u8)
-        .chain(amount.to_be_bytes())
-        .chain(once(recovery_id))
-        .chain(signature_bytes)
-        .chain(empty_memo)
-        .chain(reveal_fee.to_be_bytes())
-        .collect())
+impl<'r> PegOutData<'r> {
+    pub fn new(amount: u64, signature: &'r RecoverableSignature, reveal_fee: u64) -> Self {
+        Self {
+            amount,
+            signature,
+            reveal_fee,
+        }
+    }
+
+    pub fn to_vec(&self) -> CommitRevealResult<Vec<u8>> {
+        let (recovery_id, signature_bytes) = self.signature.serialize_compact();
+        let recovery_id: u8 = recovery_id
+            .to_i32()
+            .try_into()
+            .map_err(CommitRevealError::InvalidRecoveryId)?;
+        let empty_memo = [0; 4];
+
+        Ok(once(b'>')
+            .chain(self.amount.to_be_bytes())
+            .chain(once(recovery_id))
+            .chain(signature_bytes)
+            .chain(empty_memo)
+            .chain(self.reveal_fee.to_be_bytes())
+            .collect())
+    }
 }
 
 pub fn taproot_spend_info(
@@ -243,8 +247,8 @@ fn reclaim_script(reclaim_key: &XOnlyPublicKey) -> ScriptBuf {
 fn reveal_op_return_script(stacks_magic_bytes: &[u8; 2]) -> ScriptBuf {
     let op_return_bytes: Vec<u8> = stacks_magic_bytes
         .iter()
-        .chain(&['w' as u8])
         .cloned()
+        .chain(once(b'w'))
         .collect();
 
     // TODO: Confirm that this is infallible
