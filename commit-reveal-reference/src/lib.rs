@@ -42,12 +42,21 @@ pub fn commit(
     Ok(address_from_taproot_spend_info(spend_info))
 }
 
+pub struct RevealInputs<'r> {
+    pub commit_output: OutPoint,
+    pub stacks_magic_bytes: &'r [u8; 2],
+    pub revealer_key: &'r XOnlyPublicKey,
+    pub reclaim_key: &'r XOnlyPublicKey,
+}
+
 pub fn reveal(
-    commit_output: OutPoint,
-    stacks_magic_bytes: &[u8; 2],
     data: &[u8],
-    revealer_key: &XOnlyPublicKey,
-    reclaim_key: &XOnlyPublicKey,
+    RevealInputs {
+        commit_output,
+        stacks_magic_bytes,
+        revealer_key,
+        reclaim_key,
+    }: RevealInputs,
 ) -> CommitRevealResult<Transaction> {
     let spend_info = taproot_spend_info(data, revealer_key, reclaim_key)?;
 
@@ -101,24 +110,15 @@ pub fn peg_out_request_commit(
 }
 
 pub fn peg_in_reveal_unsigned(
+    reveal_inputs: RevealInputs,
     address: StacksAddress,
     contract_name: Option<String>,
     reveal_fee: u64,
-    commit_output: OutPoint,
     commit_amount: u64,
-    stacks_magic_bytes: &[u8; 2],
     peg_wallet_address: BitcoinAddress,
-    revealer_key: &XOnlyPublicKey,
-    reclaim_key: &XOnlyPublicKey,
 ) -> CommitRevealResult<Transaction> {
     let data = peg_in_data(address, contract_name, reveal_fee);
-    let mut tx = reveal(
-        commit_output,
-        stacks_magic_bytes,
-        &data,
-        revealer_key,
-        reclaim_key,
-    )?;
+    let mut tx = reveal(&data, reveal_inputs)?;
 
     tx.output.push(TxOut {
         value: commit_amount - reveal_fee,
@@ -129,26 +129,17 @@ pub fn peg_in_reveal_unsigned(
 }
 
 pub fn peg_out_request_reveal_unsigned(
+    reveal_inputs: RevealInputs,
     amount: u64,
     signature: RecoverableSignature,
     reveal_fee: u64,
     fulfillment_fee: u64,
-    commit_output: OutPoint,
     commit_amount: u64,
-    stacks_magic_bytes: &[u8; 2],
     peg_wallet_address: BitcoinAddress,
     recipient_wallet_address: BitcoinAddress,
-    revealer_key: &XOnlyPublicKey,
-    reclaim_key: &XOnlyPublicKey,
 ) -> CommitRevealResult<Transaction> {
     let data = peg_out_data(amount, signature, reveal_fee)?;
-    let mut tx = reveal(
-        commit_output,
-        stacks_magic_bytes,
-        &data,
-        revealer_key,
-        reclaim_key,
-    )?;
+    let mut tx = reveal(&data, reveal_inputs)?;
 
     tx.output.push(TxOut {
         value: commit_amount - reveal_fee - fulfillment_fee,
@@ -285,7 +276,10 @@ fn internal_key() -> UntweakedPublicKey {
 mod tests {
     use super::*;
 
-    use bitcoin::Txid;
+    use bitcoin::{
+        address::{Payload::WitnessProgram, WitnessVersion},
+        Txid,
+    };
     use rand::Rng;
 
     #[test]
@@ -298,11 +292,12 @@ mod tests {
         let commit_address =
             commit(&data, &revealer_key, &reclaim_key).expect("Failed to construct commit address");
 
-        let bitcoin::address::Payload::WitnessProgram(witness_program) = commit_address.payload else {
+        let WitnessProgram(witness_program) = commit_address.payload else {
             panic!("Not a segwit address")
         };
 
         assert_eq!(witness_program.program().as_bytes().len(), 32);
+        assert_eq!(witness_program.version(), WitnessVersion::V1);
     }
 
     #[test]
@@ -311,16 +306,18 @@ mod tests {
         let txid: Txid = helpers::random_txid(&mut rng);
         let commit_output = OutPoint { txid, vout: 0 };
         let data = [rng.gen(); 86];
-        let magic_bytes = [105, 100]; // "id" - arbitrary but consistent with Stacks tests
-        let revealer_key = helpers::random_key(&mut rng);
-        let reclaim_key = helpers::random_key(&mut rng);
+        let stacks_magic_bytes = &[105, 100]; // "id" - arbitrary but consistent with Stacks tests
+        let revealer_key = &helpers::random_key(&mut rng);
+        let reclaim_key = &helpers::random_key(&mut rng);
 
         let reveal_transaction_unsigned = reveal(
-            commit_output,
-            &magic_bytes,
             &data,
-            &revealer_key,
-            &reclaim_key,
+            RevealInputs {
+                commit_output,
+                stacks_magic_bytes,
+                revealer_key,
+                reclaim_key,
+            },
         )
         .expect("Failed to construct reveal transaction");
 
@@ -331,14 +328,14 @@ mod tests {
         assert_eq!(reveal_transaction_unsigned.output.len(), 1);
         assert_eq!(
             reveal_transaction_unsigned.output[0].script_pubkey,
-            reveal_op_return_script(&magic_bytes)
+            reveal_op_return_script(&stacks_magic_bytes)
         );
     }
 
-    //#[test]
-    //fn peg_in_commit_should_return_a_valid_bitcoin_p2tr_over_p2sh_address() {
-    //assert!(false);
-    //}
+    // #[test]
+    // fn peg_in_commit_should_return_a_valid_bitcoin_p2tr_address() {
+    //     assert!(false);
+    // }
 
     //#[test]
     //fn peg_out_request_commit_should_return_a_valid_bitcoin_p2tr_over_p2sh_address() {
