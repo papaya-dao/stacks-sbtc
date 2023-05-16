@@ -56,34 +56,20 @@ pub fn reveal(
         .control_block(&(script.clone(), LeafVersion::TapScript))
         .ok_or(CommitRevealError::NoControlBlock)?;
 
-    let witness_script = Builder::new().into_script(); // TODO: Figure it out
     let witness = Witness::from_slice(&[script.as_bytes().to_vec(), control_block.serialize()]);
-
-    let reveal_op_return_bytes: Vec<u8> = stacks_magic_bytes
-        .iter()
-        .chain(&['w' as u8])
-        .cloned()
-        .collect();
-
-    // TODO: Confirm that this is infallible
-    let reveal_op_return_pushbytes: &PushBytes =
-        reveal_op_return_bytes.as_slice().try_into().unwrap();
 
     let tx = Transaction {
         version: 2,
         lock_time: LockTime::ZERO,
         input: vec![TxIn {
             previous_output: commit_output,
-            script_sig: witness_script.to_owned(),
+            script_sig: ScriptBuf::new(),
             sequence: Sequence::MAX,
             witness,
         }],
         output: vec![TxOut {
             value: 0,
-            script_pubkey: Builder::new()
-                .push_opcode(OP_RETURN)
-                .push_slice(reveal_op_return_pushbytes)
-                .into_script(),
+            script_pubkey: reveal_op_return_script(stacks_magic_bytes),
         }],
     };
 
@@ -263,6 +249,22 @@ fn reclaim_script(reclaim_key: &XOnlyPublicKey) -> ScriptBuf {
         .into_script()
 }
 
+fn reveal_op_return_script(stacks_magic_bytes: &[u8; 2]) -> ScriptBuf {
+    let op_return_bytes: Vec<u8> = stacks_magic_bytes
+        .iter()
+        .chain(&['w' as u8])
+        .cloned()
+        .collect();
+
+    // TODO: Confirm that this is infallible
+    let op_return_pushbytes: &PushBytes = op_return_bytes.as_slice().try_into().unwrap();
+
+    Builder::new()
+        .push_opcode(OP_RETURN)
+        .push_slice(op_return_pushbytes)
+        .into_script()
+}
+
 // Just a point with unknown discrete logarithm.
 // We use the hash of the data bytes to compute it.
 fn internal_key() -> UntweakedPublicKey {
@@ -283,6 +285,7 @@ fn internal_key() -> UntweakedPublicKey {
 mod tests {
     use super::*;
 
+    use bitcoin::Txid;
     use rand::Rng;
 
     #[test]
@@ -292,7 +295,8 @@ mod tests {
         let revealer_key = helpers::random_key(&mut rng);
         let reclaim_key = helpers::random_key(&mut rng);
 
-        let commit_address = commit(&data, &revealer_key, &reclaim_key).unwrap();
+        let commit_address =
+            commit(&data, &revealer_key, &reclaim_key).expect("Failed to construct commit address");
 
         let bitcoin::address::Payload::WitnessProgram(witness_program) = commit_address.payload else {
             panic!("Not a segwit address")
@@ -302,9 +306,39 @@ mod tests {
     }
 
     #[test]
-    fn peg_in_commit_should_return_a_valid_bitcoin_p2tr_over_p2sh_address() {
-        assert!(false);
+    fn reveal_should_return_a_valid_unsigned_transaction() {
+        let mut rng = helpers::seeded_rng();
+        let txid: Txid = helpers::random_txid(&mut rng);
+        let commit_output = OutPoint { txid, vout: 0 };
+        let data = [rng.gen(); 86];
+        let magic_bytes = [105, 100]; // "id" - arbitrary but consistent with Stacks tests
+        let revealer_key = helpers::random_key(&mut rng);
+        let reclaim_key = helpers::random_key(&mut rng);
+
+        let reveal_transaction_unsigned = reveal(
+            commit_output,
+            &magic_bytes,
+            &data,
+            &revealer_key,
+            &reclaim_key,
+        )
+        .expect("Failed to construct reveal transaction");
+
+        assert_eq!(reveal_transaction_unsigned.input.len(), 1);
+        assert!(reveal_transaction_unsigned.input[0].script_sig.is_empty());
+        assert_eq!(reveal_transaction_unsigned.input[0].witness.len(), 2);
+
+        assert_eq!(reveal_transaction_unsigned.output.len(), 1);
+        assert_eq!(
+            reveal_transaction_unsigned.output[0].script_pubkey,
+            reveal_op_return_script(&magic_bytes)
+        );
     }
+
+    //#[test]
+    //fn peg_in_commit_should_return_a_valid_bitcoin_p2tr_over_p2sh_address() {
+    //assert!(false);
+    //}
 
     //#[test]
     //fn peg_out_request_commit_should_return_a_valid_bitcoin_p2tr_over_p2sh_address() {
@@ -350,6 +384,14 @@ mod tests {
             let secp = secp256k1::Secp256k1::new();
             let keypair = KeyPair::new(&secp, rng);
             keypair.x_only_public_key().0
+        }
+
+        pub(super) fn random_txid<Rng: rand::Rng>(rng: &mut Rng) -> Txid {
+            use bitcoin::hashes::sha256d;
+            use bitcoin::hashes::Hash;
+
+            let random_hash: sha256d::Hash = Hash::from_byte_array([rng.gen(); 32]);
+            random_hash.into()
         }
     }
 }
