@@ -120,14 +120,15 @@ impl StacksNode for NodeClient {
             .send()?;
 
         if response.status() != StatusCode::OK {
-            let json_response = response
-                .json::<serde_json::Value>()
+            let error_str = response
+                .text()
                 .map_err(|_| StacksNodeError::BehindChainTip)?;
-            let error_str = json_response.as_str().unwrap_or("Unknown Reason");
+
             warn!(
                 "Failed to broadcast transaction to the stacks node: {:?}",
                 error_str
             );
+
             return Err(StacksNodeError::BroadcastFailure(error_str.to_string()));
         }
         Ok(())
