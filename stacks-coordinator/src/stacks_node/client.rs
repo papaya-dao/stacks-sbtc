@@ -226,7 +226,7 @@ impl StacksNode for NodeClient {
     fn next_nonce(&mut self, address: &StacksAddress) -> Result<u64, StacksNodeError> {
         debug!("Retrieving next nonce...");
         if let Some(nonce) = self.next_nonce {
-            let next_nonce = nonce + 1;
+            let next_nonce = nonce.wrapping_add(1);
             self.next_nonce = Some(next_nonce);
             return Ok(next_nonce);
         }
@@ -561,12 +561,17 @@ mod tests {
     fn next_nonce_success_test() {
         let mut config = TestConfig::new();
 
-        let h = spawn(move || config.client.next_nonce(&config.sender));
+        let h = spawn(move || {
+            let nonce = config.client.next_nonce(&config.sender).unwrap();
+            let next_nonce = config.client.next_nonce(&config.sender).unwrap();
+            (nonce, next_nonce)
+        });
         write_response(config.mock_server,
                     b"HTTP/1.1 200 OK\n\n{\"balance\":\"0x00000000000000000000000000000000\",\"locked\":\"0x00000000000000000000000000000000\",\"unlock_height\":0,\"nonce\":20,\"balance_proof\":\"\",\"nonce_proof\":\"\"}"
                 );
-        let result = h.join().unwrap().unwrap();
-        assert_eq!(result, 20);
+        let (nonce, next_nonce) = h.join().unwrap();
+        assert_eq!(nonce, 20);
+        assert_eq!(next_nonce, 21);
     }
 
     #[test]
