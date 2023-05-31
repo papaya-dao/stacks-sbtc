@@ -240,6 +240,7 @@ impl StacksNode for NodeClient {
 
     fn broadcast_transaction(&self, tx: &StacksTransaction) -> Result<(), StacksNodeError> {
         debug!("Broadcasting transaction...");
+        debug!("Transaction: {:?}", tx);
         let url = self.build_url("/v2/transactions");
         let mut buffer = vec![];
 

@@ -333,7 +333,18 @@ impl TryFrom<&Config> for StacksCoordinator {
             config.stacks_version,
             config.transaction_fee,
         );
+
         let mut frost_coordinator = create_frost_coordinator(config, &local_stacks_node)?;
+
+        // First load the coordinator data into the sbtc contract
+        debug!("loading coordinator data into sBTC contract...");
+        let nonce = local_stacks_node.next_nonce(&config.stacks_address)?;
+        let coordinator_tx = stacks_wallet.build_set_coordinator_data_transaction(
+            stacks_wallet.address(),
+            stacks_wallet.public_key(),
+            nonce,
+        )?;
+        local_stacks_node.broadcast_transaction(&coordinator_tx)?;
 
         // Load the public key from either the frost_coordinator or the sBTC contract
         let xonly_pubkey = bitcoin_public_key(
