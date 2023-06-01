@@ -120,6 +120,10 @@ impl BitcoinWalletTrait for BitcoinWallet {
     fn address(&self) -> &Address {
         &self.address
     }
+
+    fn public_key(&self) -> &PublicKey {
+        &self.public_key
+    }
 }
 
 // Helper function to convert a utxo to an unsigned input

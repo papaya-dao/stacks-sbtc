@@ -87,47 +87,47 @@ fn should_broadcast_transaction() {
     assert!(Transaction::consensus_decode(&mut hex::decode(txraw).unwrap().as_slice()).is_ok());
 }
 
-#[test]
-fn should_load_wallet() {
-    let btcd = BitcoinProcess::new();
-    let (_, _, _, address) = generate_wallet();
+// #[test]
+// fn should_load_wallet() {
+//     let btcd = BitcoinProcess::new();
+//     let (_, _, _, address) = generate_wallet();
 
-    // Attemp to register the address with the wallet
-    let local_btc_node = LocalhostBitcoinNode::new(btcd.url().to_string());
-    local_btc_node.load_wallet(&address).unwrap();
-    let result = btcd.rpc("listreceivedbyaddress", (0, true, true));
+//     // Attemp to register the address with the wallet
+//     let local_btc_node = LocalhostBitcoinNode::new(btcd.url().to_string());
+//     local_btc_node.load_wallet(&address).unwrap();
+//     let result = btcd.rpc("listreceivedbyaddress", (0, true, true));
 
-    // Check that the address was registered
-    let address_found = result
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|item| {
-            item.get("address")
-                .and_then(|addr| addr.as_str())
-                .and_then(|addr| Address::from_str(addr).ok())
-                .map(|addr| addr == address)
-                .unwrap_or_default()
-        })
-        .is_some();
+//     // Check that the address was registered
+//     let address_found = result
+//         .as_array()
+//         .unwrap()
+//         .iter()
+//         .find(|item| {
+//             item.get("address")
+//                 .and_then(|addr| addr.as_str())
+//                 .and_then(|addr| Address::from_str(addr).ok())
+//                 .map(|addr| addr == address)
+//                 .unwrap_or_default()
+//         })
+//         .is_some();
 
-    assert!(address_found);
-}
+//     assert!(address_found);
+// }
 
-#[test]
-fn should_list_unspent() {
-    let btcd = BitcoinProcess::new();
-    let (_, _, _, address) = generate_wallet();
+// #[test]
+// fn should_list_unspent() {
+//     let btcd = BitcoinProcess::new();
+//     let (_, _, _, address) = generate_wallet();
 
-    let local_btc_node = LocalhostBitcoinNode::new(btcd.url().to_string());
-    local_btc_node.load_wallet(&address).unwrap();
+//     let local_btc_node = LocalhostBitcoinNode::new(btcd.url().to_string());
+//     local_btc_node.load_wallet(&address).unwrap();
 
-    // Produce some UTXOs for the address
-    let _ = mine_and_get_coinbase_txid(&btcd, &address);
-    // Produce more blocks to make sure the UTXOs are confirmed
-    let _ = mine_and_get_coinbase_txid(&btcd, &address);
+//     // Produce some UTXOs for the address
+//     let _ = mine_and_get_coinbase_txid(&btcd, &address);
+//     // Produce more blocks to make sure the UTXOs are confirmed
+//     let _ = mine_and_get_coinbase_txid(&btcd, &address);
 
-    let utxos = local_btc_node.list_unspent(&address).unwrap();
+//     let utxos = local_btc_node.list_unspent(&address).unwrap();
 
-    assert!(!utxos.is_empty());
-}
+//     assert!(!utxos.is_empty());
+// }

@@ -1,5 +1,6 @@
 use crate::bitcoin_node::{self, UTXO};
 use crate::bitcoin_wallet::{BitcoinWallet as BitcoinWalletStruct, Error as BitcoinWalletError};
+use crate::coordinator::PublicKey as BitcoinPublicKey;
 use crate::stacks_node::{self, PegOutRequestOp};
 use crate::stacks_wallet::{Error as StacksWalletError, StacksWallet as StacksWalletStruct};
 use bitcoin::secp256k1::PublicKey;
@@ -58,6 +59,8 @@ pub trait BitcoinWallet {
     ) -> Result<bitcoin_node::BitcoinTransaction, Error>;
     /// Returns the BTC address for the wallet
     fn address(&self) -> &BitcoinAddress;
+    /// Returns the BTC public key for the wallet
+    fn public_key(&self) -> &BitcoinPublicKey;
 }
 
 pub trait PegWallet {

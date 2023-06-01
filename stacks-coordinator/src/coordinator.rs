@@ -299,6 +299,7 @@ fn bitcoin_public_key(
         let xonly_pubkey = PublicKey::from_slice(&point.x().to_bytes())
             .map_err(|e| Error::InvalidPublicKey(e.to_string()))?;
         let parity = if point.has_even_y() {
+            // This should always be the case, but add logic just in case.
             Parity::Even
         } else {
             Parity::Odd
@@ -356,7 +357,7 @@ impl TryFrom<&Config> for StacksCoordinator {
 
         // Load the bitcoin wallet
         let local_bitcoin_node = LocalhostBitcoinNode::new(config.bitcoin_node_rpc_url.clone());
-        local_bitcoin_node.load_wallet(bitcoin_wallet.address())?;
+        local_bitcoin_node.load_wallet(bitcoin_wallet.public_key())?;
 
         // If a user has not specified a start block height, begin from the current burn block height by default
         let start_block_height = config

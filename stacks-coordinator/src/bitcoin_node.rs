@@ -1,5 +1,6 @@
 use std::{io::Cursor, str::FromStr};
 
+use crate::coordinator::PublicKey as BitcoinPublicKey;
 use bitcoin::{
     consensus::Encodable,
     hashes::{hex::ToHex, sha256d::Hash},
@@ -12,7 +13,7 @@ pub trait BitcoinNode {
     /// Broadcast the BTC transaction to the bitcoin node
     fn broadcast_transaction(&self, tx: &BitcoinTransaction) -> Result<Txid, Error>;
     /// Load the Bitcoin wallet from the given address
-    fn load_wallet(&self, address: &BitcoinAddress) -> Result<(), Error>;
+    fn load_wallet(&self, public_key: &BitcoinPublicKey) -> Result<(), Error>;
     /// Get all utxos from the given address
     fn list_unspent(&self, address: &BitcoinAddress) -> Result<Vec<UTXO>, Error>;
 }
@@ -60,6 +61,7 @@ struct Wallet {
 
 pub struct LocalhostBitcoinNode {
     bitcoind_api: String,
+    wallet_name: String,
 }
 
 impl BitcoinNode for LocalhostBitcoinNode {
@@ -81,7 +83,7 @@ impl BitcoinNode for LocalhostBitcoinNode {
         ))
     }
 
-    fn load_wallet(&self, address: &BitcoinAddress) -> Result<(), Error> {
+    fn load_wallet(&self, public_key: &BitcoinPublicKey) -> Result<(), Error> {
         debug!("Loading bitcoin wallet...");
         let result = self.create_empty_wallet();
         if let Err(Error::RPCError(message)) = &result {
@@ -92,8 +94,9 @@ impl BitcoinNode for LocalhostBitcoinNode {
                 return result;
             }
         }
+        debug!("Created wallet info: {}", self.get_wallet_info()?);
         // Import the address
-        self.import_address(address)?;
+        self.import_public_key(public_key)?;
         Ok(())
     }
 
@@ -124,7 +127,10 @@ impl BitcoinNode for LocalhostBitcoinNode {
 
 impl LocalhostBitcoinNode {
     pub fn new(bitcoind_api: String) -> LocalhostBitcoinNode {
-        Self { bitcoind_api }
+        Self {
+            bitcoind_api,
+            wallet_name: "stacks_coordinator".to_string(),
+        }
     }
 
     /// Make the Bitcoin RPC method call with the corresponding paramenters
@@ -136,9 +142,12 @@ impl LocalhostBitcoinNode {
         debug!("Making Bitcoin RPC {} call...", method);
         let json_rpc =
             ureq::json!({"jsonrpc": "2.0", "id": "stx", "method": method, "params": params});
-        let response = ureq::post(&self.bitcoind_api)
-            .send_json(json_rpc)
-            .map_err(|e| Error::RPCError(parse_rpc_error(e)))?;
+        let response = ureq::post(&format!(
+            "{}/wallet/{}",
+            &self.bitcoind_api, &self.wallet_name
+        ))
+        .send_json(json_rpc)
+        .map_err(|e| Error::RPCError(parse_rpc_error(e)))?;
         let json_response = response.into_json::<serde_json::Value>()?;
         let json_result = json_response
             .get("result")
@@ -148,12 +157,12 @@ impl LocalhostBitcoinNode {
     }
 
     fn create_empty_wallet(&self) -> Result<(), Error> {
-        let wallet_name = "stacks_coordinator";
+        let wallet_name = self.wallet_name.clone();
         let disable_private_keys = false;
         let blank = true;
         let passphrase = "";
         let avoid_reuse = false;
-        let descriptors = false;
+        let descriptors = true;
         let load_on_startup = true;
         let params = (
             wallet_name,
@@ -176,14 +185,31 @@ impl LocalhostBitcoinNode {
         Ok(())
     }
 
-    fn import_address(&self, address: &BitcoinAddress) -> Result<(), Error> {
-        let address = address.to_string();
-        debug!("Importing address {}...", address);
-        let label = "";
-        let rescan = true;
-        let p2sh = false;
-        let params = (address, label, rescan, p2sh);
-        self.call("importaddress", params)?;
+    fn import_public_key(&self, public_key: &BitcoinPublicKey) -> Result<(), Error> {
+        let descriptor = format!("wpkh({:?}/0/*)", public_key);
+        let request_item = ureq::json!({
+            "desc": descriptor,
+            "timestamp": "now",
+            "range": 1000,
+            "watchonly": true,
+            "keypool": false,
+            "internal": false
+        });
+
+        let params = (vec![request_item], ureq::json!({ "rescan": false }));
+
+        self.call("importmulti", params)?;
+        Ok(())
+    }
+
+    fn get_wallet_info(&self) -> Result<serde_json::Value, Error> {
+        let wallet_info = self.call("getwalletinfo", ())?;
+        Ok(wallet_info)
+    }
+
+    fn unload_wallet(&self) -> Result<(), Error> {
+        let params = (&self.wallet_name,);
+        self.call("unloadwallet", params)?;
         Ok(())
     }
 
