@@ -60,6 +60,7 @@ struct Wallet {
 
 pub struct LocalhostBitcoinNode {
     bitcoind_api: String,
+    wallet_name: String,
 }
 
 impl BitcoinNode for LocalhostBitcoinNode {
@@ -124,7 +125,10 @@ impl BitcoinNode for LocalhostBitcoinNode {
 
 impl LocalhostBitcoinNode {
     pub fn new(bitcoind_api: String) -> LocalhostBitcoinNode {
-        Self { bitcoind_api }
+        Self {
+            bitcoind_api,
+            wallet_name: "stacks_coordinator".to_string(),
+        }
     }
 
     /// Make the Bitcoin RPC method call with the corresponding paramenters
@@ -136,9 +140,12 @@ impl LocalhostBitcoinNode {
         debug!("Making Bitcoin RPC {} call...", method);
         let json_rpc =
             ureq::json!({"jsonrpc": "2.0", "id": "stx", "method": method, "params": params});
-        let response = ureq::post(&self.bitcoind_api)
-            .send_json(json_rpc)
-            .map_err(|e| Error::RPCError(parse_rpc_error(e)))?;
+        let response = ureq::post(&format!(
+            "{}/wallet/{}",
+            &self.bitcoind_api, &self.wallet_name
+        ))
+        .send_json(json_rpc)
+        .map_err(|e| Error::RPCError(parse_rpc_error(e)))?;
         let json_response = response.into_json::<serde_json::Value>()?;
         let json_result = json_response
             .get("result")
@@ -148,12 +155,13 @@ impl LocalhostBitcoinNode {
     }
 
     fn create_empty_wallet(&self) -> Result<(), Error> {
-        let wallet_name = "stacks_coordinator";
+        debug!("Creating wallet...");
+        let wallet_name = &self.wallet_name;
         let disable_private_keys = false;
         let blank = true;
         let passphrase = "";
         let avoid_reuse = false;
-        let descriptors = false;
+        let descriptors = true;
         let load_on_startup = true;
         let params = (
             wallet_name,
@@ -164,7 +172,6 @@ impl LocalhostBitcoinNode {
             descriptors,
             load_on_startup,
         );
-        debug!("Creating wallet...");
         let wallet = serde_json::from_value::<Wallet>(self.call("createwallet", params)?)
             .map_err(|e| Error::InvalidResponseJSON(e.to_string()))?;
         if !wallet.warning.is_empty() {
@@ -177,13 +184,19 @@ impl LocalhostBitcoinNode {
     }
 
     fn import_address(&self, address: &BitcoinAddress) -> Result<(), Error> {
-        let address = address.to_string();
         debug!("Importing address {}...", address);
+        // Create a descriptor using a Bech32 (segwit) Pay-to-Witness Public Key Hash (P2WPKH) address.
+        let desc = format!("wpkh({})", address);
+        let timestamp = "now";
+        let range = 1; // Set to 1 to ensure only one address is imported
+        let internal = false;
+        let watchonly = true;
         let label = "";
+        let keypool = true;
         let rescan = true;
-        let p2sh = false;
-        let params = (address, label, rescan, p2sh);
-        self.call("importaddress", params)?;
+        let descriptor_object = serde_json::json!({ "desc": desc, "range": range, "timestamp": timestamp, "internal": internal, "watchonly": watchonly, "label": label,"keypool": keypool, "rescan": rescan });
+        let params = (serde_json::json!([descriptor_object]),);
+        self.call("importdescriptors", params)?;
         Ok(())
     }
 
