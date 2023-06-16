@@ -50,7 +50,7 @@ pub async fn delete_signer(
     pool: SqlitePool,
 ) -> Result<impl warp::Reply, warp::Rejection> {
     // First delete any corresponding keys
-    delete_keys_by_id(signer.signer_id, signer.user_id, &pool).await?;
+    delete_keys_by_id(signer.signer_id, &pool).await?;
 
     let rows_deleted = sqlx::query!(
         "DELETE FROM sbtc_signers WHERE signer_id = ?1 AND user_id = ?2",
@@ -160,7 +160,6 @@ mod tests {
         let pool = init_db().await;
         let expected_signer = Signer {
             signer_id: 1,
-            user_id: 1,
             status: Status::Active,
         };
 
@@ -178,7 +177,6 @@ mod tests {
         let pool = init_db().await;
         let signer = Signer {
             signer_id: 1,
-            user_id: 1,
             status: Status::Active,
         };
 
@@ -201,17 +199,14 @@ mod tests {
         let signers_to_insert = vec![
             Signer {
                 signer_id: 1,
-                user_id: 1,
                 status: Status::Active,
             },
             Signer {
                 signer_id: 2,
-                user_id: 2,
                 status: Status::Active,
             },
             Signer {
                 signer_id: 3,
-                user_id: 3,
                 status: Status::Inactive,
             },
         ];

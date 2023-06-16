@@ -55,7 +55,6 @@ Content-Type: application/json
 
 {
   "signer_id": 1,
-  "user_id": 1,
   "status": "Active"
 }
 ```
@@ -81,7 +80,6 @@ Content-Type: application/json
 
 {
   "signer_id": 1,
-  "user_id": 1
 }
 ```
 
@@ -113,12 +111,10 @@ Content-Type: application/json
 [
   {
     "signer_id": 1,
-    "user_id": 1,
     "status": "Active"
   },
   {
     "signer_id": 2,
-    "user_id": 2,
     "status": "Active"
   }
 ]
@@ -134,7 +130,6 @@ Content-Type: application/json
 
 {
   "signer_id": 1,
-  "user_id": 1,
   "key": "example_key"
 }
 ```
@@ -160,7 +155,6 @@ Content-Type: application/json
 
 {
   "signer_id": 1,
-  "user_id": 1,
   "key": "example_key"
 }
 ```
@@ -181,7 +175,7 @@ Content-Type: application/json
 **Request**
 
 ```
-GET /v1/keys?signer_id=1&user_id=1&page=1&limit=10
+GET /v1/keys?signer_id=1&page=1&limit=10
 ```
 
 **Success Response**
