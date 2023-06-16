@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use crate::{
-    db::{keys::delete_keys_by_id, paginate_items, Error},
+    db::{paginate_items, Error},
     routes::signers::SignerQuery,
     signer::{Signer, Status},
 };
