@@ -1,4 +1,5 @@
 # Stacks Signer API
+TODO: Remove this README when Utoipa is added to the signer and key management
 
 This is an API for managing signers and their associated keys in a SQLite database. The API provides a set of RESTful endpoints to add, delete, and fetch signers and keys.
 
