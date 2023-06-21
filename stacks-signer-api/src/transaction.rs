@@ -1,5 +1,4 @@
-use std::str::FromStr;
-
+use parse_display::{Display, FromStr};
 use serde::{Deserialize, Serialize};
 use utoipa::{ToResponse, ToSchema};
 
@@ -14,7 +13,9 @@ pub enum TransactionAddress {
     Stacks(String),
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize, ToSchema)]
+#[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize, ToSchema, Display, FromStr)]
+#[serde(rename_all = "lowercase")]
+#[display(style = "lowercase")]
 /// The type of transaction being requested
 pub enum TransactionKind {
     /// A BTC to sBTC deposit reveal transaction
@@ -25,31 +26,6 @@ pub enum TransactionKind {
     WithdrawalFulfill,
     /// A sBTC wallet handoff transaction
     WalletHandoff,
-}
-
-impl FromStr for TransactionKind {
-    type Err = ();
-
-    fn from_str(input: &str) -> Result<TransactionKind, Self::Err> {
-        match input.to_lowercase().as_str() {
-            "depositreveal" => Ok(TransactionKind::DepositReveal),
-            "withdrawalreveal" => Ok(TransactionKind::WithdrawalReveal),
-            "withdrawalfulfill" => Ok(TransactionKind::WithdrawalFulfill),
-            "wallethandoff" => Ok(TransactionKind::WalletHandoff),
-            _ => Err(()),
-        }
-    }
-}
-
-impl std::fmt::Display for TransactionKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            TransactionKind::DepositReveal => write!(f, "depositreveal"),
-            TransactionKind::WithdrawalReveal => write!(f, "withdrawalreveal"),
-            TransactionKind::WithdrawalFulfill => write!(f, "withdrawalfulfill"),
-            TransactionKind::WalletHandoff => write!(f, "wallethandoff"),
-        }
-    }
 }
 
 impl Default for Transaction {

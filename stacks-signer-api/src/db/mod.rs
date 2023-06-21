@@ -9,12 +9,10 @@ pub mod transaction;
 /// Module that handles vote-related database operations
 pub mod vote;
 
+use parse_display::ParseError;
 use sqlx::SqlitePool;
 
-use crate::{
-    db::{transaction::Error as TransactionError, vote::Error as VoteError},
-    signer::Error as SignerError,
-};
+use crate::signer::Error as SignerError;
 
 /// Custom error type for this database module
 #[derive(thiserror::Error, Debug)]
@@ -25,12 +23,9 @@ pub enum Error {
     /// Signer related error
     #[error("Signer Error: {0}")]
     SignerError(#[from] SignerError),
-    /// Transaction related error
-    #[error("Transaction Error: {0}")]
-    TransactionError(#[from] TransactionError),
-    /// Vote related error
-    #[error("Vote Error: {0}")]
-    VoteError(#[from] VoteError),
+    /// Parse related error
+    #[error("Parsing error occurred")]
+    ParseError(#[from] ParseError),
 }
 impl warp::reject::Reject for Error {}
 
@@ -82,16 +77,18 @@ const SQL_SCHEMA_VOTE: &str = r#"
         );
 "#;
 
-const SQL_TRANSACTION_VOTE_TRIGGER: &str = r#"CREATE TRIGGER add_empty_vote
-AFTER INSERT ON transactions
-FOR EACH ROW
-BEGIN
-    INSERT INTO votes (
-        txid, vote_status, vote_choice, vote_mechanism, target_consensus, current_consensus
-    ) VALUES (
-        NEW.txid, 'pending', NULL, 'manual', 70, 0
-    );
-END;"#;
+const SQL_TRANSACTION_VOTE_TRIGGER: &str = r#"
+        CREATE TRIGGER add_empty_vote
+        AFTER INSERT ON transactions
+        FOR EACH ROW
+            BEGIN
+            INSERT INTO votes (
+                txid, vote_status, vote_choice, vote_mechanism, target_consensus, current_consensus
+            ) VALUES (
+                NEW.txid, 'pending', NULL, 'manual', 70, 0
+            );
+        END;
+"#;
 
 /// Initialize the database pool from the given file path or in memory if none is provided.
 ///

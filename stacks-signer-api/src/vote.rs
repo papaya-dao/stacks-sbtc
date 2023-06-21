@@ -1,9 +1,10 @@
+use parse_display::{Display, FromStr};
 use serde::{Deserialize, Serialize};
-use std::str::FromStr;
 use utoipa::{ToResponse, ToSchema};
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Deserialize, Serialize, ToSchema)]
+#[derive(FromStr, Display, Debug, PartialEq, Eq, Clone, Copy, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
+#[display(style = "lowercase")]
 /// Vote options for a transaction ballot.
 pub enum VoteChoice {
     /// Approve the transaction.
@@ -12,29 +13,9 @@ pub enum VoteChoice {
     Reject,
 }
 
-impl FromStr for VoteChoice {
-    type Err = ();
-
-    fn from_str(input: &str) -> Result<VoteChoice, Self::Err> {
-        match input.to_lowercase().as_str() {
-            "approve" => Ok(VoteChoice::Approve),
-            "reject" => Ok(VoteChoice::Reject),
-            _ => Err(()),
-        }
-    }
-}
-
-impl std::fmt::Display for VoteChoice {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            VoteChoice::Approve => write!(f, "approve"),
-            VoteChoice::Reject => write!(f, "reject"),
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Deserialize, Serialize, ToSchema)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Deserialize, Serialize, ToSchema, Display, FromStr)]
 #[serde(rename_all = "lowercase")]
+#[display(style = "lowercase")]
 /// Mechanism by which a vote was cast
 pub enum VoteMechanism {
     /// The vote was cast automatically
@@ -43,29 +24,9 @@ pub enum VoteMechanism {
     Manual,
 }
 
-impl FromStr for VoteMechanism {
-    type Err = ();
-
-    fn from_str(input: &str) -> Result<VoteMechanism, Self::Err> {
-        match input.to_lowercase().as_str() {
-            "auto" => Ok(VoteMechanism::Auto),
-            "manual" => Ok(VoteMechanism::Manual),
-            _ => Err(()),
-        }
-    }
-}
-
-impl std::fmt::Display for VoteMechanism {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            VoteMechanism::Auto => write!(f, "auto"),
-            VoteMechanism::Manual => write!(f, "manual"),
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Deserialize, Serialize, ToSchema)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Deserialize, Serialize, ToSchema, Display, FromStr)]
 #[serde(rename_all = "lowercase")]
+#[display(style = "lowercase")]
 /// The status of a transaction vote
 pub enum VoteStatus {
     /// The vote is incomplete and pending votes
@@ -76,31 +37,6 @@ pub enum VoteStatus {
     Rejected,
     /// The vote is complete, but consensus not reached
     NoConsensus,
-}
-
-impl FromStr for VoteStatus {
-    type Err = ();
-
-    fn from_str(input: &str) -> Result<VoteStatus, Self::Err> {
-        match input.to_lowercase().as_str() {
-            "pending" => Ok(VoteStatus::Pending),
-            "approved" => Ok(VoteStatus::Approved),
-            "rejected" => Ok(VoteStatus::Rejected),
-            "noconsensus" => Ok(VoteStatus::NoConsensus),
-            _ => Err(()),
-        }
-    }
-}
-
-impl std::fmt::Display for VoteStatus {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            VoteStatus::Pending => write!(f, "pending"),
-            VoteStatus::Approved => write!(f, "approved"),
-            VoteStatus::Rejected => write!(f, "rejected"),
-            VoteStatus::NoConsensus => write!(f, "noconsensus"),
-        }
-    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize, ToSchema)]

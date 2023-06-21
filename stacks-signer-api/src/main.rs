@@ -1,15 +1,18 @@
-use std::{net::SocketAddr, sync::Arc};
-
 use clap::Parser;
 use rand::Rng;
 use std::env;
 
-use sqlx::SqlitePool;
+use sqlx::{SqlitePool, Sqlite};
 use stacks_signer_api::{
     db::{self, transaction::add_transaction, vote::add_vote},
     routes::all_routes,
     transaction::{Transaction, TransactionAddress, TransactionKind, TransactionResponse},
     vote::{Vote, VoteChoice, VoteMechanism, VoteRequest, VoteResponse, VoteStatus, VoteTally},
+};
+use std::{
+    net::{IpAddr, SocketAddr},
+    path::Path,
+    sync::Arc,
 };
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -55,7 +58,7 @@ pub fn initiate_tracing_subscriber() {
 enum Command {
     Docs(DocsArgs),
     Swagger(SwaggerArgs),
-    Dummy(DummyArgs),
+    Simulator(SimulatorArgs),
     Run(RunArgs),
 }
 
@@ -66,7 +69,7 @@ struct ServerArgs {
     pub port: u16,
     /// Address to run API server on
     #[arg(short, long, default_value = "0.0.0.0")]
-    pub address: String,
+    pub address: IpAddr,
 }
 
 #[derive(Parser, Debug, Clone)]
@@ -78,13 +81,16 @@ struct DocsArgs {
 
 #[derive(Parser, Debug, Clone)]
 struct SwaggerArgs {
+    /// Path of hosted open api doc file
+    #[arg(long, default_value = "/api-docs.json")]
+    pub path: String,
     /// Port and Address to run Swagger UI server on
     #[command(flatten)]
     pub server: ServerArgs,
 }
 
 #[derive(Parser, Debug, Clone)]
-struct DummyArgs {
+struct SimulatorArgs {
     /// Port and address to run API server on
     #[command(flatten)]
     pub server: ServerArgs,
@@ -108,22 +114,76 @@ struct Cli {
     command: Command,
 }
 
-async fn run(pool: SqlitePool, server_args: ServerArgs) {
+async fn init_pool() -> anyhow::Result<Pool<Sqlite>> {
+    let _ = dotenv::dotenv();
+
+    // Initialize the connection pool__
+    db::init_pool(env::var("DATABASE_URL").ok())
+        .await.map_err(|e| anyhow::anyhow!("Failed to initialize database connection pool: {}", e))
+}
+
+/// Run the Signer API server on the provided port and address
+async fn run(pool: SqlitePool, server_args: ServerArgs) -> anyhow::Result<()> {
     // Create the routes
     let routes = all_routes(pool);
 
     // Run the warp server
-    let server = format!("{}:{}", server_args.address, server_args.port);
-    let server: SocketAddr = server
-        .parse()
-        .expect("Failed to parse provided address and port into socket address");
-    println!("Serving warp server on {}", server);
-    warp::serve(routes).run(server).await;
+    let socket = SocketAddr::new(server_args.address, server_args.port);
+    println!("Serving warp server on {}", socket);
+    warp::serve(routes).run(socket).await;
+    Ok(())
 }
 
-async fn run_swagger(pool: SqlitePool, args: SwaggerArgs) {
-    let config = Arc::new(Config::from("/api-doc.json"));
-    let api_doc = warp::path("api-doc.json")
+/// Generate the OpenAPI json docs and save to file or print to stdout
+fn generate_docs(output: &Option<String>) -> anyhow::Result<()> {
+    let docs = ApiDoc::openapi();
+    let openapi_json = docs
+        .to_pretty_json()
+        .map_err(|e| anyhow::anyhow!("Could not generate openapi json file: {}", e.to_string()))?;
+    if let Some(output_file) = output {
+        std::fs::write(output_file, openapi_json)
+            .map_err(|e| anyhow::anyhow!("Failed to write OpenAPI json docs to file: {}", e))?;
+        return Ok(());
+    }
+    println!("{}", openapi_json);
+    Ok(())
+}
+
+/// Run the Signer API server with a database of simulated data
+async fn run_simulator(args: SimulatorArgs) -> anyhow::Result<()> {
+    // Initialize the connection pool
+    let pool = init_pool()
+        .await?;
+    let (txs, votes) = generate_txs_votes();
+    for tx in txs {
+        add_transaction(&pool, &tx)
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to add tx: {}", e))?;
+    }
+    for vote in votes {
+        add_vote(&vote, &pool)
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to add vote: {}", e))?;
+    }
+
+    run(pool, args.server).await
+}
+
+/// Serve the Swagger UI page on the provided address and port using the generated OpenAPI json doc
+async fn run_swagger(args: &SwaggerArgs) -> anyhow::Result<()> {
+    // Initialize the connection pool
+    let pool = init_pool()
+    .await?;
+    // Configure where we host the doc in swagger-ui
+    let path_buf = Path::new(&args.path);
+    let config = Arc::new(Config::from(args.path.clone()));
+    let file_name = path_buf
+        .file_name()
+        .ok_or(anyhow::anyhow!("Invalid file path provided."))?
+        .to_str()
+        .ok_or(anyhow::anyhow!("Invalid file path provided."))?
+        .to_string();
+    let api_doc = warp::path(file_name)
         .and(warp::get())
         .map(|| warp::reply::json(&ApiDoc::openapi()));
 
@@ -134,18 +194,16 @@ async fn run_swagger(pool: SqlitePool, args: SwaggerArgs) {
         .and(warp::any().map(move || config.clone()))
         .and_then(serve_swagger);
 
-    let server = format!("{}:{}", args.server.address, args.server.port);
-    let server: SocketAddr = server
-        .parse()
-        .expect("Failed to parse provided address and port into socket address");
+    let socket = SocketAddr::new(args.server.address, args.server.port);
     println!(
         "Serving swagger UI on http://{}:{}/swagger-ui/",
         args.server.address, args.server.port
     );
 
     warp::serve(api_doc.or(swagger_ui).or(all_routes(pool)))
-        .run(server)
+        .run(socket)
         .await;
+    Ok(())
 }
 
 async fn serve_swagger(
@@ -187,45 +245,20 @@ async fn main() {
     // First enable tracing
     initiate_tracing_subscriber();
 
-    let _ = dotenv::dotenv();
-
-    // Initialize the connection pool__
-    let pool = db::init_pool(env::var("DATABASE_URL").ok())
-        .await
-        .expect("Failed to initialize pool.");
-
-    match cli.command {
-        Command::Docs(args) => {
-            let docs = ApiDoc::openapi();
-            let openapi_json = docs
-                .to_pretty_json()
-                .expect("Failed to generate OpenAPI json docs.");
-            if let Some(output_file) = args.output {
-                std::fs::write(output_file, openapi_json)
-                    .expect("Failed to write OpenAPI json docs to file.");
-                return;
-            }
-            println!("{}", openapi_json);
-        }
-        Command::Swagger(args) => {
-            run_swagger(pool, args).await;
-        }
-        Command::Dummy(args) => {
-            let (txs, votes) = generate_dummy_txs_votes();
-            for tx in txs {
-                add_transaction(&pool, &tx)
-                    .await
-                    .expect("Failed to add transaction.");
-            }
-            for vote in votes {
-                add_vote(&vote, &pool).await.expect("Failed to add vote.");
-            }
-
-            run(pool, args.server).await;
-        }
+    if let Err(error) = match cli.command {
+        Command::Docs(args) => generate_docs(&args.output),
+        Command::Swagger(args) => run_swagger(&args).await,
+        Command::Simulator(args) => run_simulator(args).await,
         Command::Run(args) => {
-            run(pool, args.server).await;
+            // Initialize the connection pool
+            match init_pool().await
+            {
+                Ok(pool) => run(pool, args.server).await,
+                Err(e) => Err(e),
+            }
         }
+    } {
+        println!("Error occurred running command: {}", error);
     }
     // Set up the routes
     // Key routes
@@ -262,19 +295,19 @@ async fn main() {
     warp::serve(routes).run(server).await;
 }
 
-/// Generate some dummy transactions for mocked backend
-fn generate_dummy_txs_votes() -> (Vec<Transaction>, Vec<Vote>) {
+/// Generate some simulated transactions for mocked backend
+fn generate_txs_votes() -> (Vec<Transaction>, Vec<Vote>) {
     let mut txs = vec![];
     let mut votes = vec![];
     for i in 0..10 {
-        let tx = generate_dummy_transaction(i);
-        votes.push(generate_dummy_vote(tx.txid.clone()));
+        let tx = generate_transaction(i);
+        votes.push(generate_vote(tx.txid.clone()));
         txs.push(tx);
     }
     (txs, votes)
 }
 
-fn generate_dummy_vote(txid: String) -> Vote {
+fn generate_vote(txid: String) -> Vote {
     let mut rng = rand::thread_rng();
     let vote_mechanism = if rng.gen_range(0..2) == 0 {
         VoteMechanism::Auto
@@ -317,7 +350,7 @@ fn generate_dummy_vote(txid: String) -> Vote {
     }
 }
 
-fn generate_dummy_transaction(i: usize) -> Transaction {
+fn generate_transaction(i: usize) -> Transaction {
     let mut rng = rand::thread_rng();
     let rand_kind = rng.gen_range(0..4);
     let transaction_kind = if rand_kind == 0 {

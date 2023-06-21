@@ -1,29 +1,19 @@
-use std::str::FromStr;
-
 use crate::{
-    db::Error as DatabaseError,
-    transaction::{TransactionAddress, TransactionKind},
+    db::Error,
+    transaction::{Transaction, TransactionAddress},
 };
 
-use crate::transaction::Transaction;
 use sqlx::{Row, SqlitePool};
 
 // SQL queries used for performing various operations on the "transactions" table.
-const SQL_INSERT_TRANSACTION: &str = r#"INSERT INTO transactions (
-    txid, transaction_kind, transaction_block_height, transaction_deadline_block_height,
-    transaction_amount, transaction_fees, memo, transaction_originator_address,
-    transaction_debit_address, transaction_credit_address
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#;
+const SQL_INSERT_TRANSACTION: &str = r#"
+        INSERT INTO transactions (
+            txid, transaction_kind, transaction_block_height, transaction_deadline_block_height,
+            transaction_amount, transaction_fees, memo, transaction_originator_address,
+            transaction_debit_address, transaction_credit_address
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#;
 const SQL_SELECT_TRANSACTIONS: &str = r#"SELECT * FROM transactions"#;
 const SQL_SELECT_TRANSACTION_BY_ID: &str = r#"SELECT * FROM transactions WHERE txid = ?"#;
-
-#[derive(thiserror::Error, Debug)]
-/// Common errors that occur when handling Transactions.
-pub enum Error {
-    /// An error that can occur when parsing a TransactionKind.
-    #[error("Invalid TransactionKind: {0}")]
-    InvalidTransactionKind(String),
-}
 
 /// Add a given transaction to the database.
 ///
@@ -33,10 +23,7 @@ pub enum Error {
 ///
 /// # Returns
 /// * Result<(), DatabaseError>: The result of the database operation.
-pub async fn add_transaction(
-    pool: &SqlitePool,
-    transaction: &Transaction,
-) -> Result<(), DatabaseError> {
+pub async fn add_transaction(pool: &SqlitePool, transaction: &Transaction) -> Result<(), Error> {
     let transaction_kind = &transaction.transaction_kind.to_string();
     let transaction_block_height = transaction.transaction_block_height;
     let transaction_deadline_block_height = transaction.transaction_deadline_block_height;
@@ -59,8 +46,7 @@ pub async fn add_transaction(
         .bind(transaction_debit_address)
         .bind(transaction_credit_address)
         .execute(pool)
-        .await
-        .map_err(DatabaseError::from)?;
+        .await?;
     Ok(())
 }
 
@@ -71,18 +57,14 @@ pub async fn add_transaction(
 ///
 /// # Returns
 /// * Result<Vec<Transactions>>: The transactions found in the database.
-pub async fn get_transactions(pool: &SqlitePool) -> Result<Vec<Transaction>, DatabaseError> {
-    let rows = sqlx::query(SQL_SELECT_TRANSACTIONS)
-        .fetch_all(pool)
-        .await
-        .map_err(DatabaseError::from)?;
+pub async fn get_transactions(pool: &SqlitePool) -> Result<Vec<Transaction>, Error> {
+    let rows = sqlx::query(SQL_SELECT_TRANSACTIONS).fetch_all(pool).await?;
     let mut txs = vec![];
     for row in rows {
         let txid: String = row.try_get("txid")?;
 
         let transaction_kind: String = row.try_get("transaction_kind")?;
-        let transaction_kind = TransactionKind::from_str(&transaction_kind)
-            .map_err(|_| DatabaseError::from(Error::InvalidTransactionKind(transaction_kind)))?;
+        let transaction_kind = transaction_kind.parse()?;
 
         let transaction_block_height: Option<i64> = row.try_get("transaction_block_height")?;
         let transaction_deadline_block_height: i64 =
@@ -127,10 +109,7 @@ pub async fn get_transactions(pool: &SqlitePool) -> Result<Vec<Transaction>, Dat
 ///
 /// # Returns
 /// * Result<Transaction>: The transaction found in the database.
-pub async fn get_transaction_by_id(
-    txid: &str,
-    pool: &SqlitePool,
-) -> Result<Transaction, DatabaseError> {
+pub async fn get_transaction_by_id(txid: &str, pool: &SqlitePool) -> Result<Transaction, Error> {
     let row = sqlx::query(SQL_SELECT_TRANSACTION_BY_ID)
         .bind(txid)
         .fetch_one(pool)
@@ -138,8 +117,7 @@ pub async fn get_transaction_by_id(
     let txid: String = row.try_get("txid")?;
 
     let transaction_kind: String = row.try_get("transaction_kind")?;
-    let transaction_kind = TransactionKind::from_str(&transaction_kind)
-        .map_err(|_| DatabaseError::from(Error::InvalidTransactionKind(transaction_kind)))?;
+    let transaction_kind = transaction_kind.parse()?;
 
     let transaction_block_height: Option<i64> = row.try_get("transaction_block_height")?;
     let transaction_deadline_block_height: i64 =
