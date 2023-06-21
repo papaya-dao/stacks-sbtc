@@ -89,7 +89,7 @@ Example:
 
 - `--address` - Address to run the Swagger UI server on (Default: `0.0.0.0`)
 - `--port` - Port to run the Swagger UI server on (Default: `3030`)
-- `--path` - Path to openapi.json file to serve. Will generate one if not provided
+- `--path` - Path of hosted open api doc file (Default: `/api-docs.json`)
 
 Example:
 
@@ -115,7 +115,7 @@ Example:
 Example:
 
 ```bash
-./stacks-signer-api dummy --address 127.0.0.1 --port 8000
+./stacks-signer-api simulator --address 127.0.0.1 --port 8000
 ```
 
 ## License
