@@ -25,7 +25,11 @@ use warp::{
 
 #[derive(OpenApi)]
 #[openapi(
-    paths(stacks_signer_api::routes::transaction::get_transaction_by_id),
+    paths(
+        stacks_signer_api::routes::transaction::get_transaction_by_id,
+        stacks_signer_api::routes::transaction::get_transactions,
+        stacks_signer_api::routes::vote::vote,
+    ),
     components(
         schemas(
             Transaction,
