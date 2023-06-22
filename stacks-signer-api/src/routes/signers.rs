@@ -198,9 +198,6 @@ mod tests {
     async fn test_get_signers() {
         let pool = init_db().await;
 
-        // Add test data
-        insert_test_data(pool.clone()).await;
-
         let api = warp::test::request()
             .path("/v1/signers?status=active")
             .method("GET")
@@ -249,9 +246,6 @@ mod tests {
     async fn test_delete_signer() {
         let pool = init_db().await;
 
-        // Add test data
-        insert_test_data(pool.clone()).await;
-
         let signer_to_delete = Signer {
             signer_id: 1,
             user_id: 2,
@@ -274,9 +268,6 @@ mod tests {
     #[ntest::timeout(1000)]
     async fn test_delete_signer_not_found() {
         let pool = init_db().await;
-
-        // Add test data
-        insert_test_data(pool.clone()).await;
 
         let signer_to_delete = Signer {
             signer_id: 5,

@@ -4,6 +4,7 @@ use sqlx::SqlitePool;
 use stacks_signer_api::{
     db::{self, transaction::add_transaction, vote::add_vote},
     error::{ErrorCode, ErrorResponse},
+    key::Key,
     routes::all_routes,
     signer::{Signer, SignerStatus},
     transaction::{Transaction, TransactionAddress, TransactionKind, TransactionResponse},
@@ -33,7 +34,10 @@ use warp::{
         stacks_signer_api::routes::vote::vote,
         stacks_signer_api::routes::signers::get_signers,
         stacks_signer_api::routes::signers::add_signer,
-        stacks_signer_api::routes::signers::delete_signer
+        stacks_signer_api::routes::signers::delete_signer,
+        stacks_signer_api::routes::keys::add_key,
+        stacks_signer_api::routes::keys::delete_key,
+        stacks_signer_api::routes::keys::get_keys,
     ),
     components(
         schemas(
@@ -51,8 +55,9 @@ use warp::{
             ErrorCode,
             ErrorResponse,
             SignerStatus,
+            Key,
         ),
-        responses(TransactionResponse, VoteResponse, Signer, ErrorResponse)
+        responses(TransactionResponse, VoteResponse, Signer, ErrorResponse, Key)
     )
 )]
 struct ApiDoc;

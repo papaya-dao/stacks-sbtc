@@ -74,21 +74,6 @@ async fn get_number_of_signers(pool: &SqlitePool, signer: &Signer) -> usize {
     .len()
 }
 
-#[allow(dead_code)]
-async fn get_first_signer(pool: &SqlitePool) -> Signer {
-    let row =
-        sqlx::query!("SELECT signer_id, user_id, status FROM sbtc_signers ORDER BY signer_id ASC")
-            .fetch_one(pool)
-            .await
-            .expect("Failed to get added signer");
-
-    Signer {
-        signer_id: row.signer_id,
-        user_id: row.user_id,
-        status: row.status.parse().unwrap(),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -113,7 +98,11 @@ mod tests {
         add_signer(&pool, &expected_signer)
             .await
             .expect("failed to add signer");
-        assert_eq!(expected_signer, get_first_signer(&pool).await);
+        let signers = get_signers(&pool, None)
+            .await
+            .expect("Failed to get signers");
+        assert_eq!(signers.len(), 1);
+        assert_eq!(expected_signer, signers[0]);
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
