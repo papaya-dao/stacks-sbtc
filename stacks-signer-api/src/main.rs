@@ -1,8 +1,6 @@
 use clap::Parser;
 use rand::Rng;
-use std::env;
-
-use sqlx::{SqlitePool, Sqlite};
+use sqlx::SqlitePool;
 use stacks_signer_api::{
     db::{self, transaction::add_transaction, vote::add_vote},
     routes::all_routes,
@@ -10,12 +8,12 @@ use stacks_signer_api::{
     vote::{Vote, VoteChoice, VoteMechanism, VoteRequest, VoteResponse, VoteStatus, VoteTally},
 };
 use std::{
+    env,
     net::{IpAddr, SocketAddr},
     path::Path,
     sync::Arc,
 };
-use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::Config;
 use warp::{
@@ -114,12 +112,13 @@ struct Cli {
     command: Command,
 }
 
-async fn init_pool() -> anyhow::Result<Pool<Sqlite>> {
+async fn init_pool() -> anyhow::Result<SqlitePool> {
     let _ = dotenv::dotenv();
 
     // Initialize the connection pool__
     db::init_pool(env::var("DATABASE_URL").ok())
-        .await.map_err(|e| anyhow::anyhow!("Failed to initialize database connection pool: {}", e))
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to initialize database connection pool: {}", e))
 }
 
 /// Run the Signer API server on the provided port and address
@@ -152,8 +151,7 @@ fn generate_docs(output: &Option<String>) -> anyhow::Result<()> {
 /// Run the Signer API server with a database of simulated data
 async fn run_simulator(args: SimulatorArgs) -> anyhow::Result<()> {
     // Initialize the connection pool
-    let pool = init_pool()
-        .await?;
+    let pool = init_pool().await?;
     let (txs, votes) = generate_txs_votes();
     for tx in txs {
         add_transaction(&pool, &tx)
@@ -172,8 +170,7 @@ async fn run_simulator(args: SimulatorArgs) -> anyhow::Result<()> {
 /// Serve the Swagger UI page on the provided address and port using the generated OpenAPI json doc
 async fn run_swagger(args: &SwaggerArgs) -> anyhow::Result<()> {
     // Initialize the connection pool
-    let pool = init_pool()
-    .await?;
+    let pool = init_pool().await?;
     // Configure where we host the doc in swagger-ui
     let path_buf = Path::new(&args.path);
     let config = Arc::new(Config::from(args.path.clone()));
@@ -251,8 +248,7 @@ async fn main() {
         Command::Simulator(args) => run_simulator(args).await,
         Command::Run(args) => {
             // Initialize the connection pool
-            match init_pool().await
-            {
+            match init_pool().await {
                 Ok(pool) => run(pool, args.server).await,
                 Err(e) => Err(e),
             }
@@ -260,39 +256,6 @@ async fn main() {
     } {
         println!("Error occurred running command: {}", error);
     }
-    // Set up the routes
-    // Key routes
-    let add_key_route = add_key_route(pool.clone());
-    let delete_key_route = delete_key_route(pool.clone());
-    let get_key_route = get_keys_route(pool.clone());
-
-    // Signer routes
-    let add_signer_route = add_signer_route(pool.clone());
-    let delete_signer_route = delete_signer_route(pool.clone());
-    let get_signers_route = get_signers_route(pool.clone());
-    // Transaction routes
-    let get_transactions_route = get_transactions_route(pool.clone());
-    let get_transaction_by_id_route = get_transaction_by_id_route(pool.clone());
-    // Vote routes
-    let vote_route = vote_route(pool);
-
-    // Combine the routes
-    let routes = add_key_route
-        .or(delete_key_route)
-        .or(get_key_route)
-        .or(add_signer_route)
-        .or(delete_signer_route)
-        .or(get_signers_route)
-        .or(get_transactions_route)
-        .or(get_transaction_by_id_route)
-        .or(vote_route);
-
-    // Run the server
-    let server = format!("{}:{}", cli.address, cli.port);
-    let server: SocketAddr = server
-        .parse()
-        .expect("Failed to parse provided address and port into socket address");
-    warp::serve(routes).run(server).await;
 }
 
 /// Generate some simulated transactions for mocked backend

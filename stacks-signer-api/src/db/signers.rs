@@ -49,9 +49,6 @@ pub async fn delete_signer(
     signer: Signer,
     pool: SqlitePool,
 ) -> Result<impl warp::Reply, warp::Rejection> {
-    // First delete any corresponding keys
-    delete_keys_by_id(signer.signer_id, &pool).await?;
-
     let rows_deleted = sqlx::query!(
         "DELETE FROM sbtc_signers WHERE signer_id = ?1 AND user_id = ?2",
         signer.signer_id,
