@@ -160,6 +160,7 @@ mod tests {
         let pool = init_db().await;
         let expected_signer = Signer {
             signer_id: 1,
+            user_id: 1,
             status: Status::Active,
         };
 
@@ -177,6 +178,7 @@ mod tests {
         let pool = init_db().await;
         let signer = Signer {
             signer_id: 1,
+            user_id: 1,
             status: Status::Active,
         };
 
@@ -199,14 +201,17 @@ mod tests {
         let signers_to_insert = vec![
             Signer {
                 signer_id: 1,
+                user_id: 1,
                 status: Status::Active,
             },
             Signer {
                 signer_id: 2,
+                user_id: 2,
                 status: Status::Active,
             },
             Signer {
                 signer_id: 3,
+                user_id: 3,
                 status: Status::Inactive,
             },
         ];

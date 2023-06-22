@@ -12,6 +12,8 @@ use warp::Filter;
 pub struct KeysQuery {
     /// The signer's ID.
     pub signer_id: i64,
+    /// The user's ID.
+    pub user_id: i64,
     /// The page number.
     pub page: Option<usize>,
     /// The limit of keys per page.
@@ -93,26 +95,32 @@ mod tests {
     async fn insert_test_data(pool: SqlitePool) {
         let key1 = Key {
             signer_id: 1,
+            user_id: 1,
             key: "key1".to_string(),
         };
         let key2 = Key {
             signer_id: 1,
+            user_id: 1,
             key: "key2".to_string(),
         };
         let key3 = Key {
             signer_id: 1,
+            user_id: 1,
             key: "key3".to_string(),
         };
         let key4 = Key {
             signer_id: 1,
+            user_id: 1,
             key: "key4".to_string(),
         };
         let key5 = Key {
             signer_id: 1,
+            user_id: 1,
             key: "key5".to_string(),
         };
         let key_diff_signer_id = Key {
             signer_id: 10,
+            user_id: 1,
             key: "key1".to_string(),
         };
         // Add test data
@@ -133,7 +141,7 @@ mod tests {
         insert_test_data(pool.clone()).await;
 
         let api = warp::test::request()
-            .path("/v1/keys?signer_id=1")
+            .path("/v1/keys?signer_id=1&user_id=1")
             .method("GET")
             .header("content-type", "application/json")
             .reply(&get_keys_route(pool))
@@ -150,6 +158,7 @@ mod tests {
 
         let new_key = Key {
             signer_id: 1,
+            user_id: 1,
             key: "key6".to_string(),
         };
 
@@ -174,6 +183,7 @@ mod tests {
 
         let key_to_delete = Key {
             signer_id: 1,
+            user_id: 1,
             key: "key1".to_string(),
         };
 
@@ -197,17 +207,29 @@ mod tests {
         // Add test data
         insert_test_data(pool.clone()).await;
 
+        let key_no_matching_user = Key {
+            signer_id: 1,
+            user_id: 2, // We don't have this user id
+            key: "key1".to_string(),
+        };
+
         let key_no_matching_key = Key {
             signer_id: 1,
+            user_id: 1,
             key: "invalid key".to_string(), // We don't have this key
         };
 
         let key_no_matching_signer = Key {
             signer_id: 2, // We don't have this signer id
+            user_id: 1,
             key: "key1".to_string(),
         };
 
-        let keys_to_attempt = vec![key_no_matching_key, key_no_matching_signer];
+        let keys_to_attempt = vec![
+            key_no_matching_user,
+            key_no_matching_key,
+            key_no_matching_signer,
+        ];
 
         for key in keys_to_attempt {
             let api = warp::test::request()

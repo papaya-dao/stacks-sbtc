@@ -32,6 +32,7 @@ pub async fn add_key(key: Key, pool: SqlitePool) -> Result<impl warp::Reply, war
     if count == 0 {
         let signer = Signer {
             signer_id: key.signer_id,
+            user_id: key.user_id,
             status: Status::Inactive,
         };
         add_signer(signer, pool.clone()).await?;
@@ -65,6 +66,7 @@ pub async fn add_key(key: Key, pool: SqlitePool) -> Result<impl warp::Reply, war
 ///   indicating if the operation was successful or not.
 pub async fn delete_keys_by_id(
     signer_id: i64,
+    user_id: i64,
     pool: &SqlitePool,
 ) -> Result<impl warp::Reply, warp::Rejection> {
     let rows_deleted = sqlx::query!(
@@ -205,6 +207,7 @@ mod tests {
         let pool = init_db().await;
         let expected_key = Key {
             signer_id: 1,
+            user_id: 1,
             key: "key".to_string(),
         };
 
@@ -225,6 +228,7 @@ mod tests {
         let pool = init_db().await;
         let key = Key {
             signer_id: 1,
+            user_id: 1,
             key: "key".to_string(),
         };
 
@@ -247,18 +251,22 @@ mod tests {
         let keys_to_insert = vec![
             Key {
                 signer_id: 1,
+                user_id: 1,
                 key: "key1".to_string(),
             },
             Key {
                 signer_id: 1,
+                user_id: 1,
                 key: "key2".to_string(),
             },
             Key {
                 signer_id: 2,
+                user_id: 1,
                 key: "key3".to_string(),
             },
             Key {
                 signer_id: 2,
+                user_id: 1,
                 key: "key1".to_string(),
             },
         ];
@@ -269,6 +277,7 @@ mod tests {
 
         let query = KeysQuery {
             signer_id: 1,
+            user_id: 1,
             page: Some(1),
             limit: Some(2),
         };
@@ -288,6 +297,7 @@ mod tests {
 
         let query = KeysQuery {
             signer_id: 2,
+            user_id: 1,
             page: Some(1),
             limit: Some(2),
         };
@@ -307,6 +317,7 @@ mod tests {
 
         let query = KeysQuery {
             signer_id: 2,
+            user_id: 1,
             page: Some(1),
             limit: Some(1),
         };

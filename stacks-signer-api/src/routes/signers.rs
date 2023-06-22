@@ -96,6 +96,7 @@ mod tests {
         add_signer(
             Signer {
                 signer_id: 1,
+                user_id: 2,
                 status: Status::Active,
             },
             pool.clone(),
@@ -105,6 +106,7 @@ mod tests {
         add_signer(
             Signer {
                 signer_id: 3,
+                user_id: 4,
                 status: Status::Inactive,
             },
             pool,
@@ -136,6 +138,7 @@ mod tests {
             signers[0],
             Signer {
                 signer_id: 1,
+                user_id: 2,
                 status: Status::Active,
             }
         );
@@ -148,6 +151,7 @@ mod tests {
 
         let new_signer = Signer {
             signer_id: 5,
+            user_id: 6,
             status: Status::Active,
         };
 
@@ -172,6 +176,7 @@ mod tests {
 
         let signer_to_delete = Signer {
             signer_id: 1,
+            user_id: 2,
             status: Status::Active,
         };
 
@@ -197,6 +202,7 @@ mod tests {
 
         let signer_to_delete = Signer {
             signer_id: 5,
+            user_id: 2,
             status: Status::Active,
         };
 
