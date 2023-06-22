@@ -1,8 +1,8 @@
 use crate::{
-    db::{paginate_items, signers::add_signer, Error},
+    db::{signers::add_signer, Error},
     key::Key,
-    routes::keys::KeysQuery,
-    signer::{Signer, Status},
+    routes::{keys::KeysQuery, paginate_items},
+    signer::{Signer, SignerStatus},
 };
 
 use sqlx::SqlitePool;
@@ -33,9 +33,9 @@ pub async fn add_key(key: Key, pool: SqlitePool) -> Result<impl warp::Reply, war
         let signer = Signer {
             signer_id: key.signer_id,
             user_id: key.user_id,
-            status: Status::Inactive,
+            status: SignerStatus::Inactive,
         };
-        add_signer(signer, pool.clone()).await?;
+        add_signer(&pool, &signer).await?;
     }
 
     // Insert the key into the database
