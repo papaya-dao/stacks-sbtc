@@ -80,15 +80,8 @@ path = 'tests/sbtc-token_test.clar'
 clarity_version = 2
 epoch = 2.1
 
-[contracts.sbtc-wallet-vote]
-path = 'contracts/sbtc-wallet-vote.clar'
-clarity_version = 2
-epoch = 2.1
-[repl.analysis]
-passes = ['check_checker']
-
-[contracts.pox-3]
-path = 'contracts/pox-3.clar'
+[contracts.pox-3-test]
+path = 'contracts/pox-3-test.clar'
 clarity_version = 2
 epoch = 2.1
 
