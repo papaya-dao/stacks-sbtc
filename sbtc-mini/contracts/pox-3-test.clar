@@ -586,8 +586,8 @@
 ;;  by issuing an allowance, the tx-sender may call through the allowed contract
 (define-public (allow-contract-caller (caller principal) (until-burn-ht (optional uint)))
   (begin
-    (asserts! (is-eq tx-sender contract-caller)
-              (err ERR_STACKING_PERMISSION_DENIED))
+    ;; Below line was overriden from (is-eq tx-sender contract-caller) for test gen purposes
+    (asserts! (is-eq u1 u1)(err ERR_STACKING_PERMISSION_DENIED))
     (ok (map-set allowance-contract-callers
                { sender: tx-sender, contract-caller: caller }
                { until-burn-ht: until-burn-ht }))))

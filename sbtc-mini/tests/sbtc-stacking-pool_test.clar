@@ -8,18 +8,20 @@
 (define-constant penalty 0x04)
 (define-constant bad-peg-state 0x05)
 
-;; @name Querying volunteer can pre-register in cycle (n - 1) to register in cycle n
+;; @name Querying volunteer can pre-register in cycle (n - 1) to register in cycle n & sign in cycle (n + 1)
 ;; @mine-blocks-before 70000
-;; (define-public (test-pre-register)
-;; 	(begin
-;; 		(try! (contract-call? .pox-3 allow-contract-caller .sbtc-stacking-pool none))
-;; 		(unwrap!
-;; 			(contract-call? .sbtc-stacking-pool signer-pre-register-test)
-;; 			(err 0)
-;; 		)
-;; 		(ok true)
-;; 	)
-;; )
+(define-public (test-pre-register)
+	(begin
+		(try! (contract-call? .pox-3-test allow-contract-caller .sbtc-stacking-pool none))
+		(unwrap!
+			(contract-call? .sbtc-stacking-pool signer-pre-register-test)
+			(err 0)
+		)
+		(ok true)
+	)
+)
+
+;; @name Querying volunteer can register in cycle n & sign in cycle n
 
 ;; @name Is protocol caller test (is not at first)
 (define-public (test-is-protocol-caller)
