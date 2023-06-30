@@ -2,11 +2,10 @@ use crate::bitcoin_node::UTXO;
 use crate::coordinator::PublicKey;
 use crate::peg_wallet::{BitcoinWallet as BitcoinWalletTrait, Error as PegWalletError};
 use crate::stacks_node::PegOutRequestOp;
-use bitcoin::schnorr::TweakedPublicKey;
-use bitcoin::XOnlyPublicKey;
+
 use bitcoin::{
-    hashes::hex::FromHex, secp256k1::Secp256k1, Address, Network, OutPoint, Script, Transaction,
-    TxIn,
+    hashes::hex::FromHex, schnorr::TweakedPublicKey, Address, Network, OutPoint, Script,
+    Transaction, TxIn, XOnlyPublicKey,
 };
 use tracing::{debug, warn};
 
@@ -37,9 +36,6 @@ impl BitcoinWallet {
         }
     }
 }
-
-/// Minimum dust required
-const DUST_UTXO_LIMIT: u64 = 5500;
 
 impl BitcoinWalletTrait for BitcoinWallet {
     type Error = Error;
@@ -97,9 +93,11 @@ impl BitcoinWalletTrait for BitcoinWallet {
             "change_amount: {:?}, total_consumed: {:?}, op.amount: {:?}",
             change_amount, total_consumed, op.amount
         );
-        if change_amount >= DUST_UTXO_LIMIT {
-            let secp = Secp256k1::verification_only();
-            let script_pubkey = Script::new_v1_p2tr(&secp, self.public_key, None);
+        // Do not want to use Script::new_v1_p2tr because it will tweak our key when we don't want it to
+        let public_key_tweaked = TweakedPublicKey::dangerous_assume_tweaked(self.public_key);
+        let script_pubkey = Script::new_v1_p2tr_tweaked(public_key_tweaked);
+
+        if change_amount >= script_pubkey.dust_value().to_sat() {
             let change_output = bitcoin::TxOut {
                 value: change_amount,
                 script_pubkey,
