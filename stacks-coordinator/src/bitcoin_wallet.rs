@@ -1,5 +1,4 @@
 use crate::bitcoin_node::UTXO;
-use crate::coordinator::PublicKey;
 use crate::peg_wallet::{BitcoinWallet as BitcoinWalletTrait, Error as PegWalletError};
 use crate::stacks_node::PegOutRequestOp;
 
@@ -23,11 +22,11 @@ pub enum Error {
 
 pub struct BitcoinWallet {
     address: Address,
-    public_key: PublicKey,
+    public_key: XOnlyPublicKey,
 }
 
 impl BitcoinWallet {
-    pub fn new(public_key: PublicKey, network: Network) -> Self {
+    pub fn new(public_key: XOnlyPublicKey, network: Network) -> Self {
         let tweaked_public_key = TweakedPublicKey::dangerous_assume_tweaked(public_key);
         let address = bitcoin::Address::p2tr_tweaked(tweaked_public_key, network);
         Self {
@@ -145,18 +144,19 @@ fn utxo_to_input(utxo: UTXO) -> Result<TxIn, Error> {
 mod tests {
     use super::{BitcoinWallet, Error};
     use crate::bitcoin_node::UTXO;
-    use crate::coordinator::PublicKey;
     use crate::peg_wallet::{BitcoinWallet as BitcoinWalletTrait, Error as PegWalletError};
     use crate::util::test::{build_peg_out_request_op, PRIVATE_KEY_HEX};
+    use bitcoin::XOnlyPublicKey;
     use hex::encode;
     use rand::Rng;
     use std::str::FromStr;
 
     /// Helper function to build a valid bitcoin wallet
     fn bitcoin_wallet() -> BitcoinWallet {
-        let public_key =
-            PublicKey::from_str("cc8a4bc64d897bddc5fbc2f670f7a8ba0b386779106cf1223c6fc5d7cd6fc115")
-                .expect("Failed to construct a valid public key for the bitcoin wallet");
+        let public_key = XOnlyPublicKey::from_str(
+            "cc8a4bc64d897bddc5fbc2f670f7a8ba0b386779106cf1223c6fc5d7cd6fc115",
+        )
+        .expect("Failed to construct a valid public key for the bitcoin wallet");
         BitcoinWallet::new(public_key, bitcoin::Network::Testnet)
     }
 
