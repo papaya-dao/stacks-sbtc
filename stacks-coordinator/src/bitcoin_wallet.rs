@@ -99,7 +99,7 @@ impl BitcoinWalletTrait for BitcoinWallet {
         if change_amount >= script_pubkey.dust_value().to_sat() {
             let change_output = bitcoin::TxOut {
                 value: change_amount,
-                script_pubkey,
+                script_pubkey: script_pubkey.clone(),
             };
             tx.output.push(change_output);
         } else {
@@ -110,9 +110,14 @@ impl BitcoinWalletTrait for BitcoinWallet {
         let fulfillment_input = utxo_to_input(fulfillment_utxo)?;
         tx.input.push(fulfillment_input);
         for utxo in utxos {
-            let input = utxo_to_input(utxo)?;
-            tx.input.push(input);
+            let withdrawal_input = utxo_to_input(utxo)?;
+            tx.input.push(withdrawal_input);
         }
+        let withdrawal_output = bitcoin::TxOut {
+            value: op.amount,
+            script_pubkey,
+        };
+        tx.output.push(withdrawal_output);
         Ok(tx)
     }
 
@@ -223,7 +228,7 @@ mod tests {
 
         let btc_tx = wallet.fulfill_peg_out(&op, txouts).unwrap();
         assert_eq!(btc_tx.input.len(), 7);
-        assert_eq!(btc_tx.output.len(), 1); // We have change!
+        assert_eq!(btc_tx.output.len(), 2); // We have change!
         assert_eq!(btc_tx.output[0].value, 10000);
     }
 
@@ -242,7 +247,7 @@ mod tests {
 
         let btc_tx = wallet.fulfill_peg_out(&op, txouts).unwrap();
         assert_eq!(btc_tx.input.len(), 2);
-        assert_eq!(btc_tx.output.len(), 0); // No change!
+        assert_eq!(btc_tx.output.len(), 1); // No change!
     }
 
     #[test]
