@@ -167,27 +167,25 @@
   )
 )
 
+;; @name Good increments of peg-out nonce
+;; @mine-blocks-before 5
 (define-public (test-peg-out-request-nonce-increment)
   (begin
-    (let ((req1 (unwrap! (contract-call? .sbtc-registry insert-peg-out-request u1 tx-sender u100 mock-destination mock-unlock-script) (err "insert-peg-out-request should have succeeded"))))
-      (let ((nonce1 (contract-call? .sbtc-registry get-peg-out-nonce)))
-        (let ((req2 (unwrap! (contract-call? .sbtc-registry insert-peg-out-request u2 tx-sender u100 mock-destination mock-unlock-script) (err "insert-peg-out-request should have succeeded"))))
-          (let ((nonce2 (contract-call? .sbtc-registry get-peg-out-nonce)))
-            (let ((req3 (unwrap! (contract-call? .sbtc-registry insert-peg-out-request u3 tx-sender u100 mock-destination mock-unlock-script) (err "insert-peg-out-request should have succeeded"))))
-              (let ((nonce3 (contract-call? .sbtc-registry get-peg-out-nonce)))
-                (asserts! (is-eq nonce1 u1) (err "Peg-out request nonce for req1 should be u1"))
-                (asserts! (is-eq nonce2 u2) (err "Peg-out request nonce for req2 should be u2"))
-                (asserts! (is-eq nonce3 u3) (err "Peg-out request nonce for req3 should be u3"))
-                (ok true)
-              )
-            )
-          )
+    (unwrap! (contract-call? .sbtc-registry insert-peg-out-request u1 tx-sender u100 mock-destination mock-unlock-script) (err "insert-peg-out-request should have succeeded"))
+    (let ((nonce1 (contract-call? .sbtc-registry get-peg-out-nonce)))
+      (unwrap! (contract-call? .sbtc-registry insert-peg-out-request u2 tx-sender u100 mock-destination mock-unlock-script) (err "insert-peg-out-request should have succeeded"))
+      (let ((nonce2 (contract-call? .sbtc-registry get-peg-out-nonce)))
+        (unwrap! (contract-call? .sbtc-registry insert-peg-out-request u3 tx-sender u100 mock-destination mock-unlock-script) (err "insert-peg-out-request should have succeeded"))
+        (let ((nonce3 (contract-call? .sbtc-registry get-peg-out-nonce)))
+          (asserts! (is-eq nonce1 u1) (err "Peg-out request nonce for req1 should be u1"))
+          (asserts! (is-eq nonce2 u2) (err "Peg-out request nonce for req2 should be u2"))
+          (asserts! (is-eq nonce3 u3) (err "Peg-out request nonce for req3 should be u3"))
+          (ok true)
         )
       )
     )
   )
 )
-
 
 ;; @name peg-out-requests-pending is properly incremented and decremented
 ;; @mine-blocks-before 5
