@@ -190,12 +190,10 @@
 ;; @name peg-out-requests-pending is properly incremented and decremented
 ;; @mine-blocks-before 5
 (define-public (test-peg-out-requests-pending)
-   (let ((req1 (unwrap! (contract-call? .sbtc-registry insert-peg-out-request u1 tx-sender u100 mock-destination mock-unlock-script) 
-         (err "insert-peg-out-request should have succeeded"))))
-       (let ((req2 (unwrap! (contract-call? .sbtc-registry insert-peg-out-request u2 tx-sender u100 mock-destination mock-unlock-script)
-            (err "insert-peg-out-request should have succeeded"))))
-           (asserts! (is-eq (contract-call? .sbtc-registry get-pending-wallet-peg-outs) u2) (err "Peg-out pending number should be 2"))
-           (ok true)
-       )
-   )
+  (begin
+    (unwrap! (contract-call? .sbtc-registry insert-peg-out-request u1 tx-sender u100 mock-destination mock-unlock-script) (err "insert-peg-out-request should have succeeded"))
+    (unwrap! (contract-call? .sbtc-registry insert-peg-out-request u2 tx-sender u100 mock-destination mock-unlock-script) (err "insert-peg-out-request should have succeeded"))
+    (asserts! (is-eq (contract-call? .sbtc-registry get-pending-wallet-peg-outs) u2) (err "Peg-out pending number should be 2"))
+    (ok true)
+  )
 )
