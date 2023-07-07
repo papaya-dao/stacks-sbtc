@@ -1,6 +1,5 @@
 use bitcoin::{
     psbt::Prevouts,
-    secp256k1::Parity,
     util::{
         base58,
         sighash::{Error as SighashError, SighashCache},
@@ -385,17 +384,11 @@ fn bitcoin_public_key(
         let point = frost_coordinator.run_distributed_key_generation()?;
         let xonly_pubkey = XOnlyPublicKey::from_slice(&point.x().to_bytes())
             .map_err(|e| Error::InvalidPublicKey(e.to_string()))?;
-        let parity = if point.has_even_y() {
-            Parity::Even
-        } else {
-            Parity::Odd
-        };
-        let public_key = xonly_pubkey.public_key(parity);
 
         // Set the bitcoin address using the sbtc contract
         let nonce = stacks_node.next_nonce(address)?;
         let tx =
-            stacks_wallet.build_set_bitcoin_wallet_public_key_transaction(&public_key, nonce)?;
+            stacks_wallet.build_set_bitcoin_wallet_public_key_transaction(&xonly_pubkey, nonce)?;
         stacks_node.broadcast_transaction(&tx)?;
         Ok(xonly_pubkey)
     }
