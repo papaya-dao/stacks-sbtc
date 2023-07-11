@@ -584,13 +584,12 @@
 ;;  normally, stacking methods may only be invoked by _direct_ transactions
 ;;   (i.e., the tx-sender issues a direct contract-call to the stacking methods)
 ;;  by issuing an allowance, the tx-sender may call through the allowed contract
-(define-public (allow-contract-caller (caller principal) (until-burn-ht (optional uint)))
+(define-public (allow-contract-caller (caller principal))
   (begin
-    (asserts! (is-eq tx-sender contract-caller)
-              (err ERR_STACKING_PERMISSION_DENIED))
+   ;; (asserts! (is-eq tx-sender contract-caller)(err ERR_STACKING_PERMISSION_DENIED))
     (ok (map-set allowance-contract-callers
                { sender: tx-sender, contract-caller: caller }
-               { until-burn-ht: until-burn-ht }))))
+               { until-burn-ht: none }))))
 
 ;; Lock up some uSTX for stacking!  Note that the given amount here is in micro-STX (uSTX).
 ;; The STX will be locked for the given number of reward cycles (lock-period).

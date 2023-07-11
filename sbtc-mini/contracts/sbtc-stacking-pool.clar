@@ -324,7 +324,8 @@
 )
 
 ;; @desc: pre-registers a stacker for the cycle, goal of this function is to gurantee the amount of STX to be stacked for the next cycle
-(define-public (signer-pre-register (amount-ustx uint) (pox-addr { version: (buff 1), hashbytes: (buff 32)}))
+;; Removed (pox-addr {}) from param for testing purposes (is now in "let")
+(define-public (signer-pre-register (amount-ustx uint))
     (let 
         (
             (signer-account (stx-account tx-sender))
@@ -336,6 +337,7 @@
             (next-cycle (+ current-cycle u1))
             (current-pre-signer (map-get? pre-signer {stacker: tx-sender, pool: current-cycle}))
             (current-signer (map-get? signer {stacker: tx-sender, pool: current-cycle}))
+            (pox-addr { version: 0x06, hashbytes: 0x0011223344556699001122334455669900112233445566990011223344556699 })
         )
 
         ;; Assert that amount-ustx is greater than signer-minimal

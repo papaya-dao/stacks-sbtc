@@ -1,23 +1,9 @@
-import { Clarinet, Contract, Account } from 'https://deno.land/x/clarinet@v1.7.0/index.ts';
+import { Clarinet, Contract, Account } from 'https://deno.land/x/clarinet@v1.5.4/index.ts';
 
-const sourcebootstrapFile = './tests/bootstrap.ts';
 const targetFolder = '.test';
 
 const warningText = `// Code generated using \`clarinet run ./scripts/generate-tests.ts\`
 // Manual edits will be lost.`;
-
-const defaultDeps = `import { Clarinet, Tx, Chain, Account, Block, types } from 'https://deno.land/x/clarinet@v1.7.0/index.ts';
-import { assertEquals } from 'https://deno.land/std@0.170.0/testing/asserts.ts';
-
-export { Clarinet, Tx, Chain, types, assertEquals };
-export type { Account };
-
-const dirOptions = { strAbbreviateSize: Infinity, depth: Infinity, colors: true };
-
-export function printEvents(block: Block) {
-	block.receipts.map(({ events }) => events && events.map(event => console.log(Deno.inspect(event, dirOptions))));
-}
-`;
 
 function getContractName(contractId: string) {
 	return contractId.split('.')[1];
@@ -32,8 +18,13 @@ const annotationsRegex = /^;;[ \t]{1,}@([a-z-]+)(?:$|[ \t]+?(.+?))$/;
 
 function extractTestAnnotations(contractSource: string) {
 	const functionAnnotations = {};
-	const matches = contractSource.replace(/\r/g, "").matchAll(functionRegex);
-	for (const [, comments, functionName] of matches) {
+	const matches1 = contractSource.replace(/\r/g, "").matchAll(functionRegex);
+	const matches2 = contractSource.replace(/\r/g, "").matchAll(functionRegex);
+	//console.log(getContractName(contractSource) + " Tests")
+	// for (const [, comments, functionName] of matches2) {
+	// 	console.log(comments, functionName)
+	// }
+	for (const [, comments, functionName] of matches1) {
 		functionAnnotations[functionName] = {};
 		const lines = comments.split("\n");
 		for (const line of lines) {
@@ -42,13 +33,13 @@ function extractTestAnnotations(contractSource: string) {
 				functionAnnotations[functionName][prop] = value ?? true;
 		}
 	}
+	//console.log(functionAnnotations);
 	return functionAnnotations;
 }
 
 Clarinet.run({
 	async fn(accounts: Map<string, Account>, contracts: Map<string, Contract>) {
-		Deno.writeTextFile(`${targetFolder}/deps.ts`, defaultDeps);
-		Deno.writeTextFile(`${targetFolder}/bootstrap.ts`, await generateBootstrapFile(sourcebootstrapFile));
+		Deno.writeTextFile(`${targetFolder}/deps.ts`, generateDeps());
 
 		for (const [contractId, contract] of contracts) {
 			const contractName = getContractName(contractId);
@@ -64,8 +55,7 @@ Clarinet.run({
 			code.push([
 				warningText,
 				``,
-				`import { Clarinet, Tx, Chain, Account, types, assertEquals, printEvents } from './deps.ts';`,
-				`import { bootstrap } from './bootstrap.ts';`,
+				`import { Clarinet, Tx, Chain, Account, types, assertEquals, printEvents, bootstrap } from './deps.ts';`,
 				``
 			]);
 
@@ -123,7 +113,7 @@ function generateTest(contractPrincipal: string, testFunction: string, annotatio
 	name: "${annotations.name ? testFunction + ': ' + (annotations.name as string).replace(/"/g, '\\"') : testFunction}",
 	async fn(chain: Chain, accounts: Map<string, Account>) {
 		const deployer = accounts.get("deployer")!;
-		bootstrap && bootstrap(chain, deployer);
+		bootstrap(chain, deployer);
 		let callerAddress = ${annotations.caller ? (annotations.caller[0] === "'" ? `"${(annotations.caller as string).substring(1)}"` : `accounts.get('${annotations.caller}')!.address`) : `accounts.get('deployer')!.address`};
 		${mineBlocksBefore >= 1
 			? generateSpecialMineBlock(mineBlocksBefore, contractPrincipal, testFunction, annotations)
@@ -134,15 +124,40 @@ function generateTest(contractPrincipal: string, testFunction: string, annotatio
 `;
 }
 
-async function generateBootstrapFile(bootstrapFile: string) {
-	let bootstrapSource = 'export function bootstrap(){}';
-	if (bootstrapFile) {
-		try {
-			bootstrapSource = await Deno.readTextFile(bootstrapFile);
-		}
-		catch (error) {
-			console.error(`Could not read bootstrap file ${bootstrapFile}`, error);
-		}
-	}
-	return `${warningText}\n\n${bootstrapSource}`;
+function generateDeps() {
+	return `${warningText}
+	
+import { Clarinet, Tx, Chain, Account, Block, types } from 'https://deno.land/x/clarinet@v1.5.4/index.ts';
+import { assertEquals } from 'https://deno.land/std@0.170.0/testing/asserts.ts';
+
+export { Clarinet, Tx, Chain, types, assertEquals };
+export type { Account };
+
+const dirOptions = {strAbbreviateSize: Infinity, depth: Infinity, colors: true};
+
+export function printEvents(block: Block) {
+	block.receipts.map(({events}) => events && events.map(event => console.log(Deno.inspect(event, dirOptions))));
+}
+
+export const bootstrapContracts = [
+	'.sbtc-token',
+	'.sbtc-peg-in-processor',
+	'.sbtc-peg-out-processor',
+	'.sbtc-registry',
+	'.sbtc-stacking-pool',
+	'.sbtc-testnet-debug-controller',
+	'.sbtc-token'
+];
+
+export function bootstrap(chain: Chain, deployer: Account) {
+	const { receipts } = chain.mineBlock([
+		Tx.contractCall(
+			\`\${deployer.address}.sbtc-controller\`,
+			'upgrade',
+			[types.list(bootstrapContracts.map(contract => types.tuple({ contract, enabled: true })))],
+			deployer.address
+		)
+	]);
+	receipts[0].result.expectOk().expectList().map(result => result.expectBool(true));
+}`;
 }
