@@ -190,11 +190,11 @@
             (start-transfer-window (- next-cycle-burn-height (+ normal-transfer-period-len normal-penalty-period-len)))
             (start-penalty-window (- next-cycle-burn-height normal-penalty-period-len))
             (current-window (begin 
-                 (asserts! (< latest-disbursed-burn-height burn-block-height) disbursement)
-                 (asserts! (and (> burn-block-height latest-disbursed-burn-height) (< burn-block-height start-voting-window)) registration)
-                 (asserts! (and (>= burn-block-height start-voting-window) (< burn-block-height start-transfer-window)) voting)
-                 (asserts! (and (>= burn-block-height start-transfer-window) (< burn-block-height start-penalty-window)) transfer)
-                 (asserts! (>= burn-block-height start-penalty-window) penalty)
+                 (asserts! (and (> burn-block-height latest-disbursed-burn-height) (>= burn-block-height start-voting-window)) registration)
+                 (asserts! (and (>= burn-block-height start-voting-window) (>= burn-block-height start-transfer-window)) voting)
+                 (asserts! (and (>= burn-block-height start-transfer-window) (>= burn-block-height start-penalty-window)) transfer)
+                 (asserts! (and (>= burn-block-height start-penalty-window) (>= burn-block-height next-cycle-burn-height)) penalty)
+                 disbursement
             ))
 
         )
@@ -288,7 +288,7 @@
             ) err-wrong-pubkey)
 
             ;; All POX rewards have been distributed, update relevant vars/maps
-            (var-set last-disbursed-burn-height block-height)
+            (var-set last-disbursed-burn-height burn-block-height)
             (ok (map-set pool previous-cycle (merge 
                 previous-pool 
                 {rewards-disbursed: true}
