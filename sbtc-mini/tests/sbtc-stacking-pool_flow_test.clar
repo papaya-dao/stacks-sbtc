@@ -9,6 +9,7 @@
 (define-constant bad-peg-state 0x05)
 
 ;; @poxadmin .sbtc-stacking-pool
+;; throws ArithmeticUnderflow due to missing stx-account implementation
 ;; @caller wallet_1
 (define-public (test-sign-pre-register)
 	(begin
