@@ -190,11 +190,11 @@
             (start-transfer-window (- next-cycle-burn-height (+ normal-transfer-period-len normal-penalty-period-len)))
             (start-penalty-window (- next-cycle-burn-height normal-penalty-period-len))
             (current-window (begin 
-                 (asserts! (and (> burn-block-height latest-disbursed-burn-height) (>= burn-block-height start-voting-window)) registration)
-                 (asserts! (and (>= burn-block-height start-voting-window) (>= burn-block-height start-transfer-window)) voting)
-                 (asserts! (and (>= burn-block-height start-transfer-window) (>= burn-block-height start-penalty-window)) transfer)
-                 (asserts! (and (>= burn-block-height start-penalty-window) (>= burn-block-height next-cycle-burn-height)) penalty)
-                 disbursement
+                 (asserts! (>= burn-block-height start-voting-window) (if (< current-cycle-burn-height latest-disbursed-burn-height) registration disbursement))
+                 (asserts! (>= burn-block-height start-transfer-window) voting)
+                 (asserts! (>= burn-block-height start-penalty-window) transfer)
+                 (asserts! (>= burn-block-height next-cycle-burn-height) penalty)
+                 disbursement ;; won't happen because next cycle starts already
             ))
 
         )
@@ -323,7 +323,7 @@
     )
 )
 
-;; @desc: pre-registers a stacker for the cycle, goal of this function is to gurantee the amount of STX to be stacked for the next cycle
+;; @desc: pre-registers a stacker for the cycle, goal of this function is to guarantee the amount of STX to be stacked for the next cycle
 (define-public (signer-pre-register (amount-ustx uint) (pox-addr { version: (buff 1), hashbytes: (buff 32)}))
     (let 
         (
@@ -342,12 +342,11 @@
         (asserts! (>= amount-ustx (var-get signer-minimal)) err-not-enough-stacked)
 
         ;; Assert signer-allowance-end-height is either none or block-height is less than signer-allowance-end-height
-        (asserts! (or 
-            (is-none signer-allowance-end-height) 
-            (< burn-block-height (default-to burn-block-height signer-allowance-end-height))
+        (asserts!
+            (< burn-block-height (default-to (+ burn-block-height u1) signer-allowance-end-height)
         ) err-allowance-height)
 
-        ;; Assert not already pre-signer or signer
+        ;; Assert not already pre-signer nor signer
         (asserts! (or (is-none current-pre-signer) (is-none current-signer)) err-already-pre-signer-or-signer)
 
         ;; Assert we're in the registration window
@@ -357,19 +356,16 @@
         (unwrap! (contract-call? .pox-3 delegate-stx amount-ustx (as-contract tx-sender) (some burn-block-height) (some pox-addr)) err-pre-registration-delegate-stx)
 
         ;; Delegate-stack-stx for next cycle
+        ;; Fails if user is already stacking
         (unwrap! (as-contract (contract-call? .pox-3 delegate-stack-stx new-signer amount-ustx pox-addr burn-block-height u1)) err-pre-registration-delegate-stack-stx)
 
         ;; Stack aggregate-commit
-        ;; As pointed out by Friedger, this fails when the user is already stacking. Match err-branch takes care of this with stack-delegate-increase instead.
+        ;; stack-aggregation-commit-indexed fails when the user is already stacking. Match err-branch takes care of this with stack-delegate-increase instead.
         (match (as-contract (contract-call? .pox-3 stack-aggregation-commit-indexed pox-addr next-cycle))
             ok-branch
                 true
             err-branch
                 (begin
-
-                    ;; Assert stacker isn't attempting to decrease 
-                    (asserts! (>= amount-ustx (get locked signer-account)) err-decrease-forbidden)
-
                     ;; Delegate-stack-increase for next cycle so that there is no cooldown
                     (unwrap! (contract-call? .pox-3 delegate-stack-increase new-signer pox-addr (- amount-ustx (get locked signer-account))) err-pre-registration-stack-increase)
                     true

@@ -93,9 +93,14 @@ function generatePrepareTx(contractPrincipal: string, annotations: FunctionAnnot
 	return `Tx.contractCall('${contractPrincipal}', '${annotations['prepare']}', [], deployer.address)`;
 }
 
+function generatePox3AllowContractCaller(annotations: FunctionAnnotations) {
+	return `Tx.contractCall(deployer.address + '.pox-3', 'allow-contract-caller', ['${annotations['poxadmin']}', 'none'], callerAddress)`;
+}
+
 function generateNormalMineBlock(contractPrincipal: string, testFunction: string, annotations: FunctionAnnotations) {
 	return `let block = chain.mineBlock([
 		${annotations['prepare'] ? `${generatePrepareTx(contractPrincipal, annotations)},` : ''}
+		${annotations['poxadmin'] ? `${generatePox3AllowContractCaller(annotations)},` : ''}
 		Tx.contractCall('${contractPrincipal}', '${testFunction}', [], callerAddress)
 	]);`;
 }
