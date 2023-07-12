@@ -2,7 +2,7 @@
 name: Risk issue
 about: Track Risk issues
 title: "[Risk]"
-labels: 'high-impact,medium-impact,low-impact,informational,unknown-impact,high-likelihood,medium-likelihood,low-likelihood,unknown-likelihood,unsolved,mitigated,wontfix,fixed,not-an-issue'
+labels: 'high-impact,medium-impact,low-impact,informational,unknown-impact,high-likelihood,medium-likelihood,low-likelihood,unknown-likelihood,unsolved,mitigated,wontfix,fixed,not-an-issue,risk'
 assignees: ''
 
 ---
@@ -10,7 +10,7 @@ assignees: ''
 * **Impact:** use issue labels for impact such as `high-impact` / `medium-impact` / `low-impact` / `informational` / `unknown-impact`
 * **Likelihood:** use issue labels for likelihood such as `high-likelihood` / `medium-likelihood` / `low-likelihood` / `unknown-likelihood`
 * **Status:** use issue label for status such as `fixed` / `mitigated` / `unsolved` / `wontfix` / `not-an-issue`
-* **Fix or mitigation updates:** Use issue comments for updates, and add `risk` label too.
+* **Fix or mitigation updates:** Please write in the issue comments any updates.
 
 ## Short Description
 
