@@ -94,7 +94,7 @@ function generatePrepareTx(contractPrincipal: string, annotations: FunctionAnnot
 }
 
 function generatePox3AllowContractCaller(annotations: FunctionAnnotations) {
-	return `Tx.contractCall(deployer.address + '.pox-3', 'allow-contract-caller', ['${annotations['poxadmin']}', 'none'], callerAddress)`;
+	return `Tx.contractCall(deployer.address + '.pox-3', 'allow-contract-caller', [ "'" + deployer.address + '${annotations['poxadmin']}', 'none'], callerAddress)`;
 }
 
 function generateNormalMineBlock(contractPrincipal: string, testFunction: string, annotations: FunctionAnnotations) {
