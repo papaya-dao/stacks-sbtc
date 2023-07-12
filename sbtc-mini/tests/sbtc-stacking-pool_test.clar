@@ -84,11 +84,12 @@
 	)
 )
 
-;; @name Test current window at 4201 blocks to be disbursement
+;; @name Test current window at 4201 blocks to be registration
+;; because this is the first cycle of the sbtc.
 ;; @mine-blocks-before 4200
-(define-public (test-get-current-window-disbursement)
+(define-public (test-get-current-window-registration)
 	(let ((current-window (contract-call? .sbtc-stacking-pool get-current-window)))
-		(asserts! (is-eq current-window disbursement) (err current-window))
+		(asserts! (is-eq current-window registration) (err current-window))
 		(ok true)
 	)
 )

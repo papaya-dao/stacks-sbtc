@@ -1,6 +1,7 @@
 import { Tx, Chain, Account, types } from 'https://deno.land/x/clarinet@v1.7.0/index.ts';
 
 export const bootstrapContracts = [
+	'.pox-3',
 	'.sbtc-token',
 	'.sbtc-peg-in-processor',
 	'.sbtc-peg-out-processor',
