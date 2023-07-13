@@ -18,3 +18,18 @@
 				(contract-call? .sbtc-stacking-pool signer-pre-register u1000 mock-pox-reward-wallet-1)))
 			(asserts! (is-ok registration-result) registration-result))
 			(ok true)))
+
+;; @name transfer for unknown pool fails
+(define-public (test-balance-was-transferred)
+	(begin (let (
+		(result (contract-call? .sbtc-peg-transfer relay-handoff-fulfillment u2101 0x 0x u1 u1 (list) 0x 0x 0x (list))))
+		(match result
+			success (err "Should return error")
+			error
+				(begin
+					(asserts! (is-eq error u0) (err (concat "Should return err u0, not " (error-to-string error))))
+					(ok true))))))
+
+;; errors from sbtc-peg-transfer
+(define-private (error-to-string (error uint))
+	(unwrap! (element-at? (list "err-current-pool-not-found") error) "unknown error"))

@@ -347,6 +347,7 @@
 )
 
 ;; @desc: registers a signer for the cycle, goal of this function is to gurantee the amount of STX to be stacked for the next cycle
+;; return (ok true) on success
 (define-public (signer-register (pre-registered-signer principal) (amount-ustx uint) (pox-addr { version: (buff 1), hashbytes: (buff 32)}) (public-key (buff 32)))
     (let
         (
@@ -400,35 +401,37 @@
             btc-earned: none
         })
         ;; need to set pool map
-        ;; check if first time next-cycle pool is set
-        (ok (match (map-get? pool next-cycle)
-            ;; next pool already exists, update/merge
-            next-pool
-                (map-set pool next-cycle (merge
-                    next-pool
-                    {
-                        stackers: (unwrap! (as-max-len? (append (get stackers next-pool) tx-sender) u100) err-too-many-candidates),
-                        stacked: (+ (get stacked next-pool) amount-ustx)
-                    }
-                ))
-            ;; next pool initial set
-            (map-set pool next-cycle
-                {
-                    stackers: (list tx-sender),
-                    stacked: amount-ustx,
-                    threshold-wallet-candidates: (list ),
-                    threshold-wallet: none,
-                    last-aggregation: none,
-                    reward-index: none,
-                    balance-transferred: false,
-                    rewards-disbursed: false
-                }
-            )
-        ))
-
+        (add-stacker-to-pool next-cycle tx-sender amount-ustx)
     )
 )
 
+(define-private (add-stacker-to-pool (pool-id uint) (stacker principal) (amount-ustx uint))
+    ;; check if first time pool is set
+    (ok (match (map-get? pool pool-id)
+        ;; next pool already exists, update/merge
+        pool-details
+            (map-set pool pool-id (merge
+                pool-details
+                {
+                    stackers: (unwrap! (as-max-len? (append (get stackers pool-details) stacker) u100) err-too-many-candidates),
+                    stacked: (+ (get stacked pool-details) amount-ustx)
+                }
+            ))
+        ;; next pool initial set
+        (map-set pool pool-id
+            {
+                stackers: (list tx-sender),
+                stacked: amount-ustx,
+                threshold-wallet-candidates: (list ),
+                threshold-wallet: none,
+                last-aggregation: none,
+                reward-index: none,
+                balance-transferred: false,
+                rewards-disbursed: false
+            }
+        )
+    ))
+)
 
 
 ;;;;; Voting Functions ;;;;;;;
