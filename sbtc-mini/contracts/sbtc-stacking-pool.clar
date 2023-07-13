@@ -184,39 +184,24 @@
             (peg-state (contract-call? .sbtc-registry current-peg-state))
             (current-cycle (contract-call? .pox-3 current-pox-reward-cycle))
             (current-cycle-burn-height (contract-call? .pox-3 reward-cycle-to-burn-height current-cycle))
-            (next-cycle (+ u1 (contract-call? .pox-3 current-pox-reward-cycle)))
+            (next-cycle (+ current-cycle u1))
             (next-cycle-burn-height (contract-call? .pox-3 reward-cycle-to-burn-height next-cycle))
             (latest-disbursed-burn-height (var-get last-disbursed-burn-height))
             (start-voting-window (- next-cycle-burn-height (+ normal-voting-period-len normal-transfer-period-len normal-penalty-period-len)))
             (start-transfer-window (- next-cycle-burn-height (+ normal-transfer-period-len normal-penalty-period-len)))
             (start-penalty-window (- next-cycle-burn-height normal-penalty-period-len))
-            (current-window (begin
-                 (asserts! (>= burn-block-height start-voting-window)
-                                (if (or (< current-cycle-burn-height latest-disbursed-burn-height) (is-eq latest-disbursed-burn-height u0))
-                                    registration
-                                    disbursement))
-                 (asserts! (>= burn-block-height start-transfer-window) voting)
-                 (asserts! (>= burn-block-height start-penalty-window) transfer)
-                 (asserts! (>= burn-block-height next-cycle-burn-height) penalty)
-                 disbursement ;; won't happen because next cycle starts already
-            ))
-
         )
 
         (asserts! peg-state bad-peg-state)
 
-        (asserts! (< latest-disbursed-burn-height burn-block-height) disbursement)
-
-        (asserts! (and (> burn-block-height latest-disbursed-burn-height) (< burn-block-height start-voting-window)) registration)
-
-        (asserts! (and (>= burn-block-height start-voting-window) (< burn-block-height start-transfer-window)) voting)
-
-        (asserts! (and (>= burn-block-height start-transfer-window) (< burn-block-height start-penalty-window)) transfer)
-
-        (asserts! (>= burn-block-height start-penalty-window) penalty)
-
-        0x00
-
+        (asserts! (>= burn-block-height start-voting-window)
+                    (if (or (< current-cycle-burn-height latest-disbursed-burn-height) (is-eq latest-disbursed-burn-height u0))
+                        registration
+                        disbursement))
+        (asserts! (>= burn-block-height start-transfer-window) voting)
+        (asserts! (>= burn-block-height start-penalty-window) transfer)
+        (asserts! (>= burn-block-height next-cycle-burn-height) penalty)
+        disbursement ;; won't happen because next cycle starts already
     )
 )
 
@@ -303,29 +288,6 @@
 
 
 ;;;;; Registration Functions ;;;;;
-
-(define-public (signer-pre-register-test)
-    (let
-        (
-            (signer-account (stx-account tx-sender))
-            (new-signer tx-sender)
-            (signer-unlocked-balance (get unlocked signer-account))
-            (signer-allowance-status (unwrap! (contract-call? .pox-3 get-allowance-contract-callers tx-sender (as-contract tx-sender)) (ok (as-contract tx-sender))))
-            (signer-allowance-end-height (get until-burn-ht signer-allowance-status))
-            (current-cycle (contract-call? .pox-3 current-pox-reward-cycle))
-            (next-cycle (+ current-cycle u1))
-            (current-pre-signer (map-get? pre-signer {stacker: tx-sender, pool: current-cycle}))
-            (current-signer (map-get? signer {stacker: tx-sender, pool: current-cycle}))
-            (test-pox-wallet { version: 0x06, hashbytes: 0x0011223344556699001122334455669900112233445566990011223344556699 })
-            (test-stx-amount u1000000000)
-        )
-
-        ;; Assert that amount-ustx is greater than signer-minimal
-        (asserts! (>= test-stx-amount (var-get signer-minimal)) err-not-enough-stacked)
-
-        (ok tx-sender)
-    )
-)
 
 ;; @desc: pre-registers a stacker for the cycle, goal of this function is to guarantee the amount of STX to be stacked for the next cycle
 (define-public (signer-pre-register (amount-ustx uint) (pox-addr { version: (buff 1), hashbytes: (buff 32)}))
