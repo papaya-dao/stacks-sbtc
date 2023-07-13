@@ -14,46 +14,30 @@
 (define-constant normal-transfer-period-len u100)
 (define-constant normal-penalty-period-len u100)
 
-;; @name Querying volunteer can pre-register in cycle (n - 1) to register in cycle n
-;; @mine-blocks-before 70000
-;; (define-public (test-pre-register)
-;; 	(begin
-;; 		(try! (contract-call? .pox-3 allow-contract-caller .sbtc-stacking-pool none))
-;; 		(unwrap!
-;; 			(contract-call? .sbtc-stacking-pool signer-pre-register-test)
-;; 			(err 0)
-;; 		)
-;; 		(ok true)
-;; 	)
-;; )
-
 ;; @name Is protocol caller test (is not at first)
 (define-public (test-is-protocol-caller)
-	(if (is-ok (contract-call? .sbtc-stacking-pool is-protocol-caller))
-		(err false)
+	(let ((is-protocol-caller
+			(contract-call? .sbtc-stacking-pool is-protocol-caller)))
+		(asserts! (is-err is-protocol-caller) (err "Should not be a protocol caller at first"))
 		(ok true)
 	)
 )
 
 ;; @name Get current cycle stacker/signer pool, should return none
 (define-public (test-get-current-cycle-pool-none)
-    (begin
-		(unwrap!
-			(contract-call? .sbtc-stacking-pool get-current-cycle-pool)
-			(ok true)
-			)
-		(err  "Should have succeeded")
+    (let ((pool
+			(contract-call? .sbtc-stacking-pool get-current-cycle-pool)))
+		(asserts! (is-none pool) (err  "Should have succeeded"))
+		(ok true)
 	)
 )
 
 ;; @name Get specific cycle stacker/signer pool, should return none
 (define-public (test-get-cycle-pool-none)
-	(begin
-		(unwrap!
-			(contract-call? .sbtc-stacking-pool get-specific-cycle-pool u0)
-			(ok true)
-			)
-		(err  "Should have succeeded")
+	(let ((pool
+			(contract-call? .sbtc-stacking-pool get-specific-cycle-pool u0)))
+		(asserts! (is-none pool) (err  "Should have succeeded"))
+		(ok true)
 	)
 )
 
@@ -115,8 +99,11 @@
 
 ;; @name Get default signer in cycle
 (define-public (test-get-signer-in-cycle)
-	(if (is-eq u0 (get amount (contract-call? .sbtc-stacking-pool get-signer-in-cycle 'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM u0)))
+	;; call get-signer-in-cycle with unknown signer
+	(let ((signer
+			(contract-call? .sbtc-stacking-pool get-signer-in-cycle 'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM u0)))
+		;; expect to return default values
+		(asserts! (is-eq u0 (get amount signer)) (err "Default signer must have amount u0"))
 		(ok true)
-		(err false)
 	)
 )
