@@ -21,7 +21,7 @@ pub enum Error {
 }
 
 pub trait StacksWallet {
-    /// Builds a verified signed transaction for a given peg-in operation
+    /// Builds a verified signed transaction for a given operation
     fn build_transaction<T: BuildStacksTransaction>(
         &self,
         op: &T,

@@ -5,7 +5,7 @@ use crate::stacks_node;
 use crate::stacks_node::Error as StacksNodeError;
 mod sqlite_peg_queue;
 
-pub use sqlite_peg_queue::{Error as SqlitePegQueueError, SqlitePegQueue};
+pub use sqlite_peg_queue::{Error as SqlitePegQueueError, SqlitePegQueue, Status};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -16,11 +16,14 @@ pub enum Error {
 }
 
 pub trait PegQueue {
-    fn sbtc_op(&self) -> Result<Option<SbtcOp>, Error>;
+    fn sbtc_op(&self) -> Result<Option<(SbtcOp, Status)>, Error>;
     fn poll<N: stacks_node::StacksNode>(&self, stacks_node: &N) -> Result<(), Error>;
-
-    fn acknowledge(&self, txid: &Txid, burn_header_hash: &BurnchainHeaderHash)
-        -> Result<(), Error>;
+    fn update_status(
+        &self,
+        txid: &Txid,
+        burn_header_hash: &BurnchainHeaderHash,
+        status: Status,
+    ) -> Result<(), Error>;
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]

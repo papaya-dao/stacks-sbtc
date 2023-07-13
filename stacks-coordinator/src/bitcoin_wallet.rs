@@ -266,7 +266,8 @@ mod tests {
         assert_eq!(btc_tx.input.len(), 7);
         assert_eq!(btc_tx.output.len(), 3); // We have change!
         assert_eq!(btc_tx.output[0].value, 0);
-        assert_eq!(btc_tx.output[1].value, 10000);
+        assert_eq!(btc_tx.output[1].value, amount);
+        assert_eq!(btc_tx.output[2].value, 10000);
     }
 
     #[test]

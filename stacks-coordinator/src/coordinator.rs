@@ -6,7 +6,10 @@ use bitcoin::{
     },
     SchnorrSighashType, XOnlyPublicKey,
 };
-use blockstack_lib::{types::chainstate::StacksAddress, util::secp256k1::Secp256k1PublicKey};
+use blockstack_lib::{
+    chainstate::stacks::StacksTransaction, types::chainstate::StacksAddress,
+    util::secp256k1::Secp256k1PublicKey,
+};
 use frost_coordinator::{
     coordinator::Error as FrostCoordinatorError, create_coordinator, create_coordinator_from_path,
 };
@@ -27,23 +30,20 @@ use tracing::{debug, info, warn};
 use wsts::{bip340::SchnorrProof, common::Signature, field::Element, Point, Scalar};
 
 use crate::bitcoin_wallet::BitcoinWallet;
+use crate::peg_wallet::{
+    BitcoinWallet as BitcoinWalletTrait, Error as PegWalletError, PegWallet,
+    StacksWallet as StacksWalletTrait, WrapPegWallet,
+};
 use crate::stacks_node::{self, Error as StacksNodeError};
 use crate::stacks_wallet::StacksWallet;
 use crate::{config::Config, stacks_node::client::BroadcastError};
-use crate::{
-    peg_wallet::{
-        BitcoinWallet as BitcoinWalletTrait, Error as PegWalletError, PegWallet,
-        StacksWallet as StacksWalletTrait, WrapPegWallet,
-    },
-    stacks_wallet::BuildStacksTransaction,
-};
 
 // Traits in scope
 use crate::bitcoin_node::{
     BitcoinNode, BitcoinTransaction, Error as BitcoinNodeError, LocalhostBitcoinNode,
 };
 use crate::peg_queue::{
-    Error as PegQueueError, PegQueue, SbtcOp, SqlitePegQueue, SqlitePegQueueError,
+    Error as PegQueueError, PegQueue, SbtcOp, SqlitePegQueue, SqlitePegQueueError, Status,
 };
 use crate::stacks_node::{client::NodeClient, StacksNode};
 
@@ -126,44 +126,110 @@ pub trait Coordinator: Sized {
     }
 
     fn process_queue(&mut self) -> Result<()> {
-        match self.peg_queue().sbtc_op()? {
-            Some(SbtcOp::PegIn(op)) => {
-                debug!("Processing peg in request: {:?}", op);
-                self.peg_in(op)
+        loop {
+            match self.peg_queue().sbtc_op()? {
+                Some((SbtcOp::PegIn(op), status)) => {
+                    debug!("Processing peg in request: {:?}", &op);
+                    self.peg_in(&op, status)?;
+                }
+                Some((SbtcOp::PegOutRequest(op), status)) => {
+                    debug!("Processing peg out request: {:?}", &op);
+                    self.peg_out(&op, status)?;
+                }
+                None => return Ok(()),
             }
-            Some(SbtcOp::PegOutRequest(op)) => {
-                debug!("Processing peg out request: {:?}", op);
-                self.peg_out(op)
-            }
-            None => Ok(()),
         }
     }
 }
 
 // Private helper functions
 trait CoordinatorHelpers: Coordinator {
-    fn peg_in(&mut self, op: stacks_node::PegInOp) -> Result<()> {
-        // Build a transaction from the peg in op and broadcast it to the node with reattempts
-        self.try_broadcast_transaction(&op)
+    fn peg_in(&mut self, op: &stacks_node::PegInOp, mut status: Status) -> Result<()> {
+        let address = *self.fee_wallet().stacks().address();
+        let mut nonce = self.stacks_node_mut().next_nonce(&address)?;
+        let mut nonce_retries = 0;
+        let mut fee_retries = 0;
+        // Default construct the stx transaction even if we immediately throw it out...
+        let mut stx_transaction = self.fee_wallet().stacks().build_transaction(op, nonce)?;
+        loop {
+            match &status {
+                Status::New => {
+                    // Build a new stacks transaction using an updated nonce and/or fee
+                    stx_transaction = self.fee_wallet().stacks().build_transaction(op, nonce)?;
+                    status = Status::BroadcastStacks;
+                }
+                Status::BroadcastStacks => {
+                    // Broadcast the resulting sBTC transaction to the stacks node
+                    status = self.broadcast_transaction(
+                        &mut nonce,
+                        &mut nonce_retries,
+                        &mut fee_retries,
+                        &address,
+                        &stx_transaction,
+                    )?;
+                }
+                _ => {
+                    // We're done
+                    status = Status::Complete;
+                    self.peg_queue().update_status(
+                        &op.txid,
+                        &op.burn_header_hash,
+                        status.clone(),
+                    )?;
+                    return Ok(());
+                }
+            }
+            self.peg_queue()
+                .update_status(&op.txid, &op.burn_header_hash, status.clone())?;
+        }
     }
 
-    fn peg_out(&mut self, op: stacks_node::PegOutRequestOp) -> Result<()> {
-        // First build both the sBTC and BTC transactions before attempting to broadcast either of them
-        // This ensures that if either of the transactions fail to build, neither of them will be broadcast
+    fn peg_out(&mut self, op: &stacks_node::PegOutRequestOp, mut status: Status) -> Result<()> {
+        let address = *self.fee_wallet().stacks().address();
+        let mut nonce = self.stacks_node_mut().next_nonce(&address)?;
+        let mut nonce_retries = 0;
+        let mut fee_retries = 0;
 
-        // Build and sign a fulfilled bitcoin transaction
-        let fulfill_tx = self.fulfill_peg_out(&op)?;
-
-        // Build a transaction from the peg out request op and broadcast it to the node with reattempts
-        self.try_broadcast_transaction(&op)?;
-
-        // Broadcast the BTC transaction to the Bitcoin node
-        self.bitcoin_node().broadcast_transaction(&fulfill_tx)?;
-        info!(
-            "Broadcasted fulfilled BTC transaction: {}",
-            fulfill_tx.txid()
-        );
-        Ok(())
+        // Default construct stx and btc transactions even if we don't end up using them...
+        let btc_transaction = self.fulfill_peg_out(op)?;
+        let mut stx_transaction = self.fee_wallet().stacks().build_transaction(op, nonce)?;
+        loop {
+            match status {
+                Status::New => {
+                    // Build a new stacks transaction using an updated nonce and/or fee
+                    stx_transaction = self.fee_wallet().stacks().build_transaction(op, nonce)?;
+                    status = Status::BroadcastStacks;
+                }
+                Status::BroadcastStacks => {
+                    // Broadcast the resulting sBTC transaction to the stacks node
+                    status = self.broadcast_transaction(
+                        &mut nonce,
+                        &mut nonce_retries,
+                        &mut fee_retries,
+                        &address,
+                        &stx_transaction,
+                    )?;
+                }
+                Status::BroadcastBitcoin => {
+                    // Broadcast the BTC transaction to the Bitcoin node
+                    self.bitcoin_node()
+                        .broadcast_transaction(&btc_transaction)?;
+                    status = Status::Complete;
+                    info!(
+                        "Broadcasted fulfilled BTC transaction: {}",
+                        btc_transaction.txid()
+                    );
+                }
+                Status::Complete => {
+                    // We're done
+                    self.peg_queue()
+                        .update_status(&op.txid, &op.burn_header_hash, status)?;
+                    return Ok(());
+                }
+            }
+            self.peg_queue()
+                .update_status(&op.txid, &op.burn_header_hash, status.clone())?;
+        }
     }
 
     fn fulfill_peg_out(&mut self, op: &stacks_node::PegOutRequestOp) -> Result<BitcoinTransaction> {
@@ -204,48 +270,44 @@ trait CoordinatorHelpers: Coordinator {
         Ok(tx)
     }
 
-    /// Broadcast a transaction to the stacks node, retrying if the nonce is rejected or the fee set too low until a retry limit is reached
-    fn try_broadcast_transaction<T: BuildStacksTransaction>(&mut self, op: &T) -> Result<()> {
-        // Retrieve the nonce from the stacks node using the sBTC wallet address
-        let address = *self.fee_wallet().stacks().address();
-        let mut nonce = self.stacks_node_mut().next_nonce(&address)?;
-        let mut nonce_retries = 0;
-        let mut fee_retries = 0;
-        loop {
-            // Build a transaction using the peg in op and calculated nonce
-            let tx = self.fee_wallet().stacks().build_transaction(op, nonce)?;
-
-            // Broadcast the resulting sBTC transaction to the stacks node
-            match self.stacks_node().broadcast_transaction(&tx) {
-                Err(StacksNodeError::BroadcastError(BroadcastError::ConflictingNonceInMempool)) => {
-                    warn!("Transaction rejected by stacks node due to conflicting nonce in mempool. Stacks node may be falling behind!");
-                    nonce_retries += 1;
-                    if nonce_retries > MAX_NONCE_RETRIES {
-                        return Err(Error::MaxNonceRetriesExceeded);
-                    }
-                    warn!("Incrementing nonce and retrying...");
-                    nonce = self.stacks_node_mut().next_nonce(&address)?;
+    /// Broadcast a transaction to the stacks node, updating the nonce and/or fee if it is rejected until a call limit is reached
+    fn broadcast_transaction(
+        &mut self,
+        nonce: &mut u64,
+        nonce_retries: &mut u64,
+        fee_retries: &mut u64,
+        address: &StacksAddress,
+        tx: &StacksTransaction,
+    ) -> Result<Status> {
+        // Broadcast the resulting sBTC transaction to the stacks node
+        match self.stacks_node().broadcast_transaction(tx) {
+            Err(StacksNodeError::BroadcastError(BroadcastError::ConflictingNonceInMempool)) => {
+                warn!("Transaction rejected by stacks node due to conflicting nonce in mempool. Stacks node may be falling behind!");
+                *nonce_retries += 1;
+                if *nonce_retries > MAX_NONCE_RETRIES {
+                    return Err(Error::MaxNonceRetriesExceeded);
                 }
-                Err(StacksNodeError::BroadcastError(BroadcastError::FeeTooLow(
-                    expected,
-                    actual,
-                ))) => {
-                    fee_retries += 1;
-                    if fee_retries > MAX_FEE_RETRIES {
-                        return Err(Error::MaxFeeRetriesExceeded);
-                    }
-                    warn!(
-                        "Transaction rejected by stacks node due to provided fee being too low: {}",
-                        actual
-                    );
-                    warn!("Incrementing fee to {} and retrying...", expected);
-                    self.fee_wallet_mut().stacks_mut().set_fee(expected);
+                warn!("Incrementing nonce...");
+                *nonce = self.stacks_node_mut().next_nonce(address)?;
+                Ok(Status::New)
+            }
+            Err(StacksNodeError::BroadcastError(BroadcastError::FeeTooLow(expected, actual))) => {
+                *fee_retries += 1;
+                if *fee_retries > MAX_FEE_RETRIES {
+                    return Err(Error::MaxFeeRetriesExceeded);
                 }
-                Err(e) => return Err(e.into()),
-                Ok(_) => {
-                    info!("Broadcasted sBTC transaction: {}", tx.txid());
-                    return Ok(());
-                }
+                warn!(
+                    "Transaction rejected by stacks node due to provided fee being too low: {}",
+                    actual
+                );
+                warn!("Incrementing fee to {}...", expected);
+                self.fee_wallet_mut().stacks_mut().set_fee(expected);
+                Ok(Status::New)
+            }
+            Err(e) => Err(e.into()),
+            Ok(_) => {
+                info!("Broadcasted sBTC transaction: {}", tx.txid());
+                Ok(Status::BroadcastBitcoin)
             }
         }
     }
@@ -263,7 +325,7 @@ pub struct StacksCoordinator {
     local_peg_queue: SqlitePegQueue,
     local_stacks_node: NodeClient,
     local_bitcoin_node: LocalhostBitcoinNode,
-    pub local_fee_wallet: WrapPegWallet,
+    local_fee_wallet: WrapPegWallet,
 }
 
 impl StacksCoordinator {

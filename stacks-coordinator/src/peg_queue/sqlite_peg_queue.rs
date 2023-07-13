@@ -67,6 +67,8 @@ impl SqlitePegQueue {
         this.conn
             .execute(Self::create_sbtc_ops_table(), rusqlite::params![])?;
         this.conn
+            .execute(Self::sql_trim_trigger(), rusqlite::params![])?;
+        this.conn
             .execute(Self::create_metadata_table(), rusqlite::params![])?;
 
         // Prevent overflow by calling saturating sub to ensure we don't go below 0
@@ -118,6 +120,7 @@ impl SqlitePegQueue {
         }
         Ok(())
     }
+
     fn insert(&self, entry: &Entry) -> Result<(), Error> {
         self.conn.execute(
             Self::sql_insert(),
@@ -133,15 +136,30 @@ impl SqlitePegQueue {
         Ok(())
     }
 
-    fn get_single_entry_with_status(&self, status: &Status) -> Result<Option<Entry>, Error> {
+    fn update_status(
+        &self,
+        txid: &Txid,
+        burn_header_hash: &BurnchainHeaderHash,
+        status: Status,
+    ) -> Result<(), Error> {
+        self.conn.execute(
+            Self::sql_update_status(),
+            rusqlite::params![txid.to_hex(), burn_header_hash.to_hex(), status.as_str()],
+        )?;
+
+        Ok(())
+    }
+
+    fn get_single_entry_incomplete(&self) -> Result<Option<Entry>, Error> {
         Ok(self
             .conn
-            .prepare(Self::sql_select_status())?
-            .query_map(rusqlite::params![status.as_str()], Entry::from_row)?
+            .prepare(Self::sql_select_incomplete())?
+            .query_map(rusqlite::params![], Entry::from_row)?
             .next()
             .transpose()?)
     }
 
+    #[allow(dead_code)]
     fn get_entry(
         &self,
         txid: &Txid,
@@ -205,9 +223,25 @@ impl SqlitePegQueue {
         "#
     }
 
-    const fn sql_select_status() -> &'static str {
+    const fn sql_update_status() -> &'static str {
         r#"
-        SELECT txid, burn_header_hash, block_height, op, status FROM sbtc_ops WHERE status=?1 ORDER BY block_height, op ASC
+        UPDATE sbtc_ops SET status=?3 WHERE txid=?1 AND burn_header_hash=?2
+        "#
+    }
+
+    const fn sql_trim_trigger() -> &'static str {
+        r#"
+        CREATE TRIGGER trim_trigger
+        AFTER INSERT ON sbtc_ops
+        BEGIN
+            DELETE FROM sbtc_ops WHERE status='complete';
+        END
+        "#
+    }
+
+    const fn sql_select_incomplete() -> &'static str {
+        r#"
+        SELECT txid, burn_header_hash, block_height, op, status FROM sbtc_ops WHERE status!='complete' ORDER BY block_height, op ASC
         "#
     }
 
@@ -231,17 +265,12 @@ impl SqlitePegQueue {
 }
 
 impl PegQueue for SqlitePegQueue {
-    fn sbtc_op(&self) -> Result<Option<SbtcOp>, PegQueueError> {
-        let maybe_entry = self.get_single_entry_with_status(&Status::New)?;
-
-        let Some(mut entry) = maybe_entry else {
-            return Ok(None)
+    fn sbtc_op(&self) -> Result<Option<(SbtcOp, Status)>, PegQueueError> {
+        let maybe_entry = self.get_single_entry_incomplete()?;
+        let Some(entry) = maybe_entry else {
+            return Ok(None);
         };
-
-        entry.status = Status::Pending;
-        self.insert(&entry)?;
-
-        Ok(Some(entry.op))
+        Ok(Some((entry.op, entry.status)))
     }
 
     fn poll<N: StacksNode>(&self, stacks_node: &N) -> Result<(), PegQueueError> {
@@ -267,16 +296,13 @@ impl PegQueue for SqlitePegQueue {
         Ok(())
     }
 
-    fn acknowledge(
+    fn update_status(
         &self,
         txid: &Txid,
         burn_header_hash: &BurnchainHeaderHash,
+        status: Status,
     ) -> Result<(), PegQueueError> {
-        let mut entry = self.get_entry(txid, burn_header_hash)?;
-
-        entry.status = Status::Acknowledged;
-        self.insert(&entry)?;
-
+        self.update_status(txid, burn_header_hash, status)?;
         Ok(())
     }
 }
@@ -337,19 +363,21 @@ impl From<PegOutRequestOp> for Entry {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
-enum Status {
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum Status {
     New,
-    Pending,
-    Acknowledged,
+    BroadcastStacks,
+    BroadcastBitcoin,
+    Complete,
 }
 
 impl Status {
     fn as_str(&self) -> &'static str {
         match self {
             Self::New => "new",
-            Self::Pending => "pending",
-            Self::Acknowledged => "acknowledged",
+            Self::BroadcastStacks => "broadcast_stacks",
+            Self::BroadcastBitcoin => "broadcast_bitcoin",
+            Self::Complete => "complete",
         }
     }
 }
@@ -359,8 +387,9 @@ impl FromStr for Status {
     fn from_str(s: &str) -> Result<Self, Error> {
         Ok(match s {
             "new" => Self::New,
-            "pending" => Self::Pending,
-            "acknowledged" => Self::Acknowledged,
+            "broadcast_stacks" => Self::BroadcastStacks,
+            "broadcast_bitcoin" => Self::BroadcastBitcoin,
+            "complete" => Self::Complete,
             other => return Err(Error::InvalidStatusError(other.to_owned())),
         })
     }
@@ -383,9 +412,8 @@ mod tests {
 
     #[test]
     fn calling_sbtc_op_should_return_new_peg_ops() {
-        let peg_queue = SqlitePegQueue::in_memory(Some(1), 2).unwrap();
         let number_of_simulated_blocks: u64 = 3;
-
+        let peg_queue = SqlitePegQueue::in_memory(Some(1), number_of_simulated_blocks).unwrap();
         let stacks_node_mock = default_stacks_node_mock(number_of_simulated_blocks);
 
         // No ops before polling
@@ -395,19 +423,27 @@ mod tests {
         peg_queue.poll(&stacks_node_mock).unwrap();
 
         for height in 1..=number_of_simulated_blocks {
-            let next_op = peg_queue.sbtc_op().unwrap().unwrap();
+            let (next_op, _) = peg_queue.sbtc_op().unwrap().unwrap();
             assert!(next_op.as_peg_in().is_some());
-            assert_eq!(next_op.as_peg_in().unwrap().block_height, height);
+            let peg_in = next_op.as_peg_in().unwrap();
+            assert_eq!(peg_in.block_height, height);
+            peg_queue
+                .update_status(&peg_in.txid, &peg_in.burn_header_hash, Status::Complete)
+                .unwrap();
 
-            let next_op = peg_queue.sbtc_op().unwrap().unwrap();
+            let (next_op, _) = peg_queue.sbtc_op().unwrap().unwrap();
             assert!(next_op.as_peg_out_request().is_some());
-            assert_eq!(next_op.as_peg_out_request().unwrap().block_height, height);
+            let peg_out = next_op.as_peg_out_request().unwrap();
+            assert_eq!(peg_out.block_height, height);
+            peg_queue
+                .update_status(&peg_out.txid, &peg_out.burn_header_hash, Status::Complete)
+                .unwrap();
         }
     }
 
     #[test]
     fn calling_poll_should_not_query_new_ops_if_at_block_height() {
-        let peg_queue = SqlitePegQueue::in_memory(Some(1), 2).unwrap();
+        let peg_queue = SqlitePegQueue::in_memory(Some(1), 1).unwrap();
         let number_of_simulated_blocks: u64 = 3;
 
         let stacks_node_mock = default_stacks_node_mock(number_of_simulated_blocks);
@@ -415,8 +451,16 @@ mod tests {
         // Fast forward past first poll
         peg_queue.poll(&stacks_node_mock).unwrap();
         for _ in 1..=number_of_simulated_blocks {
-            peg_queue.sbtc_op().unwrap().unwrap();
-            peg_queue.sbtc_op().unwrap().unwrap();
+            let (op, _) = peg_queue.sbtc_op().unwrap().unwrap();
+            let peg_in = op.as_peg_in().unwrap();
+            peg_queue
+                .update_status(&peg_in.txid, &peg_in.burn_header_hash, Status::Complete)
+                .unwrap();
+            let (op, _) = peg_queue.sbtc_op().unwrap().unwrap();
+            let peg_out = op.as_peg_out_request().unwrap();
+            peg_queue
+                .update_status(&peg_out.txid, &peg_out.burn_header_hash, Status::Complete)
+                .unwrap();
         }
 
         let mut stacks_node_mock = stacks_node::MockStacksNode::new();
@@ -442,43 +486,119 @@ mod tests {
         // Fast forward past first poll
         peg_queue.poll(&stacks_node_mock).unwrap();
         for _ in 1..=number_of_simulated_blocks {
-            peg_queue.sbtc_op().unwrap().unwrap();
-            peg_queue.sbtc_op().unwrap().unwrap();
+            let (op, _) = peg_queue.sbtc_op().unwrap().unwrap();
+            let peg_in = op.as_peg_in().unwrap();
+            peg_queue
+                .update_status(&peg_in.txid, &peg_in.burn_header_hash, Status::Complete)
+                .unwrap();
+            let (op, _) = peg_queue.sbtc_op().unwrap().unwrap();
+            let peg_out = op.as_peg_out_request().unwrap();
+            peg_queue
+                .update_status(&peg_out.txid, &peg_out.burn_header_hash, Status::Complete)
+                .unwrap();
         }
 
         let stacks_node_mock = default_stacks_node_mock(number_of_simulated_blocks_second_poll);
         peg_queue.poll(&stacks_node_mock).unwrap();
 
         for height in number_of_simulated_blocks + 1..=number_of_simulated_blocks_second_poll {
-            let next_op = peg_queue.sbtc_op().unwrap().unwrap();
+            let (next_op, _) = peg_queue.sbtc_op().unwrap().unwrap();
             assert!(next_op.as_peg_in().is_some());
-            assert_eq!(next_op.as_peg_in().unwrap().block_height, height);
+            let peg_in = next_op.as_peg_in().unwrap();
+            assert_eq!(peg_in.block_height, height);
+            peg_queue
+                .update_status(&peg_in.txid, &peg_in.burn_header_hash, Status::Complete)
+                .unwrap();
 
-            let next_op = peg_queue.sbtc_op().unwrap().unwrap();
+            let (next_op, _) = peg_queue.sbtc_op().unwrap().unwrap();
             assert!(next_op.as_peg_out_request().is_some());
-            assert_eq!(next_op.as_peg_out_request().unwrap().block_height, height);
+            let peg_out = next_op.as_peg_out_request().unwrap();
+            assert_eq!(peg_out.block_height, height);
+            peg_queue
+                .update_status(&peg_out.txid, &peg_out.burn_header_hash, Status::Complete)
+                .unwrap();
         }
     }
 
     #[test]
-    fn acknowledged_entries_should_have_acknowledge_status() {
+    fn complete_entries_should_have_complete_status() {
         let peg_queue = SqlitePegQueue::in_memory(Some(1), 2).unwrap();
         let number_of_simulated_blocks: u64 = 1;
 
         let stacks_node_mock = default_stacks_node_mock(number_of_simulated_blocks);
         peg_queue.poll(&stacks_node_mock).unwrap();
 
-        let next_op = peg_queue.sbtc_op().unwrap().unwrap();
+        let (next_op, _) = peg_queue.sbtc_op().unwrap().unwrap();
         let peg_in_op = next_op.as_peg_in().unwrap();
         peg_queue
-            .acknowledge(&peg_in_op.txid, &peg_in_op.burn_header_hash)
+            .update_status(
+                &peg_in_op.txid,
+                &peg_in_op.burn_header_hash,
+                Status::Complete,
+            )
             .unwrap();
 
         let entry = peg_queue
             .get_entry(&peg_in_op.txid, &peg_in_op.burn_header_hash)
             .unwrap();
 
-        assert_eq!(entry.status, Status::Acknowledged);
+        assert_eq!(entry.status, Status::Complete);
+    }
+
+    #[test]
+    fn complete_entries_should_be_deleted_on_insert() {
+        let peg_queue = SqlitePegQueue::in_memory(Some(1), 1).unwrap();
+        let number_of_simulated_blocks: u64 = 1;
+
+        let stacks_node_mock = default_stacks_node_mock(number_of_simulated_blocks);
+        peg_queue.poll(&stacks_node_mock).unwrap();
+
+        let (next_op, _) = peg_queue.sbtc_op().unwrap().unwrap();
+        let peg_in_op = next_op.as_peg_in().unwrap();
+        let peg_out = peg_out_request_op(2);
+        let entry = Entry {
+            txid: peg_out.txid,
+            burn_header_hash: peg_out.burn_header_hash,
+            block_height: peg_out.block_height,
+            op: SbtcOp::PegOutRequest(peg_out.clone()),
+            status: Status::New,
+        };
+        // Inserting an entry should not affect the old peg in entry
+        peg_queue.insert(&entry).unwrap();
+        assert!(peg_queue
+            .get_entry(&peg_in_op.txid, &peg_in_op.burn_header_hash)
+            .is_ok());
+
+        // Update the status to complete
+        peg_queue
+            .update_status(
+                &peg_in_op.txid,
+                &peg_in_op.burn_header_hash,
+                Status::Complete,
+            )
+            .unwrap();
+
+        assert_eq!(
+            peg_queue
+                .get_entry(&peg_in_op.txid, &peg_in_op.burn_header_hash)
+                .unwrap()
+                .status,
+            Status::Complete
+        );
+
+        // Inserting an entry should now delete the complete peg in entry
+        let peg_out = peg_out_request_op(3);
+        let entry = Entry {
+            txid: peg_out.txid,
+            burn_header_hash: peg_out.burn_header_hash,
+            block_height: peg_out.block_height,
+            op: SbtcOp::PegOutRequest(peg_out.clone()),
+            status: Status::New,
+        };
+        peg_queue.insert(&entry).unwrap();
+        assert!(peg_queue
+            .get_entry(&peg_in_op.txid, &peg_in_op.burn_header_hash)
+            .is_err());
     }
 
     #[test]
@@ -541,7 +661,7 @@ mod tests {
         let recipient_stx_addr = StacksAddress::new(26, Hash160([0; 20]));
         let peg_wallet_address =
             PoxAddress::Standard(StacksAddress::new(0, Hash160([0; 20])), None);
-
+        dbg!("BLOCK HEIGHT: {}", block_height);
         PegInOp {
             recipient: recipient_stx_addr.into(),
             peg_wallet_address,
