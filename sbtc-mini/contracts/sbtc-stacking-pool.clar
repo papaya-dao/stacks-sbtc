@@ -13,10 +13,10 @@
 (define-constant bad-peg-state 0x05)
 
 ;; state as "normal" suggesting that the pool is operating as expected / wasn't in a "bad state"
-(define-constant normal-cycle-len u2100)
-(define-constant normal-voting-period-len u300)
-(define-constant normal-transfer-period-len u100)
-(define-constant normal-penalty-period-len u100)
+(define-constant normal-cycle-len u10)
+(define-constant normal-voting-period-len u2)
+(define-constant normal-transfer-period-len u2)
+(define-constant normal-penalty-period-len u4)
 
 ;; Burn POX address for penalizing stackers/signers
 (define-constant pox-burn-address { version: 0x00, hashbytes: 0x0000000000000000000000000000000000000000000000000000000000000000})
