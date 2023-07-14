@@ -13,7 +13,7 @@
 (define-constant bad-peg-state 0x05)
 
 ;; state as "normal" suggesting that the pool is operating as expected / wasn't in a "bad state"
-(define-constant normal-cycle-len u2016)
+(define-constant normal-cycle-len u2100)
 (define-constant normal-voting-period-len u300)
 (define-constant normal-transfer-period-len u100)
 (define-constant normal-penalty-period-len u100)
@@ -154,7 +154,7 @@
 (define-read-only (get-current-cycle-pool)
     (let
         (
-            (current-cycle (contract-call? .pox-3 current-pox-reward-cycle))
+            (current-cycle (contract-call? 'ST000000000000000000002AMW42H.pox-3 current-pox-reward-cycle))
         )
         (map-get? pool current-cycle)
     )
@@ -182,10 +182,10 @@
     (let
         (
             (peg-state (contract-call? .sbtc-registry current-peg-state))
-            (current-cycle (contract-call? .pox-3 current-pox-reward-cycle))
-            (current-cycle-burn-height (contract-call? .pox-3 reward-cycle-to-burn-height current-cycle))
+            (current-cycle (contract-call? 'ST000000000000000000002AMW42H.pox-3 current-pox-reward-cycle))
+            (current-cycle-burn-height (contract-call? 'ST000000000000000000002AMW42H.pox-3 reward-cycle-to-burn-height current-cycle))
             (next-cycle (+ current-cycle u1))
-            (next-cycle-burn-height (contract-call? .pox-3 reward-cycle-to-burn-height next-cycle))
+            (next-cycle-burn-height (contract-call? 'ST000000000000000000002AMW42H.pox-3 reward-cycle-to-burn-height next-cycle))
             (latest-disbursed-burn-height (var-get last-disbursed-burn-height))
             (start-voting-window (- next-cycle-burn-height (+ normal-voting-period-len normal-transfer-period-len normal-penalty-period-len)))
             (start-transfer-window (- next-cycle-burn-height (+ normal-transfer-period-len normal-penalty-period-len)))
@@ -229,7 +229,7 @@
 	(cproof (list 14 (buff 32))))
     (let
         (
-            (current-cycle (contract-call? .pox-3 burn-height-to-reward-cycle block-height))
+            (current-cycle (contract-call? 'ST000000000000000000002AMW42H.pox-3 burn-height-to-reward-cycle block-height))
             (previous-cycle (- current-cycle u1))
             (previous-pool (unwrap! (map-get? pool previous-cycle) err-pool-cycle))
             (unwrapped-previous-threshold-wallet (unwrap! (get threshold-wallet previous-pool) err-threshold-wallet-is-none))
@@ -296,9 +296,9 @@
             (signer-account (stx-account tx-sender))
             (new-signer tx-sender)
             (signer-unlocked-balance (get unlocked signer-account))
-            (signer-allowance-status (unwrap! (contract-call? .pox-3 get-allowance-contract-callers tx-sender (as-contract tx-sender)) (err u99999)))
+            (signer-allowance-status (unwrap! (contract-call? 'ST000000000000000000002AMW42H.pox-3 get-allowance-contract-callers tx-sender (as-contract tx-sender)) (err u99999)))
             (signer-allowance-end-height (get until-burn-ht signer-allowance-status))
-            (current-cycle (contract-call? .pox-3 current-pox-reward-cycle))
+            (current-cycle (contract-call? 'ST000000000000000000002AMW42H.pox-3 current-pox-reward-cycle))
             (next-cycle (+ current-cycle u1))
             (current-pre-signer (map-get? pre-signer {stacker: tx-sender, pool: current-cycle}))
             (current-signer (map-get? signer {stacker: tx-sender, pool: current-cycle}))
@@ -319,23 +319,23 @@
         (asserts! (is-eq (get-current-window) registration)  err-not-in-registration-window)
 
         ;; Delegate-stx to their PoX address
-        (unwrap! (contract-call? .pox-3 delegate-stx amount-ustx (as-contract tx-sender) none none) err-pre-registration-delegate-stx)
+        (unwrap! (contract-call? 'ST000000000000000000002AMW42H.pox-3 delegate-stx amount-ustx (as-contract tx-sender) none none) err-pre-registration-delegate-stx)
 
         ;; Delegate-stack-stx for next cycle
         ;; Fails if user is already stacking
-        (try! (match (as-contract (contract-call? .pox-3 delegate-stack-stx new-signer amount-ustx pox-addr (+ burn-block-height u1) u1))
+        (try! (match (as-contract (contract-call? 'ST000000000000000000002AMW42H.pox-3 delegate-stack-stx new-signer amount-ustx pox-addr (+ burn-block-height u1) u1))
             success (ok true)
             error (err (to-uint error))))
 
         ;; Stack aggregate-commit
         ;; stack-aggregation-commit-indexed fails when the user is already stacking. Match err-branch takes care of this with stack-delegate-increase instead.
-        (match (as-contract (contract-call? .pox-3 stack-aggregation-commit-indexed pox-addr next-cycle))
+        (match (as-contract (contract-call? 'ST000000000000000000002AMW42H.pox-3 stack-aggregation-commit-indexed pox-addr next-cycle))
             ok-branch
                 true
             err-branch
                 (begin
                     ;; Delegate-stack-increase for next cycle so that there is no cooldown
-                    (unwrap! (contract-call? .pox-3 delegate-stack-increase new-signer pox-addr (- amount-ustx (get locked signer-account))) err-pre-registration-stack-increase)
+                    (unwrap! (contract-call? 'ST000000000000000000002AMW42H.pox-3 delegate-stack-increase new-signer pox-addr (- amount-ustx (get locked signer-account))) err-pre-registration-stack-increase)
                     true
                 )
         )
@@ -353,9 +353,9 @@
         (
             (signer-account (stx-account pre-registered-signer))
             (signer-unlocked-balance (get unlocked signer-account))
-            (signer-allowance-status (unwrap! (contract-call? .pox-3 get-allowance-contract-callers pre-registered-signer (as-contract tx-sender)) err-allowance-not-set))
+            (signer-allowance-status (unwrap! (contract-call? 'ST000000000000000000002AMW42H.pox-3 get-allowance-contract-callers pre-registered-signer (as-contract tx-sender)) err-allowance-not-set))
             (signer-allowance-end-height (get until-burn-ht signer-allowance-status))
-            (current-cycle (contract-call? .pox-3 current-pox-reward-cycle))
+            (current-cycle (contract-call? 'ST000000000000000000002AMW42H.pox-3 current-pox-reward-cycle))
             (next-cycle (+ current-cycle u1))
             (current-pre-signer (map-get? pre-signer {stacker: pre-registered-signer, pool: current-cycle}))
             (current-signer (map-get? signer {stacker: pre-registered-signer, pool: current-cycle}))
@@ -387,7 +387,7 @@
         (asserts! (>= (get locked signer-account) amount-ustx) err-not-enough-stacked)
 
         ;; Assert that pre-registered signer will unlock in the next cycle
-        (asserts! (is-eq next-cycle (contract-call? .pox-3 burn-height-to-reward-cycle (get unlock-height signer-account))) err-wont-unlock)
+        (asserts! (is-eq next-cycle (contract-call? 'ST000000000000000000002AMW42H.pox-3 burn-height-to-reward-cycle (get unlock-height signer-account))) err-wont-unlock)
 
         ;; update all relevant maps
         ;; update signer map
@@ -440,7 +440,7 @@
 (define-public (vote-for-threshold-wallet-candidate (pox-addr { version: (buff 1), hashbytes: (buff 32)}))
     (let
         (
-            (current-cycle (contract-call? .pox-3 current-pox-reward-cycle))
+            (current-cycle (contract-call? 'ST000000000000000000002AMW42H.pox-3 current-pox-reward-cycle))
             (next-cycle (+ current-cycle u1))
             (current-candidate-status (map-get? votes-per-cycle {cycle: next-cycle, wallet-candidate: pox-addr}))
             (next-pool (unwrap! (map-get? pool next-cycle) err-pool-cycle))
@@ -508,7 +508,7 @@
                 ;; Check if 70% wallet consensus has been reached
                 (if (>= (/ (* new-candidate-votes u1000) next-pool-total-stacked) (var-get threshold-consensus))
                     ;; 70% consensus reached, ready to set next cycle threshold-wallet & attempt to aggregate-commit-index
-                    (match (as-contract (contract-call? .pox-3 stack-aggregation-commit-indexed pox-addr next-cycle))
+                    (match (as-contract (contract-call? 'ST000000000000000000002AMW42H.pox-3 stack-aggregation-commit-indexed pox-addr next-cycle))
                         ;; Okay result, update pool map with last-aggregation (block-height) & reward-index
                         ok-result
                             (map-set pool next-cycle (merge
@@ -561,7 +561,7 @@
 (define-public (penalty-unhandled-request)
     (let
         (
-            (current-cycle (contract-call? .pox-3 current-pox-reward-cycle))
+            (current-cycle (contract-call? 'ST000000000000000000002AMW42H.pox-3 current-pox-reward-cycle))
             (next-cycle (+ current-cycle u1))
             (current-pool (unwrap! (map-get? pool current-cycle) err-pool-cycle))
             (current-pool-stackers (get stackers current-pool))
@@ -587,7 +587,7 @@
 (define-public (penalty-vote-threshold)
     (let
         (
-            (current-cycle (contract-call? .pox-3 current-pox-reward-cycle))
+            (current-cycle (contract-call? 'ST000000000000000000002AMW42H.pox-3 current-pox-reward-cycle))
             (next-cycle (+ current-cycle u1))
             (current-pool (unwrap! (map-get? pool current-cycle) err-pool-cycle))
             (current-pool-stackers (get stackers current-pool))
@@ -617,7 +617,7 @@
 (define-public (penalty-balance-transfer)
     (let
         (
-            (current-cycle (contract-call? .pox-3 current-pox-reward-cycle))
+            (current-cycle (contract-call? 'ST000000000000000000002AMW42H.pox-3 current-pox-reward-cycle))
             (current-pool (unwrap! (map-get? pool current-cycle) err-pool-cycle))
             (current-pool-balance-transfer (get balance-transferred current-pool))
             (current-pool-stackers (get stackers current-pool))
@@ -648,7 +648,7 @@
 (define-public (penalty-pox-reward-disbursement)
     (let
         (
-            (current-cycle (contract-call? .pox-3 current-pox-reward-cycle))
+            (current-cycle (contract-call? 'ST000000000000000000002AMW42H.pox-3 current-pox-reward-cycle))
             (previous-cycle (- current-cycle u1))
             (previous-pool (unwrap! (map-get? pool previous-cycle) err-pool-cycle))
             (previous-pool-rewards-disbursed (get rewards-disbursed previous-pool))
@@ -666,7 +666,7 @@
         ;; Penalize stackers by re-stacking but with a pox-reward address of burn address
         ;; Distributing pox-rewards punishes current signers even if they did nothing wrong?
         ;; Meanwhile previous signers aren't punished since the pox-rewards are already at the previous threshold wallet
-        ;; (match (as-contract (contract-call? .pox-3 stack-aggregation-commit-indexed pox-burn-address next-cycle))
+        ;; (match (as-contract (contract-call? 'ST000000000000000000002AMW42H.pox-3 stack-aggregation-commit-indexed pox-burn-address next-cycle))
         ;;     ok-result
         ;;         (map-set pool next-cycle (merge
         ;;             next-pool
@@ -696,7 +696,7 @@
             rewards-disbursed: bool
         }
     ))
-    (match (as-contract (contract-call? .pox-3 stack-aggregation-commit-indexed pox-burn-address next-cycle))
+    (match (as-contract (contract-call? 'ST000000000000000000002AMW42H.pox-3 stack-aggregation-commit-indexed pox-burn-address next-cycle))
         ok-result
             (map-set pool next-cycle (merge
                 next-pool
