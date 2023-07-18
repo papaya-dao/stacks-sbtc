@@ -224,6 +224,19 @@
     { amount: uint }
 )
 
+;; MOCK
+;; Allow to set stx-account details for any user
+;; These values are used for PoX only
+(define-map stx-account-details principal {unlocked: uint, locked: uint, unlock-height: uint})
+
+(define-read-only (get-stx-account (user principal))
+    (default-to (stx-account user) (map-get? stx-account-details user)))
+
+(define-public (set-stx-account (user principal) (details {unlocked: uint, locked: uint, unlock-height: uint}))
+    (if (map-set stx-account-details user details)
+        (ok true) (err u9999))) ;; define manually the error type
+;; MOCK END
+
 ;; Getter for stacking-rejectors
 (define-read-only (get-pox-rejection (stacker principal) (reward-cycle uint))
     (map-get? stacking-rejectors { stacker: stacker, reward-cycle: reward-cycle }))
@@ -997,7 +1010,7 @@
 ;; This method locks up an additional amount of STX from `tx-sender`'s, indicated
 ;; by `increase-by`.  The `tx-sender` must already be Stacking.
 (define-public (stack-increase (increase-by uint))
-   (let ((stacker-info (stx-account tx-sender))
+   (let ((stacker-info (get-stx-account tx-sender))
          (amount-stacked (get locked stacker-info))
          (amount-unlocked (get unlocked stacker-info))
          (unlock-height (get unlock-height stacker-info))
@@ -1041,7 +1054,7 @@
 ;;    and associates `pox-addr` with the rewards
 (define-public (stack-extend (extend-count uint)
                              (pox-addr { version: (buff 1), hashbytes: (buff 32) }))
-   (let ((stacker-info (stx-account tx-sender))
+   (let ((stacker-info (get-stx-account tx-sender))
          ;; to extend, there must already be an etry in the stacking-state
          (stacker-state (unwrap! (get-stacker-info tx-sender) (err ERR_STACK_EXTEND_NOT_LOCKED)))
          (amount-ustx (get locked stacker-info))
@@ -1125,7 +1138,7 @@
                     (stacker principal)
                     (pox-addr { version: (buff 1), hashbytes: (buff 32) })
                     (increase-by uint))
-    (let ((stacker-info (stx-account stacker))
+    (let ((stacker-info (get-stx-account stacker))
           (existing-lock (get locked stacker-info))
           (available-stx (get unlocked stacker-info))
           (unlock-height (get unlock-height stacker-info)))
@@ -1213,7 +1226,7 @@
                     (stacker principal)
                     (pox-addr { version: (buff 1), hashbytes: (buff 32) })
                     (extend-count uint))
-    (let ((stacker-info (stx-account stacker))
+    (let ((stacker-info (get-stx-account stacker))
           ;; to extend, there must already be an entry in the stacking-state
           (stacker-state (unwrap! (get-stacker-info stacker) (err ERR_STACK_EXTEND_NOT_LOCKED)))
           (amount-ustx (get locked stacker-info))
