@@ -110,7 +110,7 @@ impl BitcoinWalletTrait for BitcoinWallet {
         let withdrawal_output_stacks = op.recipient.to_bitcoin_tx_out(op.amount);
         let withdrawal_output_bitcoin = bitcoin::TxOut {
             value: op.amount,
-            script_pubkey: Script::from(withdrawal_output_stacks.script_pubkey()) ,
+            script_pubkey: Script::from(withdrawal_output_stacks.script_pubkey.into_bytes()),
         };
         tx.output.push(withdrawal_output_bitcoin);
 
