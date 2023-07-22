@@ -3,8 +3,9 @@ use crate::{
     stacks_node::{PegInOp, PegOutRequestOp},
     util::address_version,
 };
-use bitcoin::XOnlyPublicKey;
+use bitcoin::{VarInt, XOnlyPublicKey};
 use blockstack_lib::{
+    address::{public_keys_to_address_hash, AddressHashMode},
     chainstate::stacks::{
         StacksTransaction, StacksTransactionSigner, TransactionAnchorMode, TransactionAuth,
         TransactionContractCall, TransactionPayload, TransactionPostConditionMode,
@@ -12,12 +13,14 @@ use blockstack_lib::{
     },
     core::{CHAIN_ID_MAINNET, CHAIN_ID_TESTNET},
     types::chainstate::{StacksAddress, StacksPrivateKey, StacksPublicKey},
+    util::hash::Sha256Sum,
     vm::{
         errors::RuntimeErrorType,
         types::{ASCIIData, BuffData, SequenceData, StacksAddressExtensions, TupleData},
         ClarityName, ContractName, Value,
     },
 };
+use serde::__private::ser::serialize_tagged_newtype;
 
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum Error {
@@ -183,9 +186,8 @@ impl BuildStacksTransaction for PegOutRequestOp {
         // Build the function arguments
         let amount = Value::UInt(self.amount.into());
         // Retrieve the stacks address to burn from
-        let address = self
-            .stx_address(address_version(&wallet.version))
-            .map_err(|_| {
+        let address =
+            stx_address_hiro_signed(&self, address_version(&wallet.version)).map_err(|_| {
                 Error::MalformedOp(
                     "Failed to recover stx address from peg-out request op.".to_string(),
                 )
@@ -201,6 +203,32 @@ impl BuildStacksTransaction for PegOutRequestOp {
         let tx = wallet.build_transaction_signed(function_name, function_args, nonce)?;
         Ok(tx)
     }
+}
+
+/// WARNING: Ugly Hack! - Don't merge to master!
+/// Recovers the STX address used by Hiro wallet to construct this request
+fn stx_address_hiro_signed(
+    op: &PegOutRequestOp,
+    version: u8,
+) -> Result<StacksAddress, PegWalletError> {
+    let script_pubkey = op.recipient.to_bitcoin_tx_out(0).script_pubkey;
+
+    let mut msg = op.amount.to_be_bytes().to_vec();
+    msg.extend_from_slice(script_pubkey.as_bytes());
+
+    let mut hiro_msg = "\x17Stacks Signed Message:\n".as_bytes().to_vec();
+    let len = VarInt(msg.len() as u64);
+    hiro_msg.extend_from_slice(&bitcoin::consensus::serialize(&len));
+    hiro_msg.extend_from_slice(&msg);
+
+    let msg_hash = Sha256Sum::from_data(&msg);
+    let pub_key = StacksPublicKey::recover_to_pubkey(msg_hash.as_bytes(), &op.signature)
+        .map_err(|_| Error::MalformedOp("Failed to recover pubkey from withdrawal".to_string()))?;
+
+    let hash_bits =
+        public_keys_to_address_hash(&AddressHashMode::SerializeP2PKH, 1, &vec![pub_key]);
+
+    Ok(StacksAddress::new(version, hash_bits))
 }
 
 impl StacksWalletTrait for StacksWallet {
