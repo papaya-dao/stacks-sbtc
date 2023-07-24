@@ -500,11 +500,15 @@
             {vote: (some pox-addr)}
         ))
 
-        ;; Check whether map-entry for candidate-wallet already exists
-        (if (is-none current-candidate-status)
+        ;; Asserts! for handling new or existing candidate-wallet
+        (asserts! 
 
             ;; Candidate doesn't exist, update relevant maps: votes-per-cycle & pool
             (begin 
+
+                ;; Assert that current-candidate-status is-none / doesn't exist
+                (asserts! (is-none current-candidate-status) false)
+
                 ;; Update votes-per-cycle map with first vote for this wallet-candidate
                 (map-set votes-per-cycle {cycle: next-cycle, wallet-candidate: pox-addr} {
                     aggregate-commit-index: none,
@@ -540,22 +544,21 @@
                 ;; Update signer map
                 (map-set signer {stacker: tx-sender, pool: next-cycle} (merge next-pool-signer { vote: (some pox-addr) }))
 
-                ;; Check if 70% wallet consensus has been reached
-                (if (>= (/ (* new-candidate-votes u1000) next-pool-total-stacked) (var-get threshold-consensus))
-                    ;; 70% consensus reached, ready to set next cycle threshold-wallet & attempt to aggregate-commit-index
-                    (match (as-contract (contract-call? .pox-3 stack-aggregation-commit-indexed pox-addr next-cycle))
-                        ;; Okay result, update pool map with last-aggregation (block-height) & reward-index
-                        ok-result
-                            (map-set pool next-cycle (merge
+                ;; Asserts! logic to check if 70% wallet consensus has been reached
+                (asserts!
+
+                    (and
+                        ;; Assert that new-candidate-votes is greater than or equal to 70% of next-pool-total-stacked
+                        (>= (/ (* new-candidate-votes u1000) next-pool-total-stacked) (var-get threshold-consensus))
+                        ;; Stack-aggregate-commit-indexed returning either none or (some uint) - index of slot
+                        (map-set pool next-cycle (merge
                                 next-pool
-                                {last-aggregation: (some block-height), reward-index: (some ok-result)}
-                            ))
-                        err-result
-                            false
+                                {last-aggregation: (some block-height), reward-index: (some (as-contract (contract-call? .pox-3 stack-aggregation-commit-indexed pox-addr next-cycle)))}
+                            )
+                        ) 
                     )
-                    ;; 70% consensus not reached, continue
-                    false
-                )
+
+                false)
 
             )
         )
