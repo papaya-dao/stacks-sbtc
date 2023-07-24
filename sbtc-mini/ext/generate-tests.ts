@@ -1,4 +1,5 @@
 import { Clarinet, Contract, Account } from 'https://deno.land/x/clarinet@v1.7.0/index.ts';
+import { getContractName, isTestContract } from './deps.ts';
 
 const sourcebootstrapFile = './tests/bootstrap.ts';
 const targetFolder = '.test';
@@ -18,14 +19,6 @@ export function printEvents(block: Block) {
 	block.receipts.map(({ events }) => events && events.map(event => console.log(Deno.inspect(event, dirOptions))));
 }
 `;
-
-function getContractName(contractId: string) {
-	return contractId.split('.')[1];
-}
-
-function isTestContract(contractName: string) {
-	return contractName.substring(contractName.length - 5) === "_test";
-}
 
 const functionRegex = /^([ \t]{0,};;[ \t]{0,}@[\s\S]+?)\n[ \t]{0,}\(define-public[\s]+\((.+?)[ \t|)]/gm;
 const annotationsRegex = /^;;[ \t]{1,}@([a-z-]+)(?:$|[ \t]+?(.+?))$/;
