@@ -22,8 +22,8 @@ use std::{
 };
 use ureq::serde::Serialize;
 use url::Url;
-use wsts::bip340::test_helpers::{dkg, sign};
-use wsts::bip340::SchnorrProof;
+use wsts::taproot::test_helpers::{dkg, sign};
+use wsts::taproot::SchnorrProof;
 use wsts::common::PolyCommitment;
 use wsts::v1::{SignatureAggregator, Signer};
 use wsts::Point;
@@ -376,7 +376,7 @@ impl SignerHelper {
     ) -> (Vec<PolyCommitment>, Point, bitcoin::PublicKey) {
         // DKG (Distributed Key Generation)
 
-        let public_commitments = dkg(&mut self.signers, &mut self.rng)
+        let public_commitments = dkg(&mut self.signers, &mut self.rng, None)
             .expect("Failed to run distributed key generation.");
         let group_public_key_point = public_commitments
             .iter()
