@@ -1,0 +1,24 @@
+graph TD
+  sbtc-registry -->|is-protocol-caller| sbtc-controller
+  sbtc-token -->|is-protocol-caller| sbtc-controller
+  sbtc-stacking-pool -->|get-pox-info\ncurrent-pox-reward-cycle\nburn-height-to-reward-cycle\nget-allowance-contract-callers\ndelegate-stx\n+ 3 more functions| pox-3
+  sbtc-stacking-pool -->|is-protocol-caller| sbtc-controller
+  sbtc-stacking-pool -->|current-peg-state\nget-pending-wallet-peg-outs\nset-peg-state| sbtc-registry
+  sbtc-stacking-pool -->|parse-tx\nwas-segwit-tx-mined-compact| clarity-bitcoin
+  sbtc-stacking-pool -->|hashbytes-to-scriptpubkey| sbtc-btc-tx-helper
+  sbtc-testnet-debug-controller -->|upgrade| sbtc-controller
+  sbtc-testnet-debug-controller -->|simulate-mine-solo-burnchain-block| sbtc-testnet-debug-controller
+  sbtc-testnet-debug-controller -->|was-tx-mined-compact| clarity-bitcoin
+  sbtc-peg-out-processor -->|was-segwit-tx-mined-compact| clarity-bitcoin
+  sbtc-peg-out-processor -->|assert-new-burn-wtxid-and-height\ninsert-peg-out-request\nget-and-settle-pending-peg-out-request| sbtc-registry
+  sbtc-peg-out-processor -->|protocol-lock\nprotocol-burn-locked\nprotocol-unlock| sbtc-token
+  sbtc-btc-tx-helper -->|parse-wtx\nget-txid| clarity-bitcoin
+  sbtc-btc-tx-helper -->|current-pox-reward-cycle| pox-3
+  sbtc-btc-tx-helper -->|get-cycle-peg-wallet| sbtc-registry
+  sbtc-peg-in-processor -->|was-segwit-tx-mined\nget-peg-wallet-hashbytes-scriptpubkey\nfind-protocol-unlock-witness| sbtc-btc-tx-helper
+  sbtc-peg-in-processor -->|assert-new-burn-wtxid-and-height| sbtc-registry
+  sbtc-peg-in-processor -->|protocol-mint| sbtc-token
+  sbtc-peg-transfer -->|get-current-cycle-pool\nget-specific-cycle-pool\nget-current-window\nbalance-was-transferred| sbtc-stacking-pool
+  sbtc-peg-transfer -->|get-peg-balance| sbtc-registry
+  sbtc-peg-transfer -->|parse-tx\nwas-segwit-tx-mined-compact| clarity-bitcoin
+  sbtc-peg-transfer -->|hashbytes-to-scriptpubkey| sbtc-btc-tx-helper

@@ -151,3 +151,18 @@ Examples:
 ;; @mine-blocks-before 5
 (define-public (test-six) (ok true))
 ```
+
+
+## Mermaid Call Graph
+
+In order to best answer "what is sBTC-mini?", we've included a tiny helper script for anyone to generate & update the protocol call graph at any point in time.
+
+### Generating Graph
+
+From your terminal, CD into sbtc-mini, run "bash ./scripts/mermaid.sh", then check the ".mermaid" directory for the updated "generated-mermaid.mmd" file.
+
+### Viewing Graph
+
+To view the generated graph, for now, head to Mermaid's live editor & copy/paste the code or upload the generated file.
+
+Each box represents a contract & each line represents one or more functions from one contract to another.
