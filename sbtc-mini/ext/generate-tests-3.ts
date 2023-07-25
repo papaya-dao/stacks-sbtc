@@ -21,7 +21,7 @@ function isTestContract(contractName: string) {
 }
 
 const functionRegex =
-  /^([ \t]{0,};;[ \t]{0,}@[\s\S]+?)\n[ \t]{0,}\(define-public[\s]+\((test-.+?)[ \t|)]/gm;
+  /^([ \t]{0,};;[ \t]{0,}@[^()]+?)\n[ \t]{0,}\(define-public[\s]+\((.+?)[ \t|)]/gm;
 const annotationsRegex = /^;;[ \t]{1,}@([a-z-]+)(?:$|[ \t]+?(.+?))$/;
 const callRegex =
   /\n*^([ \t]{0,};;[ \t]{0,}@[\s\S]+?)\n[ \t]{0,}(\((?:[^()]*|\([^()]*\))*\))/gm;
@@ -87,7 +87,8 @@ function extractContractCalls(lastFunctionBody: string) {
     const callAnnotations = {};
     const lines = comments.split("\n");
     for (const line of lines) {
-      const [, prop, value] = line.match(annotationsRegex) || [];
+      const [, prop, value] = line.trim().match(annotationsRegex) || [];
+      console.log({prop, value})
       if (prop) callAnnotations[prop] = value ?? true;
     }
     let callInfo = extractUnwrapInfo(call);
@@ -104,7 +105,9 @@ function extractContractCalls(lastFunctionBody: string) {
 }
 
 function extractUnwrapInfo(statement: string): CallInfo | null {
-  const match = statement.match(/\(unwrap! \(contract-call\? \.(.+?) (.+?)(( .+?)*)\)/);
+  const match = statement.match(
+    /\(unwrap! \(contract-call\? \.(.+?) (.+?)(( .+?)*)\)/
+  );
   if (!match) return null;
 
   const contractName = match[1];

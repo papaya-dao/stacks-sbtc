@@ -4,11 +4,11 @@
 ;; @caller wallet_1
 (define-public (test-sign-pre-register)
 	(begin
-        ;;; @continue
+        ;; @continue
         (unwrap! (contract-call? .pox-3 mock-set-stx-account 'ST1SJ3DTE5DN7X54YDH5D64R3BCB6A2AG2ZQ8YPD5 {locked: u1000000000, unlock-height: u100, unlocked: u100000000000}) (err u111))
-        ;;; @continue
+        ;; @continue
         (unwrap! (contract-call? .pox-3 allow-contract-caller 'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.sbtc-stacking-pool none) (err u1111))
-        ;;; @mine-blocks-before 5
+        ;; @mine-blocks-before 5
 		(check-sign-pre-register))
 )
 
