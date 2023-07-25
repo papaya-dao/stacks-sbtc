@@ -24,7 +24,8 @@ function getContractName(contractId: string) {
 }
 
 function isTestContract(contractName: string) {
-	return contractName.substring(contractName.length - 5) === "_test";
+	return contractName.substring(contractName.length - 5) === "_test" &&
+		contractName.substring(contractName.length - 10) !== "_flow_test";
 }
 
 const functionRegex = /^([ \t]{0,};;[ \t]{0,}@[\s\S]+?)\n[ \t]{0,}\(define-public[\s]+\((.+?)[ \t|)]/gm;

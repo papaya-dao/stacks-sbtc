@@ -352,10 +352,12 @@
         (asserts! (is-eq (get-current-window) registration)  err-not-in-registration-window)
 
         ;; Delegate-stx to their PoX address
-        (unwrap! (contract-call? .pox-3 delegate-stx amount-ustx (as-contract tx-sender) (some burn-block-height) (some pox-addr)) err-pre-registration-delegate-stx)
+        (unwrap! (contract-call? .pox-3 delegate-stx amount-ustx (as-contract tx-sender) none (some pox-addr)) err-pre-registration-delegate-stx)
 
         ;; Delegate-stack-stx for next cycle
-        (unwrap! (as-contract (contract-call? .pox-3 delegate-stack-stx new-signer amount-ustx pox-addr burn-block-height u1)) err-pre-registration-delegate-stack-stx)
+        (match (as-contract (contract-call? .pox-3 delegate-stack-stx new-signer amount-ustx pox-addr burn-block-height u1)) 
+            success true
+            error (try! (if false (ok true) (err (to-uint error)))))
 
         ;; Stack aggregate-commit
         ;; As pointed out by Friedger, this fails when the user is already stacking. Match err-branch takes care of this with stack-delegate-increase instead.
