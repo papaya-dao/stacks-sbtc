@@ -13,18 +13,18 @@ function isTestContract(contractName: string) {
 	return contractName.substring(contractName.length - 5) === "_test";
 }
 
-const functionRegex = /^([ \t]{0,};;[ \t]{0,}@[\s\S]+?)\n[ \t]{0,}\(define-public[\s]+\((.+?)[ \t|)]/gm;
+const functionRegex = /^([ \t]{0,};;[ \t]{0,}@[\s\S]+?)\n[ \t]{0,}\(define-public[\s]+\((.+?)[ \t|)]((\n*^([ \t]{0,};;[ \t]{0,}@[\s\S]+?)\n[ \t]{0,}\((?:[^()]*|\([^()]*\))*\))*)\n*\)/gm;
 const annotationsRegex = /^;;[ \t]{1,}@([a-z-]+)(?:$|[ \t]+?(.+?))$/;
-
-function extractTestAnnotations(contractSource: string) {
+const callRegex = /\n*^([ \t]{0,};;[ \t]{0,}@[\s\S]+?)\n[ \t]{0,}(\((?:[^()]*|\([^()]*\))*\))/gm;
+function extractTestAnnotationsAndCalls(contractSource: string) {
 	const functionAnnotations = {};
+	const functionBodies = {};
 	const matches1 = contractSource.replace(/\r/g, "").matchAll(functionRegex);
-	const matches2 = contractSource.replace(/\r/g, "").matchAll(functionRegex);
 	//console.log(getContractName(contractSource) + " Tests")
 	// for (const [, comments, functionName] of matches2) {
 	// 	console.log(comments, functionName)
 	// }
-	for (const [, comments, functionName] of matches1) {
+	for (const [, comments, functionName, functionBody] of matches1) {
 		functionAnnotations[functionName] = {};
 		const lines = comments.split("\n");
 		for (const line of lines) {
@@ -32,9 +32,24 @@ function extractTestAnnotations(contractSource: string) {
 			if (prop)
 				functionAnnotations[functionName][prop] = value ?? true;
 		}
+		// add contracts calls in functions body
+		const calls = functionBody.matchAll(callRegex)
+		const contractCalls:{callAnnotations: FunctionAnnotations, call: string}[] = [];
+		for (const [, comments, call] of calls) {
+			const callAnnotations = {};
+			const lines = comments.split("\n");
+			for (const line of lines) {
+			const [, prop, value] = line.match(annotationsRegex) || [];
+			if (prop)
+				callAnnotations[prop] = value ?? true;
+			}
+			contractCalls.push({callAnnotations, call})
+		}
+
+		functionBodies[functionName] = contractCalls;
 	}
 	//console.log(functionAnnotations);
-	return functionAnnotations;
+	return [functionAnnotations, functionBodies];
 }
 
 Clarinet.run({
@@ -49,7 +64,7 @@ Clarinet.run({
 			const hasDefaultPrepareFunction = contract.contract_interface.functions.reduce(
 				(a, v) => a || (v.name === 'prepare' && v.access === 'public' && v.args.length === 0),
 				false);
-			const annotations = extractTestAnnotations(contract.source);
+			const [annotations, functionBodies] = extractTestAnnotationsAndCalls(contract.source);
 
 			const code: string[][] = [];
 			code.push([
@@ -69,7 +84,8 @@ Clarinet.run({
 					functionAnnotations.prepare = 'prepare';
 				if (functionAnnotations['no-prepare'])
 					delete functionAnnotations.prepare;
-				code.push([generateTest(contractId, name, functionAnnotations)]);
+				const functionBody = functionBodies[name] || [];
+				code.push([generateTest(contractId, name, functionAnnotations, functionBody)]);
 			}
 
 			Deno.writeTextFile(`${targetFolder}/${contractName}.ts`, code.flat().join("\n"));
@@ -78,6 +94,7 @@ Clarinet.run({
 });
 
 type FunctionAnnotations = { [key: string]: string | boolean };
+type FunctionBody = { callAnnotations: FunctionAnnotations[], call: string }[];
 
 function generatePrepareTx(contractPrincipal: string, annotations: FunctionAnnotations) {
 	return `Tx.contractCall('${contractPrincipal}', '${annotations['prepare']}', [], deployer.address)`;
@@ -88,6 +105,42 @@ function generateNormalMineBlock(contractPrincipal: string, testFunction: string
 		${annotations['prepare'] ? `${generatePrepareTx(contractPrincipal, annotations)},` : ''}
 		Tx.contractCall('${contractPrincipal}', '${testFunction}', [], callerAddress)
 	]);`;
+}
+
+function generateBlocks(contractPrincipal: string, calls: FunctionBody) {
+	let code = "";
+	let blockStarted = false;
+	for (const {callAnnotations, call} of calls) {
+		if (callAnnotations['new-block']) {
+			if (blockStarted) {
+				code += `
+			]);`;
+			}
+			code += `
+			chain.mineBlock([`;
+		}
+		const mineBlocksBefore = parseInt(callAnnotations['mine-blocks-before'] as string) || 0;
+		if (mineBlocksBefore > 1) {
+			if (blockStarted) {
+				code += `
+			]);`;
+				blockStarted = false;
+			}
+			code += `
+			chain.mineEmptyBlock(${mineBlocksBefore - 1});`;
+		}
+		if (!blockStarted) {
+			code += `
+			chain.mineBlock([`;
+		}
+		code += `Tx.contractCall('${contractPrincipal}', '${call}', [], callerAddress)`;
+	}
+	if (blockStarted) {
+		code += `
+	]);`;
+		blockStarted = false;
+	}
+	return code;
 }
 
 function generateSpecialMineBlock(mineBlocksBefore: number, contractPrincipal: string, testFunction: string, annotations: FunctionAnnotations) {
@@ -107,8 +160,7 @@ function generateSpecialMineBlock(mineBlocksBefore: number, contractPrincipal: s
 		${annotations['print'] === 'events' ? 'printEvents(block);' : ''}`;
 }
 
-function generateTest(contractPrincipal: string, testFunction: string, annotations: FunctionAnnotations) {
-	const mineBlocksBefore = parseInt(annotations['mine-blocks-before'] as string) || 0;
+function generateSimpleTest(contractPrincipal: string, testFunction: string, annotations: FunctionAnnotations, mineBlocksBefore: number) {
 	return `Clarinet.test({
 	name: "${annotations.name ? testFunction + ': ' + (annotations.name as string).replace(/"/g, '\\"') : testFunction}",
 	async fn(chain: Chain, accounts: Map<string, Account>) {
@@ -122,6 +174,32 @@ function generateTest(contractPrincipal: string, testFunction: string, annotatio
 	}
 });
 `;
+}
+
+function generateFlowTest(contractPrincipal: string, testFunction: string, annotations: FunctionAnnotations, body: FunctionBody) {
+	return `Clarinet.test({
+	name: "${annotations.name ? testFunction + ': ' + (annotations.name as string).replace(/"/g, '\\"') : testFunction}",
+	async fn(chain: Chain, accounts: Map<string, Account>) {
+		const deployer = accounts.get("deployer")!;
+		bootstrap(chain, deployer);
+		let callerAddress = ${annotations.caller ? (annotations.caller[0] === "'" ? `"${(annotations.caller as string).substring(1)}"` : `accounts.get('${annotations.caller}')!.address`) : `accounts.get('deployer')!.address`};
+		let block;
+		${generateBlocks(contractPrincipal, body)}
+	}
+});
+`;
+}
+
+
+function generateTest(contractPrincipal: string, testFunction: string, annotations: FunctionAnnotations, body: FunctionBody) {
+	const mineBlocksBefore = parseInt(annotations['mine-blocks-before'] as string) || 0;
+	const flow = annotations['flow'];
+
+	if (flow) {
+		return generateFlowTest(contractPrincipal, testFunction, annotations, body);
+	} else {
+		return generateSimpleTest(contractPrincipal, testFunction, annotations, mineBlocksBefore);
+	}
 }
 
 function generateDeps() {
