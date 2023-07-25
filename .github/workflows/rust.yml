@@ -3,8 +3,10 @@ name: Rust
 on:
   push:
     branches: [ "main" ]
+    paths-ignore: ['**.md']
   pull_request:
     branches: [ "main" ]
+    paths-ignore: ['**.md']
 
 env:
   CARGO_TERM_COLOR: always
@@ -28,9 +30,11 @@ jobs:
     needs: build
     strategy:
       matrix:
+        # TODO: https://github.com/Trust-Machines/stacks-sbtc/issues/599 Re-enable `--release`
+        #       option in matrix.
+        type: ['']
         # can't run on `windows-latests`
-        os: [ubuntu-latest, buildjet-4vcpu-ubuntu-2204-arm]
-        type: ['', '--release']
+        os: [ubuntu-latest, buildjet-4vcpu-ubuntu-2204-arm, macos-latest]
     runs-on: ${{matrix.os}}
     steps:
     - uses: denoland/setup-deno@v1
