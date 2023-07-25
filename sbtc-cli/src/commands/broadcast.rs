@@ -31,6 +31,7 @@ pub fn broadcast_tx(broadcast: &BroadcastArgs) -> anyhow::Result<()> {
         &utils::TransactionData {
             tx_id: tx.txid().to_string(),
             tx_hex: array_bytes::bytes2hex("", tx.serialize()),
+            tx_msg: "".to_string()
         },
     )?;
 

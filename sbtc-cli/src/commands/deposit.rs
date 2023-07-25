@@ -2,10 +2,8 @@ use std::{io::stdout, iter::once, str::FromStr};
 
 use anyhow::anyhow;
 use bdk::{database::MemoryDatabase, SignOptions, Wallet};
-use bitcoin::{
-    psbt::{serialize::Serialize, PartiallySignedTransaction},
-    Address as BitcoinAddress, Network, PrivateKey,
-};
+use bitcoin::{psbt::{serialize::Serialize, PartiallySignedTransaction}, Address as BitcoinAddress, Network, PrivateKey, secp256k1};
+use bitcoin::secp256k1::rand;
 use blockstack_lib::types::{chainstate::StacksAddress, Address};
 use clap::Parser;
 
@@ -46,13 +44,14 @@ pub fn build_deposit_tx(deposit: &DepositArgs) -> anyhow::Result<()> {
     )?;
 
     wallet.sign(&mut psbt, SignOptions::default())?;
-    let tx = psbt.extract_tx();
+    let tx = psbt.clone().extract_tx();
 
     serde_json::to_writer_pretty(
         stdout(),
         &utils::TransactionData {
             tx_id: tx.txid().to_string(),
             tx_hex: array_bytes::bytes2hex("", tx.serialize()),
+            tx_msg: array_bytes::bytes2hex("", psbt.to_string()),
         },
     )?;
 

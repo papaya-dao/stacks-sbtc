@@ -4,10 +4,7 @@ use bdk::{
     blockchain::ElectrumBlockchain, database::MemoryDatabase, electrum_client::Client,
     template::P2Wpkh, SyncOptions, Wallet,
 };
-use bitcoin::{
-    blockdata::{opcodes, script::Builder},
-    Network, PrivateKey, Script, TxOut,
-};
+use bitcoin::{blockdata::{opcodes, script::Builder}, Network, PrivateKey, PublicKey, Script, TxOut};
 use serde::Serialize;
 
 pub fn init_blockchain() -> anyhow::Result<ElectrumBlockchain> {
@@ -15,6 +12,20 @@ pub fn init_blockchain() -> anyhow::Result<ElectrumBlockchain> {
     let blockchain = ElectrumBlockchain::from(client);
     Ok(blockchain)
 }
+
+// pub fn setup_wallet_readonly(public_key: PublicKey) -> anyhow::Result<Wallet<MemoryDatabase>> {
+//     let blockchain = init_blockchain()?;
+//     let wallet = Wallet::new(
+//         public_key,
+//         None,
+//         private_key.network,
+//         MemoryDatabase::default(),
+//     )?;
+//
+//     wallet.sync(&blockchain, SyncOptions::default())?;
+//
+//     Ok(wallet)
+// }
 
 pub fn setup_wallet(private_key: PrivateKey) -> anyhow::Result<Wallet<MemoryDatabase>> {
     let blockchain = init_blockchain()?;
@@ -74,4 +85,5 @@ pub fn magic_bytes(network: &Network) -> [u8; 2] {
 pub struct TransactionData {
     pub tx_id: String,
     pub tx_hex: String,
+    pub tx_msg: String,
 }
