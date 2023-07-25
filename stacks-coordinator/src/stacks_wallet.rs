@@ -20,7 +20,6 @@ use blockstack_lib::{
         ClarityName, ContractName, Value,
     },
 };
-use serde::__private::ser::serialize_tagged_newtype;
 
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum Error {
@@ -205,7 +204,7 @@ impl BuildStacksTransaction for PegOutRequestOp {
     }
 }
 
-/// WARNING: Ugly Hack! - Don't merge to master!
+/// NOTE: This particular address recovery function is only for alpha!
 /// Recovers the STX address used by Hiro wallet to construct this request
 fn stx_address_hiro_signed(
     op: &PegOutRequestOp,
@@ -216,12 +215,15 @@ fn stx_address_hiro_signed(
     let mut msg = op.amount.to_be_bytes().to_vec();
     msg.extend_from_slice(script_pubkey.as_bytes());
 
-    let mut hiro_msg = "\x17Stacks Signed Message:\n".as_bytes().to_vec();
-    let len = VarInt(msg.len() as u64);
-    hiro_msg.extend_from_slice(&bitcoin::consensus::serialize(&len));
-    hiro_msg.extend_from_slice(&msg);
+    // The hiro wallet utf-8 encodes the message hex provided to it, which we must mimic here for alpha
+    let msg_hex2utf8 = array_bytes::bytes2hex("", msg).into_bytes();
 
-    let msg_hash = Sha256Sum::from_data(&msg);
+    let mut hiro_msg = "\x17Stacks Signed Message:\n".as_bytes().to_vec();
+    let len = VarInt(msg_hex2utf8.len() as u64);
+    hiro_msg.extend_from_slice(&bitcoin::consensus::serialize(&len));
+    hiro_msg.extend_from_slice(&msg_hex2utf8);
+
+    let msg_hash = Sha256Sum::from_data(&hiro_msg);
     let pub_key = StacksPublicKey::recover_to_pubkey(msg_hash.as_bytes(), &op.signature)
         .map_err(|_| Error::MalformedOp("Failed to recover pubkey from withdrawal".to_string()))?;
 
