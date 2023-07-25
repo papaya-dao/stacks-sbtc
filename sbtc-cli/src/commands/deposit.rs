@@ -2,10 +2,9 @@ use std::{io::stdout, iter::once, str::FromStr};
 
 use anyhow::anyhow;
 use bdk::{database::MemoryDatabase, SignOptions, Wallet};
-use bitcoin::secp256k1::rand;
+
 use bitcoin::{
-    psbt::{serialize::Serialize, PartiallySignedTransaction},
-    secp256k1, Address as BitcoinAddress, Network, PrivateKey,
+    psbt::{serialize::Serialize, PartiallySignedTransaction}, Address as BitcoinAddress, Network, PrivateKey,
 };
 use blockstack_lib::types::{chainstate::StacksAddress, Address};
 use clap::Parser;

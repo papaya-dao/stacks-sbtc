@@ -6,7 +6,7 @@ use bdk::{
 };
 use bitcoin::{
     blockdata::{opcodes, script::Builder},
-    Network, PrivateKey, PublicKey, Script, TxOut,
+    Network, PrivateKey, Script, TxOut,
 };
 use serde::Serialize;
 

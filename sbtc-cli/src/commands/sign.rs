@@ -1,4 +1,4 @@
-use crate::commands::deposit::DepositArgs;
+
 use bitcoin::hashes::hex::ToHex;
 use bitcoin::hashes::sha256::Hash;
 use bitcoin::secp256k1::{Message, Secp256k1};
@@ -32,7 +32,7 @@ pub fn sign(args: &SignArgs) -> anyhow::Result<()> {
             .as_slice(),
     );
 
-    let mut s = Secp256k1::new();
+    let s = Secp256k1::new();
     let sig = s.sign_ecdsa_recoverable(&msg, &private_key.inner);
     let serialized_sig = sig.serialize_compact();
 

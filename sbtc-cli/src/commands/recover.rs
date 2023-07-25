@@ -32,7 +32,7 @@ pub fn recover(args: &RecoverArgs) -> anyhow::Result<()> {
         recovery_id,
     )?;
 
-    let mut s = Secp256k1::new();
+    let s = Secp256k1::new();
     let public_key = s.recover_ecdsa(&msg, &signature)?;
 
     serde_json::to_writer_pretty(stdout(), &public_key.serialize().to_hex())?;
