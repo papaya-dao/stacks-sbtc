@@ -371,7 +371,9 @@
                     (asserts! (>= amount-ustx (get locked signer-account)) err-decrease-forbidden)
 
                     ;; Delegate-stack-increase for next cycle so that there is no cooldown
-                    (unwrap! (contract-call? .pox-3 delegate-stack-increase new-signer pox-addr (- amount-ustx (get locked signer-account))) err-pre-registration-stack-increase)
+                    (try! (match (as-contract (contract-call? .pox-3 delegate-stack-increase new-signer pox-addr (- amount-ustx (get locked signer-account))))
+                    success (ok true)
+                    error (err (to-uint error))))
                     true
                 )
         )

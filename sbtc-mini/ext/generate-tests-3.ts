@@ -21,7 +21,7 @@ function isTestContract(contractName: string) {
 }
 
 const functionRegex =
-  /^([ \t]{0,};;[ \t]{0,}@[\s\S]+?)\n[ \t]{0,}\(define-public[\s]+\((.+?)[ \t|)]/gm;
+  /^([ \t]{0,};;[ \t]{0,}@[\s\S]+?)\n[ \t]{0,}\(define-public[\s]+\((test-.+?)[ \t|)]/gm;
 const annotationsRegex = /^;;[ \t]{1,}@([a-z-]+)(?:$|[ \t]+?(.+?))$/;
 const callRegex =
   /\n*^([ \t]{0,};;[ \t]{0,}@[\s\S]+?)\n[ \t]{0,}(\((?:[^()]*|\([^()]*\))*\))/gm;
