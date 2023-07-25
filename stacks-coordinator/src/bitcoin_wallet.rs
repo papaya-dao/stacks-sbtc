@@ -107,11 +107,12 @@ impl BitcoinWalletTrait for BitcoinWallet {
 
         tx.output.push(withdrawal_data_output());
 
-        let withdrawal_output = bitcoin::TxOut {
+        let withdrawal_output_stacks = op.recipient.to_bitcoin_tx_out(op.amount);
+        let withdrawal_output_bitcoin = bitcoin::TxOut {
             value: op.amount,
-            script_pubkey: script_pubkey.clone(),
+            script_pubkey: Script::from(withdrawal_output_stacks.script_pubkey.into_bytes()),
         };
-        tx.output.push(withdrawal_output);
+        tx.output.push(withdrawal_output_bitcoin);
 
         if change_amount >= script_pubkey.dust_value().to_sat() {
             let change_output = bitcoin::TxOut {
