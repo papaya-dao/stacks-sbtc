@@ -4,10 +4,12 @@ use crate::stacks_node::PegOutRequestOp;
 use crate::stacks_wallet::{
     BuildStacksTransaction, Error as StacksWalletError, StacksWallet as StacksWalletStruct,
 };
-use bitcoin::secp256k1::PublicKey;
-use bitcoin::{Address as BitcoinAddress, XOnlyPublicKey};
-use blockstack_lib::types::chainstate::StacksPublicKey;
-use blockstack_lib::{chainstate::stacks::StacksTransaction, types::chainstate::StacksAddress};
+use bitcoin::XOnlyPublicKey;
+use bitcoin::{Address as BitcoinAddress, TxOut};
+use blockstack_lib::{
+    chainstate::stacks::StacksTransaction,
+    types::chainstate::{StacksAddress, StacksPublicKey},
+};
 use std::fmt::Debug;
 
 #[derive(thiserror::Error, Debug, PartialEq)]
@@ -28,7 +30,7 @@ pub trait StacksWallet {
     /// Builds a verified signed transaction for setting the sBTC wallet public key
     fn build_set_bitcoin_wallet_public_key_transaction(
         &self,
-        public_key: &PublicKey,
+        public_key: &XOnlyPublicKey,
         nonce: u64,
     ) -> Result<StacksTransaction, Error>;
     /// Builds a verified signed transaction for setting the sBTC coordinator data
@@ -54,7 +56,7 @@ pub trait BitcoinWallet {
         &self,
         op: &PegOutRequestOp,
         txouts: Vec<UTXO>,
-    ) -> Result<bitcoin_node::BitcoinTransaction, Error>;
+    ) -> Result<(bitcoin_node::BitcoinTransaction, Vec<TxOut>), Error>;
 
     /// Returns the BTC address for the wallet
     fn address(&self) -> &BitcoinAddress;

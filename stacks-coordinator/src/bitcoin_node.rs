@@ -1,20 +1,19 @@
 use std::{borrow::Cow, str::FromStr};
 
 use bdk::descriptor::calc_checksum;
-use bitcoin::{consensus::Encodable, hashes::sha256d::Hash, Txid};
+use bitcoin::{consensus::Encodable, hashes::sha256d::Hash, util::amount::Amount, Txid};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::{debug, info, warn};
 use url::Url;
 
-use crate::peg_wallet::BitcoinWallet;
 pub trait BitcoinNode {
     /// Broadcast the BTC transaction to the bitcoin node
     fn broadcast_transaction(&self, tx: &BitcoinTransaction) -> Result<Txid, Error>;
     /// Load the Bitcoin wallet from the given address
-    fn load_wallet(&self, address: &impl BitcoinWallet) -> Result<(), Error>;
+    fn load_wallet(&self, address: &bitcoin::Address) -> Result<(), Error>;
     /// Get all utxos from the given address
-    fn list_unspent(&self, address: &impl BitcoinWallet) -> Result<Vec<UTXO>, Error>;
+    fn list_unspent(&self, address: &bitcoin::Address) -> Result<Vec<UTXO>, Error>;
 }
 
 pub type BitcoinTransaction = bitcoin::Transaction;
@@ -38,7 +37,7 @@ pub enum Error {
 }
 
 #[allow(non_snake_case)]
-#[derive(Debug, Deserialize, Serialize, Default, PartialEq, Eq)]
+#[derive(Debug, Deserialize, Serialize, Default, PartialEq, Eq, Clone)]
 pub struct UTXO {
     pub txid: String,
     pub vout: u32,
@@ -86,7 +85,7 @@ impl BitcoinNode for LocalhostBitcoinNode {
         ))
     }
 
-    fn load_wallet(&self, address: &impl BitcoinWallet) -> Result<(), Error> {
+    fn load_wallet(&self, address: &bitcoin::Address) -> Result<(), Error> {
         debug!("Loading bitcoin wallet...");
         let result = self.create_empty_wallet();
         if let Err(Error::RPCError(message)) = &result {
@@ -103,10 +102,10 @@ impl BitcoinNode for LocalhostBitcoinNode {
     }
 
     /// List the UTXOs filtered on a given address.
-    fn list_unspent(&self, wallet: &impl BitcoinWallet) -> Result<Vec<UTXO>, Error> {
+    fn list_unspent(&self, address: &bitcoin::Address) -> Result<Vec<UTXO>, Error> {
         debug!("Retrieving utxos...");
         // Construct the params using defaults found at https://developer.bitcoin.org/reference/rpc/listunspent.html?highlight=listunspent
-        let addresses: Vec<String> = vec![wallet.address().to_string()];
+        let addresses: Vec<String> = vec![address.to_string()];
         let min_conf = 0i64;
         let max_conf = 9999999i64;
         let params = (min_conf, max_conf, addresses);
@@ -215,13 +214,12 @@ impl LocalhostBitcoinNode {
         Ok(())
     }
 
-    fn import_address(&self, wallet: &impl BitcoinWallet) -> Result<(), Error> {
-        debug!("Importing address {}...", wallet.address());
+    fn import_address(&self, address: &bitcoin::Address) -> Result<(), Error> {
+        debug!("Importing address {}...", address);
 
         // Create a descriptor using a Bech32 (segwit) Pay-to-Taproot (P2TR) address.
         let desc = {
-            let pub_hex = hex::encode(wallet.x_only_pub_key().serialize());
-            let descriptor = format!("tr({})", pub_hex);
+            let descriptor = format!("addr({})", address);
             let checksum = calc_checksum(&descriptor)?;
 
             format!("{}#{}", descriptor, checksum)
@@ -278,9 +276,24 @@ impl LocalhostBitcoinNode {
                     "Could not parse scriptPubKey".to_string(),
                 ))?
                 .to_string(),
-            amount: raw["amount"].as_f64().map(|amount| amount as u64).ok_or(
-                Error::InvalidResponseJSON("Could not parse amount".to_string()),
-            )?,
+            amount: raw["amount"]
+                .as_f64()
+                .map_or_else(
+                    || {
+                        Err(Error::InvalidResponseJSON(
+                            "Amount not provided or wrong type".to_string(),
+                        ))
+                    },
+                    |amount| {
+                        Amount::from_btc(amount).map_err(|_e| {
+                            Error::InvalidResponseJSON(format!(
+                                "Could not parse the float {} as a bitcoin amount",
+                                amount
+                            ))
+                        })
+                    },
+                )?
+                .to_sat(),
             confirmations: raw["confirmations"]
                 .as_u64()
                 .ok_or(Error::InvalidResponseJSON(
@@ -326,7 +339,7 @@ mod tests {
     fn should_map_json_to_utxo() {
         let value = json!({
             "address": "bcrt1qykqup0h6ry9x3c89llzpznrvm9nfd7fqwnt0hu",
-            "amount": 50.00000000,
+            "amount": 0.00000050,
             "confirmations": 123,
             "label": "",
             "parent_descs": [],
