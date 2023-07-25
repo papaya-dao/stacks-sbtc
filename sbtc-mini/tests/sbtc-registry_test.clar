@@ -131,21 +131,21 @@
    ) 
 )
 
-;; @name Get peg wallet for cycle with none set returns null
+;; @name Get peg wallet for cycle with none set returns none
 ;; @mine-blocks-before 5
-(define-public (test-get-null-cycle-peg-wallet)
+(define-public (test-get-none-cycle-peg-wallet)
   (begin
     (unwrap! (contract-call? .sbtc-registry get-cycle-peg-wallet u10) (ok true))
-    (err "Peg wallet for cycle should be null")
+    (err "Peg wallet for cycle should be none")
   )
 )
 
-;; @name Get cycle for peg wallet not set returns null
+;; @name Get cycle for peg wallet not set returns none
 ;; @mine-blocks-before 5
-(define-public (test-get-null-peg-wallet-cycle)
+(define-public (test-get-none-peg-wallet-cycle)
   (begin
     (unwrap! (contract-call? .sbtc-registry get-peg-wallet-cycle mock-peg-wallet-2) (ok true))
-    (err "Peg wallet cycle should be null")
+    (err "Peg wallet cycle should be none")
   )
 )
 
