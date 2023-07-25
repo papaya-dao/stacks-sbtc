@@ -2,12 +2,12 @@ use std::{io::stdout, iter::once, str::FromStr};
 
 use anyhow::anyhow;
 use bdk::{database::MemoryDatabase, SignOptions, Wallet};
+use bitcoin::psbt::serialize::Serialize;
 use bitcoin::{
-    psbt::{PartiallySignedTransaction},
+    psbt::PartiallySignedTransaction,
     secp256k1::{Message, Secp256k1},
     Address as BitcoinAddress, Network, PrivateKey,
 };
-use bitcoin::psbt::serialize::Serialize;
 use clap::Parser;
 
 use crate::commands::utils::TransactionData;

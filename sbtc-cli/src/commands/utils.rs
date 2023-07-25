@@ -4,7 +4,10 @@ use bdk::{
     blockchain::ElectrumBlockchain, database::MemoryDatabase, electrum_client::Client,
     template::P2Wpkh, SyncOptions, Wallet,
 };
-use bitcoin::{blockdata::{opcodes, script::Builder}, Network, PrivateKey, PublicKey, Script, TxOut};
+use bitcoin::{
+    blockdata::{opcodes, script::Builder},
+    Network, PrivateKey, PublicKey, Script, TxOut,
+};
 use serde::Serialize;
 
 pub fn init_blockchain() -> anyhow::Result<ElectrumBlockchain> {

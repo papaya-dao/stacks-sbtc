@@ -1,11 +1,11 @@
-use std::io::stdout;
+use crate::commands::deposit::DepositArgs;
 use bitcoin::hashes::hex::ToHex;
 use bitcoin::hashes::sha256::Hash;
-use bitcoin::PrivateKey;
 use bitcoin::secp256k1::{Message, Secp256k1};
+use bitcoin::PrivateKey;
 use clap::Parser;
 use serde::{Deserialize, Serialize};
-use crate::commands::deposit::DepositArgs;
+use std::io::stdout;
 
 #[derive(Parser, Debug, Clone)]
 pub struct SignArgs {
@@ -26,19 +26,24 @@ struct RecoverableSignature {
 
 pub fn sign(args: &SignArgs) -> anyhow::Result<()> {
     let private_key = PrivateKey::from_wif(&args.wif)?;
-    let msg = Message::from_hashed_data::<Hash>(array_bytes::hex2bytes(&args.message_hex).expect("hex2bytes").as_slice());
+    let msg = Message::from_hashed_data::<Hash>(
+        array_bytes::hex2bytes(&args.message_hex)
+            .expect("hex2bytes")
+            .as_slice(),
+    );
 
     let mut s = Secp256k1::new();
     let sig = s.sign_ecdsa_recoverable(&msg, &private_key.inner);
-	let serialized_sig = sig.serialize_compact();
+    let serialized_sig = sig.serialize_compact();
 
     serde_json::to_writer_pretty(
         stdout(),
-		&RecoverableSignature {
+        &RecoverableSignature {
             recovery_id: serialized_sig.0.to_i32(),
-           signature_hex: serialized_sig.1.to_hex(),
-        }
-    ).unwrap();
+            signature_hex: serialized_sig.1.to_hex(),
+        },
+    )
+    .unwrap();
 
     Ok(())
 }
