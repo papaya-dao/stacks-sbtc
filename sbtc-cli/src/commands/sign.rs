@@ -1,4 +1,3 @@
-
 use bitcoin::hashes::hex::ToHex;
 use bitcoin::hashes::sha256::Hash;
 use bitcoin::secp256k1::{Message, Secp256k1};
