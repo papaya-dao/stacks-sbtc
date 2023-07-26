@@ -23,12 +23,12 @@ use std::{
 use ureq::serde::Serialize;
 use url::Url;
 use wsts::{
+    common::PolyCommitment,
+    compute::tweaked_public_key,
     taproot::{
         test_helpers::{dkg, sign_tweaked},
         SchnorrProof,
     },
-    common::PolyCommitment,
-    compute::tweaked_public_key,
     v1::{SignatureAggregator, Signer},
     Point,
 };
@@ -397,7 +397,11 @@ impl SignerHelper {
             bitcoin::PublicKey::from_slice(tweaked_group_public_key_point.compress().as_bytes())
                 .expect("Failed to create public key from DKG result.");
 
-        (public_commitments, tweaked_group_public_key_point, group_public_key)
+        (
+            public_commitments,
+            tweaked_group_public_key_point,
+            group_public_key,
+        )
     }
 
     pub fn signing_round(
@@ -413,12 +417,17 @@ impl SignerHelper {
             tweaked_public_key(&group_public_key, &root)
         } else {
             group_public_key
-        }; 
+        };
 
         // decide which signers will be used
         let mut signers = [self.signers[0].clone(), self.signers[1].clone()];
 
-        let (nonces, shares) = sign_tweaked(message, &mut signers, &mut self.rng, &tweaked_group_public_key);
+        let (nonces, shares) = sign_tweaked(
+            message,
+            &mut signers,
+            &mut self.rng,
+            &tweaked_group_public_key,
+        );
 
         let mut agg = SignatureAggregator::new(self.total, self.threshold, public_commitments)
             .expect("Failed to create signature aggregator.");

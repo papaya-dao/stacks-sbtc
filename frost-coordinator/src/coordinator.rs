@@ -14,10 +14,10 @@ use hashbrown::HashSet;
 use p256k1::ecdsa::PublicKey;
 use tracing::{debug, info, warn};
 use wsts::{
-    taproot::{Error as TaprootError, SchnorrProof},
     common::{PolyCommitment, PublicNonce, Signature, SignatureShare},
     compute,
     errors::AggregatorError,
+    taproot::{Error as TaprootError, SchnorrProof},
     v1, Point, Scalar,
 };
 
