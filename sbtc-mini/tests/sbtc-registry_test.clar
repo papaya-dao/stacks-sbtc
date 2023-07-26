@@ -149,12 +149,12 @@
   )
 )
 
-;; @name Cannot settle a peg-out request that is not pending
+;; @name Cannot settle a peg-out request id that is not pending
 ;; @mine-blocks-before 5
 (define-public (test-settle-non-pending-peg-out-request)
   (begin
     (unwrap! (contract-call? .sbtc-registry get-and-settle-pending-peg-out-request u10 peg-out-state-fulfilled) (ok true))
-    (err "Should not be settle because it was not pending")
+    (err "Should not be settle because req id was not pending")
   )
 )
 
