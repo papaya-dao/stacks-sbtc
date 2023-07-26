@@ -382,7 +382,7 @@ impl SignerHelper {
     ) -> (Vec<PolyCommitment>, Point, bitcoin::PublicKey) {
         // DKG (Distributed Key Generation)
 
-        let public_commitments = dkg(&mut self.signers, &mut self.rng, merkle_root.clone())
+        let public_commitments = dkg(&mut self.signers, &mut self.rng, merkle_root)
             .expect("Failed to run distributed key generation.");
         let group_public_key_point = public_commitments
             .iter()
