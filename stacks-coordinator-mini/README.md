@@ -1,4 +1,4 @@
-The following sequence diagrams illustrate the communication process between DKG signers (Signer 1, Signer 2, ..., Signer N) and the Smart Contract in the Stacks blockchain. It shows the sequence of events and flow of data between the signers, the smart contract, and the blockchain for key registration, public key retrieval, shared public key computation, message signing, and signature verification. 
+The following sequence diagrams illustrate the communication process between DKG signers (Signer 1, Signer 2, ..., Signer N) and the Smart Contract in the Stacks blockchain. It shows the sequence of events and flow of data between the signers, the smart contract, and the blockchain for key registration, signer coordination, message signing, and signature verification. Note that communication between signers is through a P2P Network.
 
 ```mermaid
 sequenceDiagram
@@ -7,69 +7,63 @@ participant SignerN
 participant SmartContract
 participant Blockchain
 
-Note over Signer1, Blockchain: Key Generation
+Note over Signer1, Blockchain: Key Registration
 Signer1->>SmartContract: Register Public Key 1
 SignerN->>SmartContract: Register Public Key N
 
-Note over Signer1, Blockchain: Retrieve Transactions
+Note over Signer1, Blockchain: Signer Data Retrieval
+Signer1->>Blockchain: Get Stackers
+Blockchain-->Signer1: Stackers
+SignerN->>Blockchain: Get Stackers
+Blockchain-->SignerN: Stackers
+Signer1->>SmartContract: Get Stacker Info
+SmartContract-->Signer1: Stacker Info
+SignerN->>SmartContract: Get Stacker Info
+SmartContract-->SignerN: Stacker Info
+Note over Signer1, Blockchain: Coordinate Signing Round
+Signer1->>Signer1: Determine Coordinator
+SignerN->>SignerN: Determine Coordinator
 Signer1->>Blockchain: Retrieve Unsigned Transactions
 Blockchain-->>Signer1: Unsigned Transactions
-SignerN->>Blockchain: Retrieve Unsigned Transactions
-Blockchain-->>SignerN: Unsigned Transactions
 
 Note over Signer1, Blockchain: Signing Transactions
 loop for each Pending Transaction
     Signer1->>Signer1: Create Partial Signature 1
+    Signer1->>SignerN: Request Signature Share
+    SignerN->>Blockchain: Verify Signature Request
     SignerN->>SignerN: Create Partial Signature N
-    Signer1->>SignerN: Share Partial Signature 1
     SignerN->>Signer1: Share Partial Signature N
-    Signer1->>SmartContract: Check Partial Signature N
-    SignerN->>SmartContract: Check Partial Signature 1
+    Signer1->>Signer1: Verify Partial Signature N
     Signer1->>Signer1: Combine Partial Signatures 1..N
-    SignerN->>SignerN: Combine Partial Signatures 1..N
-    Signer1->>Signer1: Sign Transaction
-    SignerN->>SignerN: Sign Transaction
 
     Note over Signer1, Blockchain: Broadcast Transaction
     Signer1->>Blockchain: Broadcast Signed Transaction
     Blockchain-->>Signer1: Transaction Confirmation
-    SignerN->>Blockchain: Broadcast Signed Transaction
-    Blockchain-->>SignerN: Transaction Confirmation
 end
 ```
 
-This diagram shows the sequence of events that occur when a client activates an autosigner. The AutoSigner API retrieves pending transactions from the blockchain and loops through each transaction. For each transaction, it asks the Signer to determine whether to approve or reject it based on the signer's configuration. If the Signer can determine the decision, it signs the transaction and the AutoSigner API broadcasts it to the blockchain. If the Signer cannot determine the decision, the AutoSigner API notifies the client UI about the decision failure.
+This diagram shows the sequence of events that occur when a signer receives sign requests for a transaction from the P2P Network. For each transaction, it determines whether to approve or reject it based on the signer's configuration. If the Signer can determine the decision, it signs the transaction and broadcasts its share to the P2P network. If the Signer cannot determine the decision, the Signer API notifies the client UI about the decision failure and requests a manual review.
 
 ```mermaid
 sequenceDiagram
-participant Blockchain
+participant P2PNetwork
 participant Signer
-participant AutoSignerAPI
+participant SignerAPI
 participant ClientUI
 
-Note over Blockchain, ClientUI: Start Signer
+Note over P2PNetwork, ClientUI: Sign Transaction Request
 
-ClientUI->>AutoSignerAPI: Activate Auto Signer
-AutoSignerAPI->>Signer: Activate Auto Signer
-Signer-->>AutoSignerAPI: Acknowledge Activation
-AutoSignerAPI-->>ClientUI: Acknowledge Activation
-Signer->>Blockchain: Retrieve Transactions
-Blockchain-->>Signer: List of Transactions
-
-Note over Blockchain, ClientUI: Sign Transactions  
-loop for each Pending Transaction
-    Signer->>Signer: Determine Approval/Rejection
-    alt Approval/Rejection Determined
-        Signer->>Signer: Sign Transaction
-        Signer->>Blockchain: Broadcast Signed Transaction
-        Blockchain-->>Signer: Acknowledge Broadcast
-    else Cannot Determine
-        Note over Blockchain, ClientUI: Notify Client UI
-        Signer->>AutoSignerAPI: Notify Decision Failure
-        AutoSignerAPI-->>Signer: Acknowledge Notification
-        AutoSignerAPI->>ClientUI: Notify Decision Failure
-        ClientUI-->>AutoSignerAPI: Acknowledge Notification
-    end
+P2PNetwork-->>Signer: Sign Transaction Request
+Signer->>Signer: Determine Approval/Rejection
+alt Approval/Rejection Determined
+    Signer->>Signer: Sign Approval/Rejection
+    Signer->>P2PNetwork: Broadcast Signature Share
+else Cannot Determine
+    Note over Signer, ClientUI: Notify Client UI
+    Signer->>SignerAPI: Notify Decision Failure
+    SignerAPI-->>Signer: Acknowledge Notification
+    SignerAPI->>ClientUI: Notify Decision Failure
+    ClientUI-->>SignerAPI: Acknowledge Notification
 end
 ```
 
@@ -95,7 +89,7 @@ Note over SignerServerApp: Wait for API Requests
 
 WebClient->>SignerAPI: API Request (e.g., /sign, /verify)
 SignerAPI->>SignerServerApp: Incoming API Request
-SignerServerApp->>SignerLib: Call Signer Function (e.g., sign, verify)
+SignerServerApp->>SignerLib: Call Signer Function (e.g., sign, transactions)
 SignerLib-->>SignerServerApp: Function Result
 
 SignerServerApp->>SignerAPI: API Response
