@@ -92,6 +92,7 @@ function extractContractCalls(lastFunctionBody: string) {
       if (prop) callAnnotations[prop] = value ?? true;
     }
     let callInfo = extractUnwrapInfo(call);
+    console.log(callInfo)
     if (!callInfo) {
       callInfo = extractCallInfo(call);
     }
@@ -104,6 +105,44 @@ function extractContractCalls(lastFunctionBody: string) {
   return contractCalls;
 }
 
+function splitArgs(argString: string): string[] {
+  let splitArgs: string[] = [];
+  let argStart = 0;
+  let brackets = 0;
+
+  for (let i = 0; i < argString.length; i++) {
+    let char = argString[i];
+
+    if (char === '{') brackets++;
+    if (char === '}') brackets--;
+
+    let atLastChar = i === argString.length - 1;
+    if ((char === ' ' && brackets === 0) || atLastChar) {
+      let newArg = argString.slice(argStart, i + (atLastChar ? 1 : 0));
+      if (newArg.trim()) {
+        splitArgs.push(newArg.trim());
+      }
+      argStart = i + 1;
+    }
+  }
+
+  return splitArgs;
+}
+
+function parseTuple(tupleString: string): string {
+  let tupleItems = tupleString.slice(1, -1).split(',').map(item => {
+    let [key, value] = item.split(':').map(s => s.trim());
+    let uintMatch = value.match(/u(\d+)/);
+    if (uintMatch) {
+      return `"${key}": types.uint(${uintMatch[1]})`;
+    } else {
+      return `${key}: "${value}"`;
+    }
+  }).join(', ');
+
+  return `types.tuple({${tupleItems}})`;
+}
+
 function extractUnwrapInfo(statement: string): CallInfo | null {
   const match = statement.match(
     /\(unwrap! \(contract-call\? \.(.+?) (.+?)(( .+?)*)\)/
@@ -112,15 +151,20 @@ function extractUnwrapInfo(statement: string): CallInfo | null {
 
   const contractName = match[1];
   const functionName = match[2];
-  const argStrings = match[3].split(" ").filter(Boolean);
+  const argStrings = splitArgs(match[3]);
+
   const args = argStrings.map((arg) => {
-    const uintMatch = arg.match(/u(\d+)/);
-    if (uintMatch) {
-      return { type: "uint", value: uintMatch[1] };
+    if (arg.startsWith("'")) {
+      return { type: "principal", value: `types.principal("${arg.slice(1)}")` };
+    } else if (arg.startsWith('u')) {
+      return { type: "uint", value: `types.uint(${arg.slice(1)})` };
+    } else if (arg.startsWith('{')) {
+      return { type: "tuple", value: parseTuple(arg) };
     } else if (arg === "none") {
-      return { type: "none", value: arg };
+      return { type: "none", value: 'types.none' };
+    } else {
+      return { type: "raw", value: arg };
     }
-    return { type: "raw", value: arg };
   });
 
   return {
@@ -222,8 +266,26 @@ function generateTxString(
 ): string {
   let argStrings = callInfo.args
     .map((arg) => {
+      //console.log("arg: " + arg.type)
       if (arg.type === "uint") {
-        return `types.uint(${arg.value})`;
+        return `${arg.value}`;
+      } else if (arg.type === "tuple") {
+       // Generate TypeScript code for tuples
+        const tupleItems = arg.value.split(",").map(item => {
+          const [key, value] = item.split(":").map(s => s.trim());
+          const uintMatch = value.match(/u(\d+)/);
+          if (uintMatch) {
+            return `"${key}": ${uintMatch[1]}`;
+          } else {
+            return `${key}: "${value}"`; // Handle other types as needed
+          }
+        }).join(", ");
+        console.log("tupleItems: " + tupleItems)
+        return `${arg.value}`;
+      } else if (arg.type === "principal") {
+        return `${arg.value}`;
+      } else if (arg.type === "none") {
+        return `types.none`;
       } else {
         return `"${arg.value}"`; // Modify this to handle other types as needed
       }
@@ -235,6 +297,7 @@ function generateTxString(
   }", [${argStrings}], callerAddress)
   `;
 }
+
 
 function generateNormalMineBlock(
   contractPrincipal: string,
@@ -301,6 +364,7 @@ function generateBlocks(contractPrincipal: string, calls: FunctionBody) {
       blockStarted = true;
     }
     // add tx to current block
+    //console.log("generateBlocks");
     code += generateTxString(callInfo, contractPrincipal);
     code += `,
 	`;
