@@ -48,7 +48,7 @@ Clarinet.run({
 		if (nonUniqueErrors.length > 0)
 			exitWithError("Found non-unique error codes with different names.", nonUniqueErrors);
 
-		errorTable.sort((a, b) => a[1] > b[1] ? 1 : -1); // string sort
+		errorTable.sort((a, b) => a[2] > b[2] ? 1 : -1); // string sort
 
 		let errors = '|' + tableHeader.map((content, index) => padTableCell(content, longestColumnCells[index])).join('|') + "|\n";
 		errors += '|' + longestColumnCells.map(length => '-'.repeat(length + 2)).join('|') + "|\n";
