@@ -39,14 +39,14 @@ are in the form `(err uint)` and they are unique across all contracts.
 
 | Group           | Error space | Description                                               |
 | --------------- | ----------- | --------------------------------------------------------- |
-| Controller      | 1XX         | Errors related to the controller and upgrades.            |
-| Registry        | 2XX         | Errors coming directly from the registry.                 |
-| Token           | 3XX         | Errors coming directly from the token.                    |
-| Deposit         | 4XX         | Errors related to making and processing BTC deposits.     |
-| Redemption      | 5XX         | Errors related to redeeming sBTC for BTC.                 |
-| Pool            | 6XX         | Errors related to the sBTC stacking pool.                 |
-| Hand-off        | 7XX         | Errors related to the peg hand-off process.               |
-| Bitcoin library | 8XX         | Errors coming directly from the Bitcoin library / helper. |
+| Controller      | 1XXX        | Errors related to the controller and upgrades.            |
+| Registry        | 2XXX        | Errors coming directly from the registry.                 |
+| Token           | 3XXX        | Errors coming directly from the token.                    |
+| Deposit         | 4XXX        | Errors related to making and processing BTC deposits.     |
+| Redemption      | 5XXX        | Errors related to redeeming sBTC for BTC.                 |
+| Pool            | 6XXX        | Errors related to the sBTC stacking pool.                 |
+| Hand-off        | 7XXX        | Errors related to the peg hand-off process.               |
+| Bitcoin library | 8XXX        | Errors coming directly from the Bitcoin library / helper. |
 | Debug           | 99XX        | Debugging related errors.                                 |
 
 ### Error table
