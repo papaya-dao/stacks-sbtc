@@ -1,6 +1,5 @@
 (impl-trait 'SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard.sip-010-trait)
 
-(define-constant err-unauthorised (err u401))
 (define-constant err-not-token-owner (err u4))
 
 (define-fungible-token sbtc-token)

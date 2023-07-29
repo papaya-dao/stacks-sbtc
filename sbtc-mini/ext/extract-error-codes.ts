@@ -1,5 +1,5 @@
 import { Clarinet, Contract, Account } from 'https://deno.land/x/clarinet@v1.7.0/index.ts';
-import { getContractName, isTestContract } from './deps.ts';
+import { getContractName, isTestContract, exitWithError } from './deps.ts';
 
 const readmeFile = './README.md';
 
@@ -17,6 +17,7 @@ function padTableCell(content: string, length: number) {
 
 Clarinet.run({
 	async fn(accounts: Map<string, Account>, contracts: Map<string, Contract>) {
+		let errorsSeenCount: { [key: string]: { lastConstantName: string, count: number } } = {};
 		let readme = await Deno.readTextFile(readmeFile);
 		const errorTable: Array<Array<string>> = [];
 		let longestColumnCells = tableHeader.map(v => v.length);
@@ -31,11 +32,21 @@ Clarinet.run({
 				const errorDescription = errorComment?.match(commentRegex)?.[1] || ''; // || '_None_';
 				if (!errorValue.match(errorCodeRegex))
 					console.error(`Constant '${errorConstant}' error value is not in form of (err uint)`);
+				if (!errorsSeenCount[errorValue])
+					errorsSeenCount[errorValue] = { lastConstantName: errorConstant, count: 1 };
+				else if (errorsSeenCount[errorValue].lastConstantName !== errorConstant) {
+					errorsSeenCount[errorValue].lastConstantName = errorConstant;
+					++errorsSeenCount[errorValue].count;
+				}
 				const row = [getContractName(contractId), errorConstant, errorValue, errorDescription];
 				row.map((content, index) => { if (content.length > longestColumnCells[index]) longestColumnCells[index] = content.length });
 				errorTable.push(row);
 			}
 		}
+
+		const nonUniqueErrors = Object.entries(errorsSeenCount).filter(([, value]) => value.count > 1);
+		if (nonUniqueErrors.length > 0)
+			exitWithError("Found non-unique error codes with different names.", nonUniqueErrors);
 
 		errorTable.sort((a, b) => a[1] > b[1] ? 1 : -1); // string sort
 
