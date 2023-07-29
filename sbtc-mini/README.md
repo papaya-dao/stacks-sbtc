@@ -54,7 +54,7 @@ are in the form `(err uint)` and they are unique across all contracts.
 <!--errors-->
 | Contract                      | Constant                                        | Value       | Description                                                                                                              |
 |-------------------------------|-------------------------------------------------|-------------|--------------------------------------------------------------------------------------------------------------------------|
-| sbtc-controller               | err-unauthorised                                | (err u1401) | The `is-protocol-caller` check failed.                                                                                   |
+| sbtc-controller               | err-unauthorised                                | (err u1000) | The `is-protocol-caller` check failed.                                                                                   |
 | sbtc-registry                 | err-burn-tx-already-processed                   | (err u2000) | A burnchain TXID was processed (seen) before.                                                                            |
 | sbtc-registry                 | err-peg-wallet-already-set                      | (err u2002) | A peg wallet address for the specified cycle was already set.                                                            |
 | sbtc-registry                 | err-minimum-burnchain-confirmations-not-reached | (err u2003) | The burnchain transaction did not yet reach the minimum amount of confirmation.                                          |

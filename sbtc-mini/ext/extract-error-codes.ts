@@ -17,10 +17,10 @@ function padTableCell(content: string, length: number) {
 
 Clarinet.run({
 	async fn(accounts: Map<string, Account>, contracts: Map<string, Contract>) {
-		let errorsSeenCount: { [key: string]: { lastConstantName: string, count: number } } = {};
+		const errorsSeenCount: { [key: string]: { lastConstantName: string, count: number } } = {};
 		let readme = await Deno.readTextFile(readmeFile);
 		const errorTable: Array<Array<string>> = [];
-		let longestColumnCells = tableHeader.map(v => v.length);
+		const longestColumnCells = tableHeader.map(v => v.length);
 
 		const compareReadme = Deno.env.get("EXTRACT_CHECK") && readme;
 
