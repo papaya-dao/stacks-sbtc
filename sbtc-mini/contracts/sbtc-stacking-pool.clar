@@ -342,12 +342,14 @@
         (asserts! (is-eq (get-current-window) registration)  err-not-in-registration-window)
 
         ;; Delegate-stx to their PoX address
-        (unwrap! (contract-call? .pox-3 delegate-stx amount-ustx (as-contract tx-sender) none (some pox-addr)) err-pre-registration-delegate-stx)
+        (match (contract-call? .pox-3 delegate-stx amount-ustx (as-contract tx-sender) none (some pox-addr))
+            success true
+            error (try! (if false (ok true) (err (+ (to-uint error) u60000)))))
 
         ;; Delegate-stack-stx for next cycle
         (match (as-contract (contract-call? .pox-3 delegate-stack-stx new-signer amount-ustx pox-addr burn-block-height u1))
             success true
-            error (try! (if false (ok true) (err (to-uint error)))))
+            error (try! (if false (ok true) (err (+ (to-uint error) u600000)))))
 
         ;; Stack aggregate-commit
         ;; As pointed out by Friedger, this fails when the user is already stacking. Match err-branch takes care of this with stack-delegate-increase instead.
@@ -361,10 +363,9 @@
                     (asserts! (>= amount-ustx (get locked signer-account)) err-decrease-forbidden)
 
                     ;; Delegate-stack-increase for next cycle so that there is no cooldown
-                    (try! (match (as-contract (contract-call? .pox-3 delegate-stack-increase new-signer pox-addr (- amount-ustx (get locked signer-account))))
-                    success (ok true)
-                    error (err (to-uint error))))
-                    true
+                    (match (as-contract (contract-call? .pox-3 delegate-stack-increase new-signer pox-addr (- amount-ustx (get locked signer-account))))
+                        success true
+                        error (try! (if false (ok true) (err (+ (to-uint error) u6000000)))))
                 )
         )
 
@@ -757,7 +758,6 @@
         (ok {stacker: extend-delegate-stacker, unlock-burn-height: extend-delegate-unlock-burn-height, pox-addr: param-pox-addr})
     )
 )
-
 
 ;;; Protocol Functions ;;;;
 ;; Protocol function for updating threshold-percent
