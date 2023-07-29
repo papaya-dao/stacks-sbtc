@@ -22,6 +22,8 @@ Clarinet.run({
 		const errorTable: Array<Array<string>> = [];
 		let longestColumnCells = tableHeader.map(v => v.length);
 
+		const compareReadme = Deno.env.get("EXTRACT_CHECK") && readme;
+
 		for (const [contractId, contract] of contracts) {
 			const contractName = getContractName(contractId);
 			if (isTestContract(contractName))
@@ -56,6 +58,11 @@ Clarinet.run({
 
 		const split = readme.split(readmeErrorsDelineator);
 		readme = `${split[0]}${readmeErrorsDelineator}\n${errors}${readmeErrorsDelineator}${split[2]}`;
+
+		if (compareReadme && compareReadme !== readme) {
+			exitWithError("Generated readme is not equal to readme in current commit (error table mismatch)");
+		}
+
 		Deno.writeTextFile(readmeFile, readme);
 		console.log(`Error table written to ${readmeFile}`);
 	}
