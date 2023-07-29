@@ -9,8 +9,8 @@
 ;; Add some safety to prevent accidental deployment on mainnet
 (asserts! (is-eq chain-id u2147483648) (err "This contract can only be deployed on testnet"))
 
-(define-constant err-not-debug-controller (err u900))
-(define-constant err-no-transactions (err u901))
+(define-constant err-not-debug-controller (err u9900))
+(define-constant err-no-transactions (err u9901))
 
 (define-constant OP_RETURN 0x6a)
 

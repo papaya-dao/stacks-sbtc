@@ -1,5 +1,5 @@
 (define-constant contract-deployer tx-sender)
-(define-constant err-unauthorised (err u401))
+(define-constant err-unauthorised (err u1401))
 
 (define-map privileged-protocol-principals principal bool)
 ;; FIXME: Potential issue in that the contract-deployer can mess with the registry state
