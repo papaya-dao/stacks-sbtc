@@ -344,12 +344,12 @@
         ;; Delegate-stx to their PoX address
         (match (contract-call? .pox-3 delegate-stx amount-ustx (as-contract tx-sender) none (some pox-addr))
             success true
-            error (try! (if false (ok true) (err (+ (to-uint error) u60000)))))
+            error (asserts! false (err (+ (to-uint error) u60000))))
 
         ;; Delegate-stack-stx for next cycle
         (match (as-contract (contract-call? .pox-3 delegate-stack-stx new-signer amount-ustx pox-addr burn-block-height u1))
             success true
-            error (try! (if false (ok true) (err (+ (to-uint error) u600000)))))
+            error (asserts! false (err (+ (to-uint error) u600000))))
 
         ;; Stack aggregate-commit
         ;; As pointed out by Friedger, this fails when the user is already stacking. Match err-branch takes care of this with stack-delegate-increase instead.
@@ -365,7 +365,7 @@
                     ;; Delegate-stack-increase for next cycle so that there is no cooldown
                     (match (as-contract (contract-call? .pox-3 delegate-stack-increase new-signer pox-addr (- amount-ustx (get locked signer-account))))
                         success true
-                        error (try! (if false (ok true) (err (+ (to-uint error) u6000000)))))
+                        error (asserts! false (err (+ (to-uint error) u6000000))))
                 )
         )
 
