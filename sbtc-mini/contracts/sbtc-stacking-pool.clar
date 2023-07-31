@@ -26,6 +26,9 @@
 
 (define-constant pox-info (unwrap-panic (contract-call? .pox-3 get-pox-info)))
 
+;; Minimum amount of 1m locked STX for the pool to be active
+(define-constant minimal-pool-amount-for-activation u1000000000000)
+
 ;;; oks ;;;
 (define-constant ok-vote-existing-candidate-lost (ok u0))
 (define-constant ok-vote-existing-candidate-won (ok u1))
@@ -74,6 +77,7 @@
 (define-constant err-wallet-consensus-reached-execution (err u39))
 (define-constant err-vote-or (err u40))
 (define-constant err-candidates-overflow (err u41))
+(define-constant err-not-enough-locked-stx (err u42))
 
 ;;; variables ;;;
 
@@ -228,6 +232,10 @@
 (define-read-only (current-pox-reward-cycle)
     (burn-height-to-reward-cycle burn-block-height))
 
+(define-read-only (is-active-in-cycle (cycle uint))
+    (let ((pool-details (unwrap! (map-get? pool cycle) err-pool-cycle)))
+        (asserts! (> (get stacked pool-details) minimal-pool-amount-for-activation) err-not-enough-locked-stx)
+        (ok true)))
 
 ;;;;;;; Disbursement Functions ;;;;;;;
 ;; Function that proves POX rewards have been disbursed from the previous threshold wallet to the previous pool signers. This happens in x steps:
