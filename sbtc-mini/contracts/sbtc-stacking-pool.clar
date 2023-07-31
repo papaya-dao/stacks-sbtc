@@ -167,7 +167,7 @@
 (define-read-only (get-current-cycle-pool) 
     (let 
         (
-            (current-cycle (contract-call? .pox-3 current-pox-reward-cycle))
+            (current-cycle (current-pox-reward-cycle))
         )
         (map-get? pool current-cycle)
     )
@@ -320,7 +320,7 @@
             (signer-unlocked-balance (get unlocked signer-account))
             (signer-allowance-status (unwrap! (contract-call? .pox-3 get-allowance-contract-callers tx-sender (as-contract tx-sender)) err-allowance-not-set))
             (signer-allowance-end-height (get until-burn-ht signer-allowance-status))
-            (current-cycle (contract-call? .pox-3 current-pox-reward-cycle))
+            (current-cycle (current-pox-reward-cycle))
             (next-cycle (+ current-cycle u1))
             (current-pre-signer (map-get? pre-signer {stacker: tx-sender, pool: current-cycle}))
             (current-signer (map-get? signer {stacker: tx-sender, pool: current-cycle}))
@@ -382,7 +382,7 @@
             (signer-unlocked-balance (get unlocked signer-account))
             (signer-allowance-status (unwrap! (contract-call? .pox-3 get-allowance-contract-callers pre-registered-signer (as-contract tx-sender)) err-allowance-not-set))
             (signer-allowance-end-height (get until-burn-ht signer-allowance-status))
-            (current-cycle (contract-call? .pox-3 current-pox-reward-cycle))
+            (current-cycle (current-pox-reward-cycle))
             (next-cycle (+ current-cycle u1))
             (current-pre-signer (map-get? pre-signer {stacker: pre-registered-signer, pool: current-cycle}))
             (current-signer (map-get? signer {stacker: pre-registered-signer, pool: current-cycle}))
@@ -414,7 +414,7 @@
         (asserts! (>= (get locked signer-account) amount-ustx) err-not-enough-stacked)
 
         ;; Assert that pre-registered signer will unlock in the next cycle
-        (asserts! (is-eq next-cycle (contract-call? .pox-3 burn-height-to-reward-cycle (get unlock-height signer-account))) err-wont-unlock)
+        (asserts! (is-eq next-cycle (burn-height-to-reward-cycle (get unlock-height signer-account))) err-wont-unlock)
 
         ;; update all relevant maps
         ;; update signer map
@@ -601,7 +601,7 @@
 (define-public (penalty-unhandled-request)
     (let
         (
-            (current-cycle (contract-call? .pox-3 current-pox-reward-cycle))
+            (current-cycle (current-pox-reward-cycle))
             (next-cycle (+ current-cycle u1))
             (current-pool (unwrap! (map-get? pool current-cycle) err-pool-cycle))
             (current-pool-stackers (get stackers current-pool))
@@ -657,7 +657,7 @@
 (define-public (penalty-balance-transfer)
     (let
         (
-            (current-cycle (contract-call? .pox-3 current-pox-reward-cycle))
+            (current-cycle (current-pox-reward-cycle))
             (current-pool (unwrap! (map-get? pool current-cycle) err-pool-cycle))
             (current-pool-balance-transfer (get balance-transferred current-pool))
             (current-pool-stackers (get stackers current-pool))
