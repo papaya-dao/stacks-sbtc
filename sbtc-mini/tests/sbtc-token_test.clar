@@ -3,8 +3,8 @@
 (define-constant test-mint-amount u10000000)
 (define-constant test-total-supply (* u2 test-mint-amount))
 
-(define-constant err-unauthorised (err u1401))
-(define-constant err-not-token-owner (err u3004))
+(define-constant err-unauthorised (err u1000))
+(define-constant err-not-token-owner (err u4))
 
 (define-private (assert-eq (result (response bool uint)) (compare (response bool uint)) (message (string-ascii 100)))
 	(ok (asserts! (is-eq result compare) (err message)))
