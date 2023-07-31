@@ -232,9 +232,12 @@
 (define-read-only (current-pox-reward-cycle)
     (burn-height-to-reward-cycle burn-block-height))
 
+(define-read-only (is-enough-stx-stacked (locked-amount-ustx uint))
+    (> locked-amount-ustx minimal-pool-amount-for-activation))
+
 (define-read-only (is-active-in-cycle (cycle uint))
     (let ((pool-details (unwrap! (map-get? pool cycle) err-pool-cycle)))
-        (asserts! (> (get stacked pool-details) minimal-pool-amount-for-activation) err-not-enough-locked-stx)
+        (asserts! (is-enough-stx-stacked (get stacked pool-details)) err-not-enough-locked-stx)
         (ok true)))
 
 ;;;;;;; Disbursement Functions ;;;;;;;
@@ -465,8 +468,6 @@
     )
 )
 
-
-
 ;;;;; Voting Functions ;;;;;;;
 
 ;; @desc: Voting function for deciding the threshold-wallet/PoX address for the next pool & cycle, once a single wallet-candidate reaches 70% of the vote, stack-aggregate-index
@@ -477,18 +478,56 @@
             (next-cycle (+ current-cycle u1))
             (current-candidate-status (map-get? votes-per-cycle {cycle: next-cycle, wallet-candidate: pox-addr}))
             (next-pool (unwrap! (map-get? pool next-cycle) err-pool-cycle))
-            (next-pool-stackers (get stackers next-pool))
-            (next-threshold-wallet (get threshold-wallet next-pool))
             (next-pool-total-stacked (get stacked next-pool))
-            (next-pool-signer (unwrap! (map-get? signer {stacker: tx-sender, pool: next-cycle}) err-not-signer))
-            (next-pool-signer-amount (get amount next-pool-signer))
+            (is-active (is-enough-stx-stacked next-pool-total-stacked))
         )
-
         ;; Assert we're in a good-peg state
         (asserts! (contract-call? .sbtc-registry current-peg-state) err-not-in-good-peg-state)
 
         ;; Assert we're in the voting window
         (asserts! (is-eq (get-current-window) voting) err-voting-period-closed)
+
+        (if is-active
+            (vote-as-signer pox-addr current-cycle next-cycle current-candidate-status next-pool next-pool-total-stacked)
+            (let ((pre-signers (unwrap! (map-get? pre-signer {stacker: tx-sender, pool: current-cycle}) err-not-signer)))
+                (vote-as-pre-signer pox-addr current-cycle next-cycle)))))
+
+(define-private (vote-as-pre-signer (pox-addr { version: (buff 1), hashbytes: (buff 32)}) (current-cycle uint) (next-cycle uint))
+    (begin 
+        (map-set signer {stacker: tx-sender, pool: next-cycle} {
+            amount: u0,
+            ;; pox-addrs must be unique per cycle
+            pox-addr: pox-addr,
+            vote: (some pox-addr),
+            public-key: 0x,
+            lock-period: u1,
+            btc-earned: none})
+        ok-voted)
+)
+
+(define-private (vote-as-signer (pox-addr { version: (buff 1), hashbytes: (buff 32)}) (current-cycle uint) (next-cycle uint) 
+    (current-candidate-status (optional {
+        aggregate-commit-index: (optional uint),
+        votes-in-ustx: uint,
+        num-signer: uint,
+    })) 
+    (next-pool {
+        stackers: (list 100 principal),
+        stacked: uint,
+        threshold-wallet-candidates: (list 100 { version: (buff 1), hashbytes: (buff 32) }),
+        threshold-wallet: (optional { version: (buff 1), hashbytes: (buff 32) }),
+        last-aggregation: (optional uint),
+        reward-index: (optional uint),
+        balance-transferred: bool,
+        rewards-disbursed: bool
+        }) 
+    (next-pool-total-stacked uint))
+    (let (
+            (next-threshold-wallet (get threshold-wallet next-pool))
+            (next-pool-signer (unwrap! (map-get? signer {stacker: tx-sender, pool: next-cycle}) err-not-signer))
+            (next-pool-signer-amount (get amount next-pool-signer))
+            (next-pool-stackers (get stackers next-pool))
+        )
 
         ;; Assert signer hasn't voted yet
         (asserts! (is-none (get vote next-pool-signer)) err-already-voted)
