@@ -23,48 +23,59 @@
 
 ;; Dust limit placeholder for checking that pox-rewards were disbursed (in sats)
 (define-constant dust-limit u100)
+;; Signer minimal is 10k STX
+(define-constant signer-minimal u10000000000)
 
 (define-constant pox-info (unwrap-panic (contract-call? .pox-3 get-pox-info)))
 
+;;; oks ;;;
+(define-constant ok-vote-existing-candidate-lost (ok u0))
+(define-constant ok-vote-existing-candidate-won (ok u1))
+(define-constant ok-voted (ok u2))
+
 ;;; errors ;;;
-(define-constant err-not-signer (err u0))
-(define-constant err-allowance-not-set (err u1))
-(define-constant err-allowance-height (err u2))
-(define-constant err-already-pre-signer-or-signer (err u3))
-(define-constant err-not-in-registration-window (err u4))
-(define-constant err-pre-registration-delegate-stx (err u5))
-(define-constant err-pre-registration-delegate-stack-stx (err u6))
-(define-constant err-pre-registration-aggregate-commit (err u7))
-(define-constant err-public-key-already-used (err u8))
-(define-constant err-pox-address-re-use (err u9))
-(define-constant err-not-enough-stacked (err u10))
-(define-constant err-wont-unlock (err u11))
-(define-constant err-voting-period-closed (err u12))
-(define-constant err-already-voted (err u13))
-(define-constant err-decrease-forbidden (err u14))
-(define-constant err-pre-registration-stack-increase (err u15))
-(define-constant err-not-in-good-peg-state (err u16))
-(define-constant err-unwrapping-candidate (err u17))
-(define-constant err-pool-cycle (err u18))
-(define-constant err-too-many-candidates (err u19))
-(define-constant err-not-in-transfer-window (err u20))
-(define-constant err-unhandled-request (err u21))
-(define-constant err-invalid-penalty-type (err u22))
-(define-constant err-already-disbursed (err u23))
-(define-constant err-not-handoff-contract (err u24))
-(define-constant err-parsing-btc-tx (err u25))
-(define-constant err-threshold-wallet-is-none (err u26))
-(define-constant err-tx-not-mined (err u27))
-(define-constant err-wrong-pubkey (err u28))
-(define-constant err-dust-remains (err u29))
-(define-constant err-balance-not-transferred (err u30))
-(define-constant err-not-in-penalty-window (err u31))
-(define-constant err-rewards-already-disbursed (err u32))
-(define-constant err-not-in-voting-window (err u33))
-(define-constant err-set-peg-state (err u34))
-(define-constant err-not-protocol-caller (err u35))
-(define-constant err-threshold-percent-out-of-range (err u36))
-(define-constant err-threshold-to-scriptpubkey (err u37))
+(define-constant err-not-signer (err u6000))
+(define-constant err-allowance-not-set (err u6001))
+(define-constant err-allowance-height (err u6002))
+(define-constant err-already-pre-signer-or-signer (err u6003))
+(define-constant err-not-in-registration-window (err u6004))
+(define-constant err-pre-registration-delegate-stx (err u6005))
+(define-constant err-pre-registration-delegate-stack-stx (err u6006))
+(define-constant err-pre-registration-aggregate-commit (err u6007))
+(define-constant err-public-key-already-used (err u6008))
+(define-constant err-pox-address-re-use (err u6009))
+(define-constant err-not-enough-stacked (err u6010))
+(define-constant err-wont-unlock (err u6011))
+(define-constant err-voting-period-closed (err u6012))
+(define-constant err-already-voted (err u6013))
+(define-constant err-decrease-forbidden (err u6014))
+(define-constant err-pre-registration-stack-increase (err u6015))
+(define-constant err-not-in-good-peg-state (err u6016))
+(define-constant err-unwrapping-candidate (err u6017))
+(define-constant err-pool-cycle (err u6018))
+(define-constant err-too-many-candidates (err u6019))
+(define-constant err-not-in-transfer-window (err u6020))
+(define-constant err-unhandled-request (err u6021))
+(define-constant err-invalid-penalty-type (err u6022))
+(define-constant err-already-disbursed (err u6023))
+(define-constant err-not-handoff-contract (err u6024))
+(define-constant err-parsing-btc-tx (err u6025))
+(define-constant err-threshold-wallet-is-none (err u6026))
+(define-constant err-tx-not-mined (err u6027))
+(define-constant err-wrong-pubkey (err u6028))
+(define-constant err-dust-remains (err u6029))
+(define-constant err-balance-not-transferred (err u6030))
+(define-constant err-not-in-penalty-window (err u6031))
+(define-constant err-rewards-already-disbursed (err u6032))
+(define-constant err-not-in-voting-window (err u6033))
+(define-constant err-set-peg-state (err u6034))
+(define-constant err-not-protocol-caller (err u6035))
+(define-constant err-threshold-percent-out-of-range (err u6036))
+(define-constant err-threshold-to-scriptpubkey (err u6037))
+(define-constant err-mass-delegate-stack-extend (err u6038))
+(define-constant err-wallet-consensus-reached-execution (err u6039))
+(define-constant err-vote-or (err u6040))
+(define-constant err-candidates-overflow (err u6041))
 
 ;;; variables ;;;
 
@@ -76,9 +87,6 @@
 
 ;; Current cycle threshold wallet
 (define-data-var threshold-wallet { version: (buff 1), hashbytes: (buff 32) } { version: 0x00, hashbytes: 0x00 })
-
-;; Current signer minimal
-(define-data-var signer-minimal uint u0)
 
 ;; Same burnchain and PoX constants as mainnet
 (define-constant first-burn-block-height u666050)
@@ -145,14 +153,18 @@
 
 ;;;;; Read-Only Functions ;;;;;
 
+;; use MOCK function
+(define-read-only (get-stx-account (user principal))
+    (contract-call? .pox-3 get-stx-account user))
+
 ;; Check if caller is a protocol caller
 (define-read-only (is-protocol-caller)
 	(contract-call? .sbtc-controller is-protocol-caller contract-caller)
 )
 
 ;; Get current cycle pool
-(define-read-only (get-current-cycle-pool) 
-    (let 
+(define-read-only (get-current-cycle-pool)
+    (let
         (
             (current-cycle (contract-call? .pox-3 current-pox-reward-cycle))
         )
@@ -161,7 +173,7 @@
 )
 
 ;; Get specific cycle pool
-(define-read-only (get-specific-cycle-pool (specific-cycle uint)) 
+(define-read-only (get-specific-cycle-pool (specific-cycle uint))
         (map-get? pool specific-cycle)
 )
 
@@ -179,7 +191,7 @@
 
 ;; Get current window
 (define-read-only (get-current-window)
-    (let 
+    (let
         (
             (peg-state (contract-call? .sbtc-registry current-peg-state))
             (current-cycle (current-pox-reward-cycle))
@@ -221,11 +233,11 @@
 ;; 1. Fetch previous pool threshold-wallet / pox-reward-address
 ;; 2. Parse-tx to get all (8) outputs
 ;; 3. Check that for each output, the public-key matches the pox-reward-address
-;; 4. Check that for each output, the amount is lower than constant dust 
+;; 4. Check that for each output, the amount is lower than constant dust
 ;; Note - this may be updated to later check against a specific balance
 
 ;; Disburse function for signers in (n - 1) to verify that their pox-rewards have been disbursed
-(define-public (prove-rewards-were-disbursed 
+(define-public (prove-rewards-were-disbursed
     (burn-height uint)
 	(tx (buff 1024))
 	(header (buff 80))
@@ -236,7 +248,7 @@
     (witness-reserved-data (buff 32))
 	(ctx (buff 1024))
 	(cproof (list 14 (buff 32))))
-    (let 
+    (let
         (
             (current-cycle (contract-call? .pox-3 burn-height-to-reward-cycle block-height))
             (previous-cycle (- current-cycle u1))
@@ -256,11 +268,11 @@
             (tx-output-5 (default-to {value: u0, scriptPubKey: previous-threshold-wallet} (element-at tx-outputs u5)))
             (tx-output-6 (default-to {value: u0, scriptPubKey: previous-threshold-wallet} (element-at tx-outputs u6)))
             (tx-output-7 (default-to {value: u0, scriptPubKey: previous-threshold-wallet} (element-at tx-outputs u7)))
-            
+
             ;; versions + hashbytes to scriptPubKey
             (previous-unwrapped-threshold-pubkey (unwrap! (contract-call? .sbtc-btc-tx-helper hashbytes-to-scriptpubkey unwrapped-previous-threshold-wallet) err-threshold-to-scriptpubkey))
         )
-        
+
             ;; Assert we're in the disbursement window
             (asserts! (is-eq (get-current-window) disbursement)  err-not-in-registration-window)
 
@@ -274,7 +286,7 @@
             (unwrap! (contract-call? .clarity-bitcoin was-segwit-tx-mined-compact burn-height tx header tx-index tree-depth wproof witness-merkle-root witness-reserved-data ctx cproof) err-tx-not-mined)
 
             ;; Assert that every unwrapped receiver addresss is equal to previous-threshold-wallet
-            (asserts! (and 
+            (asserts! (and
                 (is-eq previous-unwrapped-threshold-pubkey (get scriptPubKey tx-output-0))
                 (is-eq previous-unwrapped-threshold-pubkey (get scriptPubKey tx-output-1))
                 (is-eq previous-unwrapped-threshold-pubkey (get scriptPubKey tx-output-2))
@@ -287,8 +299,8 @@
 
             ;; All POX rewards have been distributed, update relevant vars/maps
             (var-set last-disbursed-burn-height block-height)
-            (ok (map-set pool previous-cycle (merge 
-                previous-pool 
+            (ok (map-set pool previous-cycle (merge
+                previous-pool
                 {rewards-disbursed: true}
             )))
     )
@@ -298,34 +310,11 @@
 
 ;;;;; Registration Functions ;;;;;
 
-(define-public (signer-pre-register-test)
-    (let
-        (
-            (signer-account (stx-account tx-sender))
-            (new-signer tx-sender)
-            (signer-unlocked-balance (get unlocked signer-account))
-            (signer-allowance-status (unwrap! (contract-call? .pox-3 get-allowance-contract-callers tx-sender (as-contract tx-sender)) err-allowance-not-set))
-            (signer-allowance-end-height (get until-burn-ht signer-allowance-status))
-            (current-cycle (contract-call? .pox-3 current-pox-reward-cycle))
-            (next-cycle (+ current-cycle u1))
-            (current-pre-signer (map-get? pre-signer {stacker: tx-sender, pool: current-cycle}))
-            (current-signer (map-get? signer {stacker: tx-sender, pool: current-cycle}))
-            (test-pox-wallet { version: 0x06, hashbytes: 0x0011223344556699001122334455669900112233445566990011223344556699 })
-            (test-stx-amount u1000000000)
-        )
-
-        ;; Assert that amount-ustx is greater than signer-minimal
-        (asserts! (>= test-stx-amount (var-get signer-minimal)) err-not-enough-stacked)
-
-        (ok true)
-    )
-)
-
 ;; @desc: pre-registers a stacker for the cycle, goal of this function is to gurantee the amount of STX to be stacked for the next cycle
 (define-public (signer-pre-register (amount-ustx uint) (pox-addr { version: (buff 1), hashbytes: (buff 32)}))
-    (let 
+    (let
         (
-            (signer-account (stx-account tx-sender))
+            (signer-account (get-stx-account tx-sender))
             (new-signer tx-sender)
             (signer-unlocked-balance (get unlocked signer-account))
             (signer-allowance-status (unwrap! (contract-call? .pox-3 get-allowance-contract-callers tx-sender (as-contract tx-sender)) err-allowance-not-set))
@@ -337,11 +326,11 @@
         )
 
         ;; Assert that amount-ustx is greater than signer-minimal
-        (asserts! (>= amount-ustx (var-get signer-minimal)) err-not-enough-stacked)
+        (asserts! (>= amount-ustx signer-minimal) err-not-enough-stacked)
 
         ;; Assert signer-allowance-end-height is either none or block-height is less than signer-allowance-end-height
-        (asserts! (or 
-            (is-none signer-allowance-end-height) 
+        (asserts! (or
+            (is-none signer-allowance-end-height)
             (< burn-block-height (default-to burn-block-height signer-allowance-end-height))
         ) err-allowance-height)
 
@@ -352,10 +341,14 @@
         (asserts! (is-eq (get-current-window) registration)  err-not-in-registration-window)
 
         ;; Delegate-stx to their PoX address
-        (unwrap! (contract-call? .pox-3 delegate-stx amount-ustx (as-contract tx-sender) (some burn-block-height) (some pox-addr)) err-pre-registration-delegate-stx)
+        (match (contract-call? .pox-3 delegate-stx amount-ustx (as-contract tx-sender) none (some pox-addr))
+            success true
+            error (asserts! false (err (+ (to-uint error) u60000))))
 
         ;; Delegate-stack-stx for next cycle
-        (unwrap! (as-contract (contract-call? .pox-3 delegate-stack-stx new-signer amount-ustx pox-addr burn-block-height u1)) err-pre-registration-delegate-stack-stx)
+        (match (as-contract (contract-call? .pox-3 delegate-stack-stx new-signer amount-ustx pox-addr burn-block-height u1))
+            success true
+            error (asserts! false (err (+ (to-uint error) u60000))))
 
         ;; Stack aggregate-commit
         ;; As pointed out by Friedger, this fails when the user is already stacking. Match err-branch takes care of this with stack-delegate-increase instead.
@@ -365,11 +358,13 @@
             err-branch
                 (begin
 
-                    ;; Assert stacker isn't attempting to decrease 
+                    ;; Assert stacker isn't attempting to decrease
                     (asserts! (>= amount-ustx (get locked signer-account)) err-decrease-forbidden)
 
                     ;; Delegate-stack-increase for next cycle so that there is no cooldown
-                    (unwrap! (contract-call? .pox-3 delegate-stack-increase new-signer pox-addr (- amount-ustx (get locked signer-account))) err-pre-registration-stack-increase)
+                    (try! (match (as-contract (contract-call? .pox-3 delegate-stack-increase new-signer pox-addr (- amount-ustx (get locked signer-account))))
+                    success (ok true)
+                    error (err (to-uint error))))
                     true
                 )
         )
@@ -382,9 +377,9 @@
 
 ;; @desc: registers a signer for the cycle, goal of this function is to gurantee the amount of STX to be stacked for the next cycle
 (define-public (signer-register (pre-registered-signer principal) (amount-ustx uint) (pox-addr { version: (buff 1), hashbytes: (buff 32)}) (public-key (buff 32)))
-    (let 
+    (let
         (
-            (signer-account (stx-account pre-registered-signer))
+            (signer-account (get-stx-account pre-registered-signer))
             (signer-unlocked-balance (get unlocked signer-account))
             (signer-allowance-status (unwrap! (contract-call? .pox-3 get-allowance-contract-callers pre-registered-signer (as-contract tx-sender)) err-allowance-not-set))
             (signer-allowance-end-height (get until-burn-ht signer-allowance-status))
@@ -403,16 +398,16 @@
 
         ;; Assert the public-key hasn't been used before
         (asserts! (is-none (map-get? public-keys-used public-key)) err-public-key-already-used)
-        
+
         ;; Assert that pox-address-cycle-use is either none or the result is not equal to the next cycle
-        (asserts! (or 
-            (is-none pox-address-cycle-use) 
-            (not (is-eq (default-to u0 pox-address-cycle-use) next-cycle)) 
+        (asserts! (or
+            (is-none pox-address-cycle-use)
+            (not (is-eq (default-to u0 pox-address-cycle-use) next-cycle))
         ) err-pox-address-re-use)
 
         ;; Assert that pre-registered-signer is either pre-signed for the current-cycle or is a signer for the current-cycle && voted in the last one (?)
-        (asserts! (or 
-            (is-some current-pre-signer) 
+        (asserts! (or
+            (is-some current-pre-signer)
             (and (is-some current-signer) (is-some (get vote current-signer)))
         ) err-already-pre-signer-or-signer)
 
@@ -438,7 +433,7 @@
         (ok (match (map-get? pool next-cycle)
             ;; next pool already exists, update/merge
             next-pool
-                (map-set pool next-cycle (merge 
+                (map-set pool next-cycle (merge
                     next-pool
                     {
                         stackers: (unwrap! (as-max-len? (append (get stackers next-pool) tx-sender) u100) err-too-many-candidates),
@@ -446,7 +441,7 @@
                     }
                 ))
             ;; next pool initial set
-            (map-set pool next-cycle 
+            (map-set pool next-cycle
                 {
                     stackers: (list tx-sender),
                     stacked: amount-ustx,
@@ -469,12 +464,13 @@
 
 ;; @desc: Voting function for deciding the threshold-wallet/PoX address for the next pool & cycle, once a single wallet-candidate reaches 70% of the vote, stack-aggregate-index
 (define-public (vote-for-threshold-wallet-candidate (pox-addr { version: (buff 1), hashbytes: (buff 32)}))
-    (let 
+    (let
         (
             (current-cycle (contract-call? .pox-3 current-pox-reward-cycle))
             (next-cycle (+ current-cycle u1))
             (current-candidate-status (map-get? votes-per-cycle {cycle: next-cycle, wallet-candidate: pox-addr}))
             (next-pool (unwrap! (map-get? pool next-cycle) err-pool-cycle))
+            (next-pool-stackers (get stackers next-pool))
             (next-threshold-wallet (get threshold-wallet next-pool))
             (next-pool-total-stacked (get stacked next-pool))
             (next-pool-signer (unwrap! (map-get? signer {stacker: tx-sender, pool: next-cycle}) err-not-signer))
@@ -491,72 +487,86 @@
         (asserts! (is-none (get vote next-pool-signer)) err-already-voted)
 
         ;; Update signer map with vote
-        (map-set signer {stacker: tx-sender, pool: next-cycle} (merge 
-            next-pool-signer 
+        (map-set signer {stacker: tx-sender, pool: next-cycle} (merge
+            next-pool-signer
             {vote: (some pox-addr)}
         ))
 
-        ;; Check whether map-entry for candidate-wallet already exists
-        (if (is-none current-candidate-status)
 
-            ;; Candidate doesn't exist, update relevant maps: votes-per-cycle & pool
-            (begin 
-                ;; Update votes-per-cycle map with first vote for this wallet-candidate
-                (map-set votes-per-cycle {cycle: next-cycle, wallet-candidate: pox-addr} {
-                    aggregate-commit-index: none,
-                    votes-in-ustx: (get amount next-pool-signer),
-                    num-signer: u1,
+        (asserts!
+            ;; New candidate path
+            (and
+               ;; Candidate doesn't exist, update relevant maps: votes-per-cycle & pool
+               (is-none current-candidate-status)
+               ;; Update votes-per-cycle map with first vote for this wallet-candidate
+               (map-set votes-per-cycle {cycle: next-cycle, wallet-candidate: pox-addr} {
+                        aggregate-commit-index: none,
+                        votes-in-ustx: (get amount next-pool-signer),
+                        num-signer: u1,
                 })
                 
                 ;; Update pool map by appending wallet-candidate to list of candidates
-                (map-set pool next-cycle (merge 
+                (map-set pool next-cycle (merge
                     next-pool
-                    {threshold-wallet-candidates: (unwrap! (as-max-len? (append (get threshold-wallet-candidates next-pool) pox-addr) u100) err-too-many-candidates)}
+                    {threshold-wallet-candidates: (unwrap! (as-max-len? (append (get threshold-wallet-candidates next-pool) pox-addr) u100) err-candidates-overflow)}
                 ))
-            )
 
-            ;; Candidate exists, update relevant maps: votes-per-cycle, signer, & check whether this wallet is over threshold
+            )
+            ;; Existing candidate path
             (let
                 (
-                    (unwrapped-candidate (unwrap! current-candidate-status err-unwrapping-candidate))
+                    (unwrapped-candidate (unwrap-panic current-candidate-status))
                     (unwrapped-candidate-votes (get votes-in-ustx unwrapped-candidate))
                     (unwrapped-candidate-num-signer (get num-signer unwrapped-candidate))
                     (new-candidate-votes (+ (get amount next-pool-signer) (get votes-in-ustx unwrapped-candidate)))
                 )
 
-                ;; Update votes-per-cycle map
-                (map-set votes-per-cycle {cycle: next-cycle, wallet-candidate: pox-addr} (merge
-                    unwrapped-candidate
-                    {
-                        votes-in-ustx: (+ next-pool-signer-amount unwrapped-candidate-votes),
-                        num-signer: (+ u1 unwrapped-candidate-num-signer)
-                    }
-                ))
+                    ;; Update votes-per-cycle map for existing candidate
+                    (map-set votes-per-cycle {cycle: next-cycle, wallet-candidate: pox-addr} (merge
+                        unwrapped-candidate
+                        {
+                            votes-in-ustx: (+ next-pool-signer-amount unwrapped-candidate-votes),
+                            num-signer: (+ u1 unwrapped-candidate-num-signer)
+                        }
+                    ))
 
-                ;; Update signer map
-                (map-set signer {stacker: tx-sender, pool: next-cycle} (merge next-pool-signer { vote: (some pox-addr) }))
+                    ;; Update signer map
+                    (map-set signer {stacker: tx-sender, pool: next-cycle} (merge next-pool-signer { vote: (some pox-addr) }))
 
-                ;; Check if 70% wallet consensus has been reached
-                (if (>= (/ (* new-candidate-votes u1000) next-pool-total-stacked) (var-get threshold-consensus))
-                    ;; 70% consensus reached, ready to set next cycle threshold-wallet & attempt to aggregate-commit-index
-                    (match (as-contract (contract-call? .pox-3 stack-aggregation-commit-indexed pox-addr next-cycle))
-                        ;; Okay result, update pool map with last-aggregation (block-height) & reward-index
-                        ok-result
-                            (map-set pool next-cycle (merge
-                                next-pool
-                                {last-aggregation: (some block-height), reward-index: (some ok-result)}
-                            ))
-                        err-result
-                            false
-                    )
-                    ;; 70% consensus not reached, continue
-                    false
-                )
+                    ;; Asserts! logic to check if 70% wallet consensus has been reached
+                    (asserts!
+                        (and
+                            ;; Assert that new-candidate-votes is greater than or equal to 70% of next-pool-total-stacked
+                            (>= (/ (* new-candidate-votes u1000) next-pool-total-stacked) (var-get threshold-consensus))
 
+                            ;; Assert that extend-and-commit-bool is true (both delegate-stack-extend & aggregate-commit-indexed succeeded)
+                            (match (fold mass-delegate-stack-extend next-pool-stackers (ok {stacker: tx-sender, unlock-burn-height: u0, pox-addr: pox-addr}))
+                                passed-result
+                                    (match (as-contract (contract-call? .pox-3 stack-aggregation-commit-indexed pox-addr next-cycle))
+                                        ;; Okay result, update pool map with last-aggregation (block-height) & reward-index
+                                        ok-result
+                                            (map-set pool next-cycle (merge
+                                                next-pool
+                                                {last-aggregation: (some block-height), reward-index: (some ok-result), threshold-wallet: (some pox-addr)}
+                                            ))
+                                        err-result
+                                        ;; Returning false to signify that 70% consensus has not been reached
+                                        (begin
+                                            (print (/ (* new-candidate-votes u1000) next-pool-total-stacked))
+                                            false
+                                        )
+                                    )
+                                err-result
+                                    false
+                            )
+                        )
+                    ok-vote-existing-candidate-lost)
+
+                    ok-vote-existing-candidate-won
             )
         )
 
-        (ok true)
+        ok-voted
     )
 )
 
@@ -567,7 +577,7 @@
 ;; Transfer function for proving that current/soon-to-be-old signers have transferred the peg balance to the next threshold-wallet
 ;; Can only be called by the sbtc-peg-transfer/handoff contract. If successful, balance-disbursed is set to true for the previous pool
 (define-public (balance-was-transferred (previous-cycle uint))
-    (let 
+    (let
         (
             (previous-pool (unwrap! (map-get? pool previous-cycle) err-pool-cycle))
         )
@@ -576,11 +586,11 @@
             (asserts! (is-eq contract-caller .sbtc-peg-transfer) err-not-handoff-contract)
 
             ;; peg-transfer /handoff success, update relevant vars/maps
-            (ok (map-set pool previous-cycle (merge 
-                previous-pool 
+            (ok (map-set pool previous-cycle (merge
+                previous-pool
                 {balance-transferred: true}
             )))
-        
+
     )
 )
 
@@ -606,7 +616,7 @@
         (asserts! (> (contract-call? .sbtc-registry get-pending-wallet-peg-outs) u0) err-unhandled-request)
 
         ;; Penalize stackers by re-stacking but with a pox-reward address of burn address
-        (penalize-helper next-cycle next-pool)
+        (try! (penalize-helper current-pool))
 
         ;; Change peg-state to "bad-peg" :(
         (contract-call? .sbtc-registry set-peg-state false)
@@ -636,7 +646,7 @@
         (asserts! (is-eq (contract-call? .sbtc-registry get-pending-wallet-peg-outs) u0) err-unhandled-request)
 
         ;; Penalize stackers by re-stacking but with a pox-reward address of burn address
-        (penalize-helper next-cycle next-pool)
+        (try! (penalize-helper current-pool))
 
         ;; Change peg-state to "bad-peg"
         (contract-call? .sbtc-registry set-peg-state false)
@@ -667,7 +677,7 @@
         (asserts! (not current-pool-balance-transfer) err-unhandled-request)
 
         ;; Penalize stackers by re-stacking but with a pox-reward address of burn address
-        (penalize-helper next-cycle next-pool)
+        (try! (penalize-helper current-pool))
 
         ;; Change peg-state to "bad-peg"
         (contract-call? .sbtc-registry set-peg-state false)
@@ -680,6 +690,7 @@
     (let
         (
             (current-cycle (contract-call? .pox-3 current-pox-reward-cycle))
+            (current-pool (unwrap! (map-get? pool current-cycle) err-pool-cycle))
             (previous-cycle (- current-cycle u1))
             (previous-pool (unwrap! (map-get? pool previous-cycle) err-pool-cycle))
             (previous-pool-rewards-disbursed (get rewards-disbursed previous-pool))
@@ -706,7 +717,7 @@
         ;;     err-result
         ;;         false
         ;; )
-        (penalize-helper next-cycle next-pool)
+        (try! (penalize-helper current-pool))
 
         ;; Change peg-state to "bad-peg"
         (contract-call? .sbtc-registry set-peg-state false)
@@ -715,7 +726,7 @@
 )
 
 ;; Penalize helper
-(define-private (penalize-helper (next-cycle uint) (next-pool 
+(define-private (penalize-helper (penalized-pool
         {
             stackers: (list 100 principal),
             stacked: uint,
@@ -727,14 +738,24 @@
             rewards-disbursed: bool
         }
     ))
-    (match (as-contract (contract-call? .pox-3 stack-aggregation-commit-indexed pox-burn-address next-cycle))
-        ok-result
-            (map-set pool next-cycle (merge
-                next-pool
-                {last-aggregation: (some block-height), reward-index: (some ok-result)}
-            ))
-        err-result
-            false
+    (as-contract (fold mass-delegate-stack-extend (get stackers penalized-pool) (ok {stacker: tx-sender, unlock-burn-height: u0, pox-addr: pox-burn-address})))
+)
+
+;; mass delegate stack extender helper for either penalizing or concluded vote
+(define-private (mass-delegate-stack-extend (stacker principal) (pox-return (response {stacker: principal, unlock-burn-height: uint, pox-addr: { version: (buff 1), hashbytes: (buff 32) }} uint)))
+    (let
+        (
+            (unwrap-response (try! pox-return))
+            (param-pox-addr (get pox-addr unwrap-response))
+            (extend-delegate-response (unwrap! (contract-call? .pox-3 delegate-stack-extend stacker param-pox-addr u1) err-mass-delegate-stack-extend))
+            (extend-delegate-stacker (get stacker extend-delegate-response))
+            (extend-delegate-unlock-burn-height (get unlock-burn-height extend-delegate-response))
+        )
+
+        ;; Assert previous pox-return was (ok ...)
+        (unwrap! pox-return err-mass-delegate-stack-extend)
+
+        (ok {stacker: extend-delegate-stacker, unlock-burn-height: extend-delegate-unlock-burn-height, pox-addr: param-pox-addr})
     )
 )
 
