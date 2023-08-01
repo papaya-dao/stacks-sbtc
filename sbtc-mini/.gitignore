@@ -2,5 +2,8 @@
 settings/Mainnet.toml
 settings/Testnet.toml
 history.txt
+.debug_history
+**/.DS_Store
 .coverage/
 .test/
+.integration/

@@ -2,8 +2,10 @@ name: Clarinet
 on:
   push:
     branches: [ "main" ]
+    paths-ignore: ['**.md']
   pull_request:
     branches: [ "main" ]
+    paths-ignore: ['**.md']
 
 jobs:
   check:
@@ -37,6 +39,12 @@ jobs:
       - name: Run unit tests for sbtc-mini
         working-directory: ./sbtc-mini
         run: ./scripts/test.sh
+
+      - name: Run error code table check for sbtc-mini
+        working-directory: ./sbtc-mini
+        env:
+          EXTRACT_CHECK: 1
+        run: ./scripts/extract-error-codes.sh
 
       - name: Print coverage report
         working-directory: ./sbtc-mini
