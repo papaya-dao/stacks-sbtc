@@ -9,6 +9,8 @@
         ;; @continue
         (unwrap! (contract-call? .pox-3 allow-contract-caller 'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.sbtc-stacking-pool none) (err u112))
         ;; @continue
+        (unwrap! (contract-call? .sbtc-stacking-pool allow-contract-caller 'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.sbtc-stacking-pool_flow_test none) (err u113))
+        ;; @continue
         (try! (check-pox-info))
         ;; @mine-blocks-before 5
 		(try! (check-sign-pre-register))
