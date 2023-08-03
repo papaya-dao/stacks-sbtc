@@ -80,6 +80,8 @@
 (define-constant err-wallet-consensus-reached-execution (err u6039))
 (define-constant err-vote-or (err u6040))
 (define-constant err-candidates-overflow (err u6041))
+(define-constant err-not-enough-locked-stx (err u6042))
+(define-constant err-already-activated (err u6043))
 
 ;;; variables ;;;
 
@@ -231,12 +233,12 @@
 (define-read-only (current-pox-reward-cycle)
     (burn-height-to-reward-cycle burn-block-height))
 
-(define-read-only (is-enough-stx-stacked (locked-amount-ustx uint))
+(define-read-only (was-enough-stx-stacked (locked-amount-ustx uint))
     (> locked-amount-ustx minimal-pool-amount-for-activation))
 
 (define-read-only (is-active-in-cycle (cycle uint))
     (let ((pool-details (unwrap! (map-get? pool cycle) err-pool-cycle)))
-        (asserts! (is-enough-stx-stacked (get stacked pool-details)) err-not-enough-locked-stx)
+        (asserts! (was-enough-stx-stacked (get stacked pool-details)) err-not-enough-locked-stx)
         (ok true)))
 
 ;;;;;;; Disbursement Functions ;;;;;;;
@@ -482,9 +484,13 @@
             (next-pool-stackers (get stackers next-pool))
             (next-threshold-wallet (get threshold-wallet next-pool))
             (next-pool-total-stacked (get stacked next-pool))
+            (is-active (was-enough-stx-stacked next-pool-total-stacked))
             (next-pool-signer (unwrap! (map-get? signer {stacker: tx-sender, pool: next-cycle}) err-not-signer))
             (next-pool-signer-amount (get amount next-pool-signer))
         )
+
+        ;; Assert active state
+        (asserts! is-active err-not-enough-stacked)
 
         ;; Assert we're in a good-peg state
         (asserts! (contract-call? .sbtc-registry current-peg-state) err-not-in-good-peg-state)
@@ -501,7 +507,6 @@
             {vote: (some pox-addr)}
         ))
 
-
         (asserts!
             ;; New candidate path
             (and
@@ -513,7 +518,7 @@
                         votes-in-ustx: (get amount next-pool-signer),
                         num-signer: u1,
                 })
-                
+
                 ;; Update pool map by appending wallet-candidate to list of candidates
                 (map-set pool next-cycle (merge
                     next-pool
@@ -579,6 +584,114 @@
     )
 )
 
+
+;; @desc: Voting function for deciding the threshold-wallet/PoX address for the next pool & cycle, once a single wallet-candidate reaches 70% of the vote, stack-aggregate-index
+(define-public (activate (pox-addr { version: (buff 1), hashbytes: (buff 32)}))
+    (let
+        (
+            (current-cycle (contract-call? .pox-3 current-pox-reward-cycle))
+            (next-cycle (+ current-cycle u1))
+            (current-candidate-status (map-get? votes-per-cycle {cycle: next-cycle, wallet-candidate: pox-addr}))
+            (next-pool (unwrap! (map-get? pool next-cycle) err-pool-cycle))
+            (next-pool-stackers (get stackers next-pool))
+            (next-threshold-wallet (get threshold-wallet next-pool))
+            (next-pool-total-stacked (get stacked next-pool))
+            (next-pool-signer (unwrap! (map-get? signer {stacker: tx-sender, pool: next-cycle}) err-not-signer))
+            (next-pool-signer-amount (get amount next-pool-signer))
+        )
+
+        ;; Assert inactive state
+        (unwrap-err! (is-active-in-cycle current-cycle) err-already-activated)
+
+        ;; Assert we're in the voting window
+        (asserts! (is-eq (get-current-window) voting) err-voting-period-closed)
+
+        ;; Assert signer hasn't voted yet
+        (asserts! (is-none (get vote next-pool-signer)) err-already-voted)
+
+        ;; Update signer map with vote
+        (map-set signer {stacker: tx-sender, pool: next-cycle} (merge
+            next-pool-signer
+            {vote: (some pox-addr)}
+        ))
+
+
+        (asserts!
+            ;; New candidate path
+            (and
+               ;; Candidate doesn't exist, update relevant maps: votes-per-cycle & pool
+               (is-none current-candidate-status)
+               ;; Update votes-per-cycle map with first vote for this wallet-candidate
+               (map-set votes-per-cycle {cycle: next-cycle, wallet-candidate: pox-addr} {
+                        aggregate-commit-index: none,
+                        votes-in-ustx: (get amount next-pool-signer),
+                        num-signer: u1,
+                })
+
+                ;; Update pool map by appending wallet-candidate to list of candidates
+                (map-set pool next-cycle (merge
+                    next-pool
+                    {threshold-wallet-candidates: (unwrap! (as-max-len? (append (get threshold-wallet-candidates next-pool) pox-addr) u100) err-candidates-overflow)}
+                ))
+
+            )
+            ;; Existing candidate path
+            (let
+                (
+                    (unwrapped-candidate (unwrap-panic current-candidate-status))
+                    (unwrapped-candidate-votes (get votes-in-ustx unwrapped-candidate))
+                    (unwrapped-candidate-num-signer (get num-signer unwrapped-candidate))
+                    (new-candidate-votes (+ (get amount next-pool-signer) (get votes-in-ustx unwrapped-candidate)))
+                )
+
+                    ;; Update votes-per-cycle map for existing candidate
+                    (map-set votes-per-cycle {cycle: next-cycle, wallet-candidate: pox-addr} (merge
+                        unwrapped-candidate
+                        {
+                            votes-in-ustx: (+ next-pool-signer-amount unwrapped-candidate-votes),
+                            num-signer: (+ u1 unwrapped-candidate-num-signer)
+                        }
+                    ))
+
+                    ;; Update signer map
+                    (map-set signer {stacker: tx-sender, pool: next-cycle} (merge next-pool-signer { vote: (some pox-addr) }))
+
+                    ;; Asserts! logic to check if 70% wallet consensus has been reached
+                    (asserts!
+                        (and
+                            ;; Assert that new-candidate-votes is greater than or equal to 70% of next-pool-total-stacked
+                            (>= (/ (* new-candidate-votes u1000) next-pool-total-stacked) (var-get threshold-consensus))
+
+                            ;; Assert that extend-and-commit-bool is true (both delegate-stack-extend & aggregate-commit-indexed succeeded)
+                            (match (fold mass-delegate-stack-extend next-pool-stackers (ok {stacker: tx-sender, unlock-burn-height: u0, pox-addr: pox-addr}))
+                                passed-result
+                                    (match (as-contract (contract-call? .pox-3 stack-aggregation-commit-indexed pox-addr next-cycle))
+                                        ;; Okay result, update pool map with last-aggregation (block-height) & reward-index
+                                        ok-result
+                                            (map-set pool next-cycle (merge
+                                                next-pool
+                                                {last-aggregation: (some block-height), reward-index: (some ok-result), threshold-wallet: (some pox-addr)}
+                                            ))
+                                        err-result
+                                        ;; Returning false to signify that 70% consensus has not been reached
+                                        (begin
+                                            (print (/ (* new-candidate-votes u1000) next-pool-total-stacked))
+                                            false
+                                        )
+                                    )
+                                err-result
+                                    false
+                            )
+                        )
+                    ok-vote-existing-candidate-lost)
+
+                    ok-vote-existing-candidate-won
+            )
+        )
+
+        ok-voted
+    )
+)
 
 
 ;;;;;;; Transfer Functions ;;;;;;;
