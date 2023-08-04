@@ -233,7 +233,7 @@
 	(burn-height-to-reward-cycle burn-block-height))
 
 (define-read-only (was-enough-stx-stacked (locked-amount-ustx uint))
-	(> locked-amount-ustx minimal-pool-amount-for-activation))
+	(>= locked-amount-ustx minimal-pool-amount-for-activation))
 
 (define-read-only (is-active-in-cycle (cycle uint))
 	(let ((pool-details (unwrap! (map-get? pool cycle) err-pool-cycle)))
