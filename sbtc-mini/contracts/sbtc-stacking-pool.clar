@@ -233,12 +233,12 @@
 	(burn-height-to-reward-cycle burn-block-height))
 
 (define-read-only (was-enough-stx-stacked (locked-amount-ustx uint))
-    (> locked-amount-ustx minimal-pool-amount-for-activation))
+	(> locked-amount-ustx minimal-pool-amount-for-activation))
 
 (define-read-only (is-active-in-cycle (cycle uint))
-    (let ((pool-details (unwrap! (map-get? pool cycle) err-pool-cycle)))
-        (asserts! (was-enough-stx-stacked (get stacked pool-details)) err-not-enough-locked-stx)
-        (ok true)))
+	(let ((pool-details (unwrap! (map-get? pool cycle) err-pool-cycle)))
+		(asserts! (was-enough-stx-stacked (get stacked pool-details)) err-not-enough-locked-stx)
+		(ok true)))
 
 ;;;;;;; Disbursement Functions ;;;;;;;
 ;; Function that proves POX rewards have been disbursed from the previous threshold wallet to the previous pool signers. This happens in x steps:
@@ -488,6 +488,7 @@
 			(next-pool-stackers (get stackers next-pool))
 			(next-threshold-wallet (get threshold-wallet next-pool))
 			(next-pool-total-stacked (get stacked next-pool))
+			(is-active (was-enough-stx-stacked next-pool-total-stacked))
 			(next-pool-signer (unwrap! (map-get? signer {stacker: tx-sender, pool: next-cycle}) err-not-signer))
 			(next-pool-signer-amount (get amount next-pool-signer))
 		)
