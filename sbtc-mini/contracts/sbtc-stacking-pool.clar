@@ -34,6 +34,9 @@
 (define-constant ok-voted (ok u2))
 
 ;;; errors ;;;
+(define-constant const-first-pox-error   u60000)
+(define-constant const-second-pox-error u600000)
+
 (define-constant err-not-signer (err u6000))
 (define-constant err-allowance-not-set (err u6001))
 (define-constant err-allowance-height (err u6002))
@@ -342,12 +345,12 @@
 		;; Delegate-stx to their PoX address
 		(match (contract-call? .pox-3 delegate-stx amount-ustx (as-contract tx-sender) none (some pox-addr))
 			success true
-			error (asserts! false (err (+ (to-uint error) u60000))))
+			error (asserts! false (err (+ (to-uint error) const-first-pox-error))))
 
 		;; Delegate-stack-stx for next cycle
 		(match (as-contract (contract-call? .pox-3 delegate-stack-stx new-signer amount-ustx pox-addr burn-block-height u1))
 			success true
-			error (asserts! false (err (+ (to-uint error) u600000))))
+			error (asserts! false (err (+ (to-uint error) const-second-pox-error))))
 
 		;; Stack aggregate-commit
 		;; As pointed out by Friedger, this fails when the user is already stacking. Match err-branch takes care of this with stack-delegate-increase instead.
