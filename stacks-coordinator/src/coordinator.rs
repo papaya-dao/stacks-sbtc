@@ -295,12 +295,32 @@ fn create_frost_coordinator_from_path(
     })?;
 
     // Make sure this coordinator data was loaded into the sbtc contract correctly
-    let coordinator_data_loaded =
-        if let Some(public_key) = stacks_node.coordinator_public_key(&config.stacks_address)? {
-            public_key.to_bytes() == coordinator.public_key().to_bytes()
-        } else {
+    // match on the following:
+    // fn coordinator_public_key(&self, sender: &StacksAddress) -> Result<Option<PublicKey>, StacksNodeError>
+    // and check that the public key returned matches the public key of the coordinator, if not, set 'coordinator_data_loaded' to false
+    // if error, set 'coordinator_data_loaded' to false
+
+    let coordinator_data_loaded = match stacks_node.coordinator_public_key(&config.stacks_address) {
+        Ok (public_key) => match public_key {
+            Some(public_key) => {
+                public_key.to_bytes() == coordinator.public_key().to_bytes()
+            }
+            None => {
+                false
+            }
+        }
+        Err(e) => {
+            warn!("Error loading coordinator data from stacks node: {}", e);
             false
-        };
+        }
+    };
+
+    // let coordinator_data_loaded =
+    //     if let Some(public_key) = stacks_node.coordinator_public_key(&config.stacks_address)? {
+    //         public_key.to_bytes() == coordinator.public_key().to_bytes()
+    //     } else {
+    //         false
+    //     };
     if !coordinator_data_loaded {
         // Load the coordinator data into the sbtc contract
         // TODO: load all contract info into the contract from a file, not just the coordinator data

@@ -10,17 +10,17 @@ plan:
       transactions:
         - requirement-publish:
             contract-id: SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard
-            remap-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            remap-sender: ST2JHG361ZXG51QTKY2NQCVBPPRRE2KZB1HR05NNC
             remap-principals:
-              SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+              SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE: ST2JHG361ZXG51QTKY2NQCVBPPRRE2KZB1HR05NNC
             cost: 8400
             path: "./.cache/requirements/SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard.clar"
             clarity-version: 1
         - contract-publish:
-            contract-name: sbtc-token-key-admin
-            expected-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-            cost: 48140
-            path: contracts/sbtc-token-key-admin.clar
+            contract-name: sbtc-alpha
+            expected-sender: ST2JHG361ZXG51QTKY2NQCVBPPRRE2KZB1HR05NNC
+            cost: 48850
+            path: contracts/sbtc-alpha.clar
             anchor-block-only: true
             clarity-version: 1
       epoch: "2.0"
