@@ -22,6 +22,6 @@ plan:
             method: signer-pre-register
             parameters:
               - u90000000000000
-              - "{version: 0x00, hashbytes: 0x6d78de7b0625dfbfc16c3a8a5735f6dc3dc3f2ce}"
+              - "{version: 0x00, hashbytes: 0x7321b74e2b6a7e949e6c4ad313035b1665095017}"
             cost: 10000
       epoch: "2.4"

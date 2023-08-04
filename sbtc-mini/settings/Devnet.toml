@@ -27,6 +27,7 @@ balance = 100_000_000_000_000
 mnemonic = "cycle puppy glare enroll cost improve round trend wrist mushroom scorpion tower claim oppose clever elephant dinosaur eight problem before frozen dune wagon high"
 balance = 100_000_000_000_000
 # secret_key: d655b2523bcd65e34889725c73064feb17ceb796831c0e111ba1a552b0f31b3901
+# public_key: 02c4b5eacb71a27be633ed970dcbc41c00440364bc04ba38ae4683ac24e708bf33
 # stx_address: ST2JHG361ZXG51QTKY2NQCVBPPRRE2KZB1HR05NNC
 # btc_address: mvZtbibDAAA3WLpY7zXXFqRa3T4XSknBX7
 # btc_address: 0x00 0xa5180cc1ff6050df53f0ab766d76b630e14feb0c
@@ -35,6 +36,7 @@ balance = 100_000_000_000_000
 mnemonic = "board list obtain sugar hour worth raven scout denial thunder horse logic fury scorpion fold genuine phrase wealth news aim below celery when cabin"
 balance = 100_000_000_000_000
 # secret_key: f9d7206a47f14d2870c163ebab4bf3e70d18f5d14ce1031f3902fbbc894fe4c701
+# public_key: 03b3e0a76b292b2c83fc0ac14ae6160d0438ebe94e14bbb5b7755153628886e08e
 # stx_address: ST2NEB84ASENDXKYGJPQW86YXQCEFEX2ZQPG87ND
 # btc_address: mg1C76bNTutiCDV3t9nWhZs3Dc8LzUufj8
 
