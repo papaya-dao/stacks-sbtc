@@ -24,16 +24,4 @@ plan:
               - u90000000000000
               - "{version: 0x00, hashbytes: 0x6d78de7b0625dfbfc16c3a8a5735f6dc3dc3f2ce}"
             cost: 10000
-    - id: 1
-      transactions:
-        - contract-call:
-            contract-id: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.sbtc-stacking-pool
-            expected-sender: ST1SJ3DTE5DN7X54YDH5D64R3BCB6A2AG2ZQ8YPD5
-            method: signer-register
-            parameters:
-              - "'ST1SJ3DTE5DN7X54YDH5D64R3BCB6A2AG2ZQ8YPD5"
-              - u90000000000000
-              - "{version: 0x00, hashbytes: 0x6d78de7b0625dfbfc16c3a8a5735f6dc3dc3f2ce}"
-              - 0x6d78de7b0625dfbfc16c3a8a5735f6dc3dc3f2ce
-            cost: 10000
       epoch: "2.4"

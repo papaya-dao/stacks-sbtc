@@ -13,6 +13,6 @@ plan:
             expected-sender: ST1SJ3DTE5DN7X54YDH5D64R3BCB6A2AG2ZQ8YPD5
             method: vote-for-threshold-wallet-candidate
             parameters:
-              - "{version: 0x00, hashbytes: 0xa5180cc1ff6050df53f0ab766d76b630e14feb0c}"
+              - "{version: 0x04, hashbytes: 0x6d78de7b0625dfbfc16c3a8a5735f6dc3dc3f2ce}"
             cost: 10000
       epoch: "2.4"

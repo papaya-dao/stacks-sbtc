@@ -9,8 +9,8 @@ plan:
     - id: 0
       transactions:
         - btc-transfer:
-            expected-sender: muYdXKmX9bByAueDe6KFfHd5Ff1gdN9ErG
-            recipient: mvZtbibDAAA3WLpY7zXXFqRa3T4XSknBX7
+            expected-sender: mvZtbibDAAA3WLpY7zXXFqRa3T4XSknBX7
+            recipient: mg1C76bNTutiCDV3t9nWhZs3Dc8LzUufj8
             sats-amount: 10000000
             sats-per-byte: 10
       epoch: "2.4"
