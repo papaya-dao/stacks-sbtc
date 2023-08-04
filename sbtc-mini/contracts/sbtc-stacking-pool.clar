@@ -330,6 +330,9 @@
 			(< burn-block-height (default-to burn-block-height signer-allowance-end-height))
 		) err-allowance-height)
 
+		;; assert that caller is allowed to handle stacking activity
+		(asserts! (check-caller-allowed) err-stacking-permission-denied)
+
 		;; Assert not already pre-signer or signer
 		(asserts! (or (is-none current-pre-signer) (is-none current-signer)) err-already-pre-signer-or-signer)
 
@@ -344,7 +347,7 @@
 		;; Delegate-stack-stx for next cycle
 		(match (as-contract (contract-call? .pox-3 delegate-stack-stx new-signer amount-ustx pox-addr burn-block-height u1))
 			success true
-			error (asserts! false (err (+ (to-uint error) u60000))))
+			error (asserts! false (err (+ (to-uint error) u600000))))
 
 		;; Stack aggregate-commit
 		;; As pointed out by Friedger, this fails when the user is already stacking. Match err-branch takes care of this with stack-delegate-increase instead.

@@ -77,8 +77,8 @@
         ;; @mine-blocks-before 5
 		(try! (check-sign-pre-register-disallowed))
         ;; @continue
-        (unwrap! (contract-call? .sbtc-stacking-pool allow-contract-caller 'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.sbtc-stacking-pool_allow_flow_test (some u8)) (err u114))
-        ;; @continue
+        (unwrap! (contract-call? .sbtc-stacking-pool allow-contract-caller 'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.sbtc-stacking-pool_allow_flow_test (some u9)) (err u114))
+        ;; @mine-blocks-before 1
 		(try! (check-sign-pre-register-allowed))
         (ok true)
     )
@@ -86,8 +86,7 @@
 
 (define-public (check-sign-pre-register-allowed)
     (begin
-        (let ((actual (check-sign-pre-register))
-                (allowance (contract-call? .sbtc-stacking-pool get-allowance-contract-callers 'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM 'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.sbtc-stacking-pool_allow_flow_test)))
+        (let ((actual (check-sign-pre-register)))
             (asserts! (is-ok actual) actual)
             (ok true))
     )
